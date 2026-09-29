@@ -9,7 +9,7 @@ import roundtripFixture from "./fixtures/tp_roundtrip.json";
 import * as entry from "../src/index";
 import { createRepo } from "../src/db";
 import { coverageFromNotes, defaultResolver, MAX_TP_REQUESTS, PipelineError, runSearch, type SearchDeps } from "../src/pipeline";
-import { monthsBetween } from "../src/travelpayouts";
+import { monthsBetween, TravelpayoutsError } from "../src/travelpayouts";
 import { GLOBAL_SCAN_LIMIT, GLOBAL_SCAN_WINDOW_SECONDS, parseSearchBody, type FieldErrorCode } from "../src/validate";
 import type { Env, FxRates, Offer, SearchRequest, SearchResponse, TravelpayoutsClient } from "../src/types";
 import { createTestD1 } from "./helpers/d1";
@@ -296,7 +296,7 @@ describe("meta.sources[travelpayouts]: truncated, coverage, reason", () => {
     const res = await runSearch(deps, req());
     const tp = res.meta.sources[0];
     expect(tp).toMatchObject({ name: "travelpayouts", ok: true, error: null, truncated: false, reason: null });
-    expect(tp?.coverage).toEqual({ plannedRequests: 3, skippedRequests: 0 }); // Nov only: 1 rt + 2 ow
+    expect(tp?.coverage).toEqual({ plannedRequests: 3, skippedRequests: 0, abortedRequests: 0 }); // Nov only: 1 rt + 2 ow
   });
 
   it("a truncated scan: truncated true with the counts, and the English note is unchanged", async () => {
@@ -335,6 +335,31 @@ describe("meta.sources[travelpayouts]: truncated, coverage, reason", () => {
     const res = await runSearch(deps, req());
     expect(res.cards.length).toBeGreaterThan(0);
     expect(res.meta.sources[0]).toMatchObject({ ok: false, error: "Travelpayouts: too many searches right now", reason: "scan_budget", truncated: false, coverage: null });
+  });
+
+  it("a fatal 401/403/429 stops the scan: the unmade requests are counted as aborted, not skipped", async () => {
+    for (const status of [401, 403, 429]) {
+      const tp: TravelpayoutsClient = {
+        configured: true,
+        callCount: () => 1,
+        roundTrips: async () => {
+          throw new TravelpayoutsError("HTTP", status);
+        },
+        oneWays: async () => [],
+      };
+      const { repo, deps } = setup({ tp });
+      await repo.savePrices([offer(100, { checkedAt: new Date(NOW.getTime() - 3_600_000).toISOString() })]);
+      const res = await runSearch(deps, req()); // Nov only: rt (1, fails fatally) then ow (2, never made)
+      expect(res.meta.sources[0]).toMatchObject({ ok: false, reason: "upstream_down", truncated: false });
+      expect(res.meta.sources[0]?.coverage, String(status)).toEqual({ plannedRequests: 3, skippedRequests: 0, abortedRequests: 2 });
+    }
+  });
+
+  it("a non-fatal failure does not stop the scan: nothing is aborted", async () => {
+    const { repo, deps } = setup({ tp: mockTp({ fail: true }) });
+    await repo.savePrices([offer(100, { checkedAt: new Date(NOW.getTime() - 3_600_000).toISOString() })]);
+    const res = await runSearch(deps, req());
+    expect(res.meta.sources[0]?.coverage).toEqual({ plannedRequests: 3, skippedRequests: 0, abortedRequests: 0 });
   });
 
   it("upstream failing but stored fares: reason upstream_down", async () => {
@@ -383,7 +408,7 @@ describe("PipelineError reason and retryAfterSec", () => {
 
 describe("coverageFromNotes", () => {
   it("reads the pipeline's own truncation note and ignores anything else", () => {
-    expect(coverageFromNotes(["not searchable at Travelpayouts: VDA-BCN", "truncated: 6 of 36 planned requests skipped (limit 30)"])).toEqual({ skippedRequests: 6, plannedRequests: 36 });
+    expect(coverageFromNotes(["not searchable at Travelpayouts: VDA-BCN", "truncated: 6 of 36 planned requests skipped (limit 30)"])).toEqual({ skippedRequests: 6, plannedRequests: 36, abortedRequests: 0 });
     expect(coverageFromNotes([])).toBeNull();
     expect(coverageFromNotes(undefined)).toBeNull();
     expect(coverageFromNotes(["Travelpayouts: HTTP 500", 5 as unknown as string])).toBeNull();

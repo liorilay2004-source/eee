@@ -102,6 +102,11 @@ export interface SourceCoverage {
   plannedRequests: number;
   /** Planned requests not made because of the per-search request cap. 0 = the scan covered everything it planned. */
   skippedRequests: number;
+  /**
+   * Planned requests not made because an earlier request failed with 401/403/429 and the scan stopped (the source then also
+   * reports ok: false and reason "upstream_down"). planned - skipped - aborted = requests actually attempted.
+   */
+  abortedRequests: number;
 }
 
 export interface SourceStatus {
@@ -125,11 +130,6 @@ export interface SourceStatus {
 export interface CardView extends Card {
   priceContext: PriceContext | null;
   ageHours: number;
-  /**
-   * ADDITIVE (WEB_APP_SPEC §7.2, §7.7 gap 7): IATA code -> Hebrew airline name for the codes on this card's legs that the bundled
-   * table knows (src/airlines.ts). A code missing here has no known name: the UI prints the code, never a guess.
-   */
-  airlineNames: Record<string, string>;
 }
 
 export interface SearchResponse {

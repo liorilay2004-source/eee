@@ -16,7 +16,6 @@
  * Passenger convention: `Offer.priceAmount` is the total for the whole party (like Python), and the shared
  * `prices` history stores PER-PASSENGER amounts so searches with different party sizes stay comparable.
  */
-import { airlineNamesFor } from "./airlines";
 import * as airportData from "./airports/resolve";
 import type { Resolver } from "./airports/types";
 import { applyExtrasAndFx, paxCount, round2 } from "./extras";
@@ -114,7 +113,8 @@ function knownWait(v: unknown): number | undefined {
 export function coverageFromNotes(notes: readonly string[] | undefined): SourceCoverage | null {
   for (const n of notes ?? []) {
     const m = /^truncated: (\d+) of (\d+) planned requests skipped/.exec(typeof n === "string" ? n : "");
-    if (m) return { skippedRequests: Number(m[1]), plannedRequests: Number(m[2]) };
+    // Only a complete scan (no failed request) is cached, so a cached scan never stopped on a fatal error.
+    if (m) return { skippedRequests: Number(m[1]), plannedRequests: Number(m[2]), abortedRequests: 0 };
   }
   return null;
 }
@@ -348,6 +348,8 @@ interface ScanResult {
   rejected: string[];
   plannedRequests: number;
   skippedRequests: number;
+  /** Planned requests not made because an earlier request failed fatally (401/403/429): the scan stopped. */
+  abortedRequests: number;
 }
 
 /**
@@ -377,12 +379,15 @@ async function scanTravelpayouts(tp: TravelpayoutsClient, req: SearchRequest, pa
     steps.push({ kind: "rt", pair, cost: rtCost }, { kind: "ow", pair, cost: owCost });
   }
 
-  const result: ScanResult = { roundTrips: [], oneWayPairs: [], successes: 0, failures: [], rejected: [], plannedRequests: 0, skippedRequests: 0 };
+  const result: ScanResult = { roundTrips: [], oneWayPairs: [], successes: 0, failures: [], rejected: [], plannedRequests: 0, skippedRequests: 0, abortedRequests: 0 };
   let spent = 0;
   let stopped = false;
   for (const step of steps) {
     result.plannedRequests += step.cost;
-    if (stopped) continue;
+    if (stopped) {
+      result.abortedRequests += step.cost;
+      continue;
+    }
     if (spent + step.cost > MAX_TP_REQUESTS) {
       result.skippedRequests += step.cost;
       continue;
@@ -673,7 +678,7 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
       oneWayPairs = scan.oneWayPairs.map(({ pair, outs, backs }) => ({ origin: pair.origin, destination: pair.dest, outs, backs }));
       tpStatus.ok = scan.failures.length === 0 && scan.successes > 0; // like Python: any failed request = not ok
       if (scan.failures.length > 0) tpStatus.reason = "upstream_down";
-      tpStatus.coverage = { plannedRequests: scan.plannedRequests, skippedRequests: scan.skippedRequests };
+      tpStatus.coverage = { plannedRequests: scan.plannedRequests, skippedRequests: scan.skippedRequests, abortedRequests: scan.abortedRequests };
       tpStatus.truncated = scan.skippedRequests > 0;
       if (scan.skippedRequests > 0) {
         scanNotes = [`truncated: ${scan.skippedRequests} of ${scan.plannedRequests} planned requests skipped (limit ${MAX_TP_REQUESTS})`];
@@ -819,7 +824,6 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
       ...card,
       priceContext: await contextFor(repo, card.offer, pax, now),
       ageHours: ageHours(card.offer.checkedAt, now),
-      airlineNames: airlineNamesFor(card.offer),
     })),
   );
 
