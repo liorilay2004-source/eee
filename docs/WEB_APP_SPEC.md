@@ -1,6 +1,6 @@
 # WEB_APP_SPEC — Web UI & Public API (SPEC Phase 2 + API contract)
 
-> Status: **Draft v0.4 for owner review** · Date: 2026-09-29 · v0.4 incorporates three independent read-only review rounds of earlier drafts (34 + 49 + 20 confirmed findings; see §14).
+> Status: **Draft v0.4 for owner review** · Date: 2026-09-29 · v0.4 incorporates three independent read-only review rounds of earlier drafts (34 + 49 + 20 confirmed findings; see §14) and a comparison of §7 with the merged Phase 1 Worker (§7.8).
 > Extends [`SPEC.md`](SPEC.md). **`SPEC.md` wins on any conflict.** Where this document interprets or extends `SPEC.md`, it says so in §12 ("Clarifications that need owner approval") — nothing there is treated as decided until approved.
 > Language: English, per `SPEC.md` ("code, comments and this spec are in English"). The product UI is **Hebrew only, RTL**; Hebrew UI copy appears as quoted data (Appendix A).
 > Scope of this document: specification and delivery plan only. **No code is changed and nothing is deployed by this document.**
@@ -163,7 +163,7 @@ Carry-on / trolley (SPEC §5) and cabin class are **not offered in v1** (D5, C11
 ### 4.4 Location combobox
 - WAI-ARIA combobox (listbox popup). Input accepts **Hebrew, English or IATA** (SPEC §4.3), with the Hebrew-aware normalization done **server-side** by `GET /api/airports` (niqqud, final letters, geresh, hyphens).
 - Debounce 200 ms; query ≥ 2 characters (3-letter IATA accepted); at most 8 suggestions; each shows city (Hebrew, English secondary), country, and code(s). A city with several airports resolves to the **city code** (engine expands to airports); a specific airport can be chosen. Display name: `nameHe`, else `nameEn` (marked `lang="en"`), else the code — never transliterate.
-- Free text that was not selected from the list is resolved on submit through the same endpoint (top match) and the resolved name is **shown back** on the results summary, so a wrong guess is visible.
+- Free text that was not selected from the list is resolved on submit **strictly** by the search endpoint: exact names, aliases, IATA codes and forms like "Barcelona, Spain" pass, but prefix or substring text is rejected with `fields.origin` / `fields.destination` (400). So the UI resolves through `GET /api/airports` before submit (selecting the first suggestion when the user presses Enter is allowed) and shows an inline error when nothing matches; it never silently guesses. The resolved name is **shown back** on the results summary, so a wrong guess is visible (§7.8, Δ8).
 - Failure of the autocomplete request MUST NOT block searching by 3-letter IATA code.
 
 ### 4.5 Dates and nights
@@ -285,7 +285,7 @@ Rules: severity is conveyed by **icon + text + style**, never color alone. Notic
 | **Empty** | ≥ 1 source `ok` and 0 offers | "לא נמצאו מחירים לטווח הזה" + suggestions: widen the window, more nights, nearby airports, another destination | heading + list | one-tap edits |
 | **Unavailable** | 503 `source_unavailable`, or `cards.length = 0` with no source `ok` | "לא הצלחנו לבדוק מחירים כרגע. נסו שוב בעוד כמה דקות." | `role="alert"` | retry |
 | **Rate limited** | 429 `rate_limited`; wait = `error.retryAfterSec` (also the `Retry-After` header) | "ביצעתם הרבה חיפושים. אפשר לנסות שוב בעוד N שניות" with a countdown; submit disabled meanwhile | countdown announced sparingly (start + end) | wait |
-| **Server-invalid** | 400 `validation_failed` | per-field Hebrew text from the `error.fields` **codes** via the `err.*` map (§7.5), plus the error summary | as Client-invalid | fix |
+| **Server-invalid** | 400 `invalid_request` | per-field Hebrew text from the `error.fields` **codes** via the `err.*` map (§7.5), plus the error summary | as Client-invalid | fix |
 | **Payload/other 4xx/5xx** | 413/415/500, or a fetch rejection while `navigator.onLine !== false` (e.g. DNS, CORS, a blocked request) | generic "משהו השתבש" + retry | `role="alert"` | retry |
 | **Offline** | a fetch rejection while `navigator.onLine === false` | "אין חיבור לאינטרנט" (form stays usable) | `role="alert"` | retry when online |
 
@@ -310,7 +310,7 @@ Rules: severity is conveyed by **icon + text + style**, never color alone. Notic
   "windowEnd": "2026-11-25",
   "stayMin": 5, "stayMax": 7,
   "adults": 1, "children": 0, "infants": 0,   // defaults 1 / 0 / 0
-  "cabin": "economy",                          // v1: only "economy" is accepted; any other value → 400 validation_failed (C11)
+  "cabin": "economy",                          // v1: only "economy" is accepted; any other value → 400 invalid_request with fields.cabin (C11)
   "checkedBag": false,                         // default false
   "outHours": [6, 14],                         // [start,end) 0–24, wrap-around allowed; null/omitted = no restriction
   "retHours": [12, 23],
@@ -318,7 +318,7 @@ Rules: severity is conveyed by **icon + text + style**, never color alone. Notic
   "nearbyAirports": false
 }
 ```
-**Validation limits — PROVISIONAL** (from the Phase 1 brief; the Worker is the source of truth and the UI mirrors it from `config.ts`): window 1–120 days; `windowStart ≥ today (UTC)`; stay ≤ 30 nights and `stayMin ≤ stayMax`; passengers ≤ 9 and `infants ≤ adults`; hours integers 0–24 with start ≠ end; ≤ 400 valid date pairs; strict types (no numeric strings).
+**Validation limits** (the Worker is the source of truth and the UI mirrors it from `config.ts`; values below are what the Phase 1 Worker enforces, verified 2026-09-29): window = the day **difference** 1–120 (`windowEnd == windowStart` is rejected; today is allowed as `windowStart`, and `windowStart ≤ today + 365 days`); stay 1–30 nights and `stayMin ≤ stayMax`; `adults` 1–9, `children` / `infants` 0–9, `adults + children + infants ≤ 9` and `infants ≤ adults`; hours integers 0–24 with start ≠ end (wrap-around such as `[22, 6]` accepted); `maxStops` integer 0–5; ≤ 400 valid date pairs; strict types (no numeric strings). Internal caps that shape results: ≤ 30 Travelpayouts requests and ≤ 24 airport pairs per search; cache TTL 6 h (empty scans 1 h); stale fallback ≤ 24 h; monitor rows ≤ 12 h.
 
 **Response `200`** = `SearchResponse` (`worker/src/types.ts`) **plus** the NEW members marked below.
 ```ts
@@ -350,10 +350,11 @@ interface SearchResponse {
 }
 
 interface PlaceView {                // used by meta.resolved and GET /api/airports (§7.3)
-  code: string;                      //   city or airport IATA code
+  code: string;                      //   the CITY IATA code — also when kind is "airport" (as built, §7.8 Δ5)
   kind: "city" | "airport";
-  airportCode?: string;
-  nameHe: string | null;             //   null when no Hebrew name exists → display nameEn (lang="en"), else the code
+  airportCode?: string;              //   set when kind is "airport": the chosen airport. Submit `airportCode ?? code`, otherwise the search expands to every airport of the city
+  airportNameEn?: string;            //   kind "airport" only; `airportNameHe` is added when known
+  nameHe: string | null;             //   the CITY name; null when no Hebrew name exists → display nameEn (lang="en"), else the code
   nameEn: string;
   countryCode: string;
   airports: string[];                //   airports served by the place
@@ -443,24 +444,29 @@ Invariants the client MAY rely on: `cards` is empty only with `meta.recommendati
 (Illustrative values, consistent with the engine's rules: W6 is both the cheapest offer and the cheapest one inside the requested hours, so it is one card with two tags; the direct LY flight wins Best Value because W6's two stops and extra flight time add ₪558 of penalty (2 × ₪180 stops + ≈ ₪76 and ≈ ₪123 duration) against a price gap of ₪230. `flags` is empty because every displayed datum is known and there is one passenger. A real response only ever contains §5.4 codes.)
 
 ### 7.3 `GET /api/airports?q=<text>&limit=<1..8>`
-Autocomplete (Hebrew-aware). `200 { "matches": PlaceView[] }` (`PlaceView` is defined once in §7.2). Empty/garbage/too long (> 64 chars) → `200 { "matches": [] }` (never an error). Not rate-limited as strictly as search (a separate, higher limit — D14).
+Autocomplete (Hebrew-aware). `200 { "results": PlaceView[] }` (`PlaceView` is defined once in §7.2). Empty/garbage/too long (> 64 chars) → `200 { "results": [] }` (never an error). The Worker default is 8 results with a hard cap of 10; an invalid `limit` silently becomes 8; a 1-character query already returns matches, so the UI keeps its own minimum of 2 (§4.4). A well-formed 3-letter code missing from the bundled table returns `[]` although `POST /api/search` accepts it, so the UI must still allow searching by a typed IATA code (§4.4). No per-client rate limit in v1: the endpoint is served from a table bundled in the Worker (zero D1 rows), so only the Cloudflare request quota is at stake (D14).
 
 ### 7.4 `GET /api/health`
-Liveness + D1 reachability for ops; not used by the UI.
+Liveness + D1 reachability for ops; not used by the UI. Body `{ "status": "ok", "db": "ok" }`; when D1 is unreachable `503 { "status": "degraded", "db": "error" }`. It runs `SELECT 1` only, so it does **not** prove the migrations ran. `GET` only (`HEAD` → 405).
 
 ### 7.5 Errors
-Envelope: `{ "error": { "code": string, "message": string, "fields"?: Record<string, FieldErrorCode>, "retryAfterSec"?: number } }`. `message` is for developers; the UI maps **codes** to Hebrew copy (`code` selects the state; `fields` values select per-field text through the `err.*` map in Appendix A). `FieldErrorCode` is a stable machine code — PROVISIONAL set: `required`, `invalid_format`, `out_of_range`, `place_not_found`, `same_place`, `start_after_end`, `past_date`, `window_too_long`, `stay_range_invalid`, `stay_too_long`, `too_many_pairs`, `too_many_passengers`, `infants_exceed_adults`, `hours_invalid`, `not_supported` (e.g. cabin) — finalised in W0(b). No stack traces, upstream bodies or tokens are ever returned.
+Envelope: `{ "error": { "code": string, "message": string, "fields"?: Record<string, FieldErrorCode>, "retryAfterSec"?: number } }`. `message` is for developers; the UI maps **codes** to Hebrew copy (`code` selects the state; `fields` values select per-field text through the `err.*` map in Appendix A). `FieldErrorCode` is a stable machine code — PROVISIONAL set: `required`, `invalid_format`, `out_of_range`, `place_not_found`, `same_place`, `start_after_end`, `past_date`, `window_too_long`, `stay_range_invalid`, `stay_too_long`, `too_many_pairs`, `too_many_passengers`, `infants_exceed_adults`, `hours_invalid`, `not_supported` (e.g. cabin) — finalised in W0(b). **As built today** `fields` values are English sentences (e.g. `"must be an integer"`), so the machine codes are a W0(b) Worker change (§7.8 Δ2) and the UI must not string-match them. When the destination is empty the top-level `code` is `destination_required` even if other fields are also invalid, and `fields` still lists all of them, so the UI renders every entry of `fields`, not only the one the code names. No stack traces, upstream bodies or tokens are ever returned.
 
 | HTTP | `code` | Meaning | UI state |
 |---|---|---|---|
-| 400 | `validation_failed` (+ `fields` codes) | invalid input | Server-invalid |
+| 400 | `invalid_request` (+ `fields`) | invalid input; the Phase 1 Worker uses this one code for every validation failure (an earlier draft called it `validation_failed`) | Server-invalid |
 | 400 | `destination_required` | empty destination (until W5) | inline error on destination |
 | 400 | `invalid_json` | body not JSON | generic |
 | 413 | `payload_too_large` | body > 8 KB | generic |
 | 415 | `unsupported_media_type` | not JSON | generic |
-| 429 | `rate_limited` (+ `Retry-After` header, `error.retryAfterSec`) | > 30 searches / 10 min per client (PROVISIONAL, SPEC §14) | Rate limited |
-| 502/503 | `source_unavailable` | no fresh/cached data and sources failed | Unavailable |
+| 429 | `rate_limited` (+ `Retry-After` header, `error.retryAfterSec` — NEW: today only the header) | > 30 `POST /api/search` per 10 min per client (sliding window, SPEC §14); **every** POST counts, including 400 / 413 / 415. `Retry-After` is 1–1200 s and grows while a blocked client keeps calling, so the copy must format long waits (minutes) and the UI never auto-retries | Rate limited |
+| 503 | `source_unavailable` | no fresh/cached data and sources failed, or the global upstream budget (120 fresh Travelpayouts scans per 600 s across all clients) is spent and nothing is stored | Unavailable |
+| 503 | `fx_unavailable` | both exchange-rate sources are unreachable and no stored rates exist | Unavailable |
+| 404 | `not_found` | unknown path (case-sensitive; one trailing slash tolerated) | generic |
+| 405 | `method_not_allowed` (+ `Allow`) | wrong method (`POST, OPTIONS` for search; `GET, OPTIONS` for airports and health) | generic |
 | 500 | `internal_error` | unexpected | generic |
+
+The Worker checks in this order: 404, `OPTIONS`, 405, then for search: rate limit, 415, 413, `invalid_json`, validation, pipeline. It never returns 502. When the global upstream budget is spent but stored fares exist, the answer is `200` with `sources[0].ok = false` and a text error, which the UI shows as the **Partial** state.
 
 ### 7.6 Later endpoints (not in v1)
 `POST /api/explore` (spontaneous mode, SPEC §9, W5); auth / watches / alerts endpoints (SPEC §10–11, Phase 3); background ingest endpoint used by the monitor (SPEC §6, Phase 3). Their design is out of scope here.
@@ -494,6 +500,47 @@ Gaps between the current engine/Worker and this UI spec (each needs an owner dec
 | 14 | With live splits (C12) the hour-window split variants join the offer list when hours are set, and `Offer` carries no marker that identifies them (the split builder also drops a variant identical to the base split) | ⚖️ (its "fastest" reference and pool) and 💰 could change when the user only adds time preferences | the split builder returns base and hour-window variants as separate sets (or tags variants); 💰 and ⚖️ use the base pool; AC-R18 |
 | 15 | Booking links do not encode the requested party (Travelpayouts row links are for 1 adult; `aviasales_search_link` takes one passenger number) | the booking site can show a different price than the card | API composes party-aware links (§5.6); verify the link format in W0(a) |
 | 16 | With a bag requested, an unknown fee adds 0 to the total | such offers look cheaper than they are | bag-cost pool rule in §5.3; `excludedForUnknownBagFee` |
+
+
+### 7.8 Phase 1 Worker as built vs this contract (verified 2026-09-29)
+A read-only comparison of §7 with the merged Phase 1 Worker (`worker/`, run locally with the repo fixtures). **Disposition:** *Spec* = this document was changed to match the Worker; *Worker* = the Worker changes in W0(b) and the spec stays; *Decision* = owner decision (§13). Nothing was changed in the Worker by this comparison.
+
+| Δ | Area | This spec (target) | Worker as built | Disposition |
+|---|---|---|---|---|
+| 1 | Validation error code | one code for invalid input | `invalid_request` (also `destination_required`, `invalid_json`, `payload_too_large`, `unsupported_media_type`) | Spec (§7.5, AC-S7, AC-API7) |
+| 2 | `fields` values | machine codes (`FieldErrorCode`) | English sentences, some parameterised | **Worker** (W0(b)) |
+| 3 | `destination_required` precedence | inline error on destination | wins over other errors; `fields` lists all | Spec (§7.5): render every entry |
+| 4 | Airports response key | `matches` | `results` | Spec (§7.3) |
+| 5 | Airport match shape | `code` = city or airport | `code` = city code; `airportCode`, `airportNameEn/He` for airports; names are the city's | Spec (§7.2 `PlaceView`): submit `airportCode ?? code` |
+| 6 | Airports `limit`, min length, unknown codes | limit 1–8, ≥ 2 chars | default 8, cap 10, bad limit → 8, 1-char works, valid unknown 3-letter code → `[]` | Spec (§7.3, §4.4) |
+| 7 | Airports rate limit | separate higher limit | none; bundled table, no D1 rows | Spec (§7.3) / D14 reworded |
+| 8 | Submit-time place resolution | top match | strict: exact names, aliases, codes; prefix / substring rejected (400) | Spec (§4.4) |
+| 9 | 429 body | `error.retryAfterSec` | header only | **Worker** |
+| 10 | `Access-Control-Expose-Headers` | `Retry-After` | not sent (with Δ9 a cross-origin client cannot learn the wait) | **Worker** |
+| 11 | 429 semantics | 30 / 10 min | sliding window, `Retry-After` 1–1200 s and growing, every POST counts | Spec (§7.5) |
+| 12 | Global upstream budget | not specified | 120 fresh Travelpayouts scans / 600 s across clients, then stored fares or 503 | Spec (§7.5) |
+| 13 | `meta.apiVersion` | `1` | absent | **Worker** |
+| 14 | `cards[].flags` | 14 codes computed by the API | absent (12 derivable client-side; `bag_fee_unknown` and `bonus_checked_bag` exist as `offer.tags`) | **Worker** (single source of truth) |
+| 15 | `links` (`book`, `bookReturn`, `verify`) | party-aware, allow-listed | `offer.deeplink`, optional `offer.returnDeeplink`, `verifyLink` null for Travelpayouts | **Worker** (gap 1, gap 15) |
+| 16 | `meta.resolved` | present | absent | **Worker** |
+| 17 | `meta.recommendations` | present | absent; an empty result is `200 { cards: [] }` with `sources[0].ok = true` | **Worker** |
+| 18 | Best Value pool gating (§5.3) | unknown stops / duration excluded | all priced offers ranked; unknown = zero penalty | **Worker** (gap 12) |
+| 19 | Bag-cost pool rule (§5.3) | unknown fee excluded and counted | unknown fee = 0 plus tag `bag_fee_unknown`; can win 💰 | **Worker** (gap 16) |
+| 20 | Hour-window split variants | ⚖️ identical with and without hours | variants compete for `best_value` | **Worker** (gap 14) |
+| 21 | Truncation notice | `meta.noticeCodes` | text in `sources[0].error` while `ok` stays true | **Worker** |
+| 22 | `sources[].checkedAt` | present | absent | **Worker** |
+| 23 | `sources[]` entries | one per source used | always two; `google_flights` is `{ enabled: offers > 0, ok: offers > 0, calls: 0 }`, so `enabled: false` only means "no monitor rows" | Spec: the UI derives **Partial** from the `travelpayouts` entry until the Phase 3 monitor exists |
+| 24 | `validPairs`, `pairsWithOffers` | present | only `candidatePairs` = min(5, distinct priced pairs); helpers exist | **Worker** |
+| 25 | `priceContext` | ILS fields (`weekAgoIls`, `lowestIls`) | original currency only, scaled by party size; history is not filtered by ticket structure or source | **Worker** (gap 8) |
+| 26 | `airlineNames` | optional | absent | Spec: stays optional; bundled table in the web app (gap 7) |
+| 27 | Example response (§7.2) | 2 cards | with the same fixtures the Worker composes a live split and returns 1 card (W6 out + VY back, ₪503.81, `savingsVsRoundtripIls` 76.8) | Spec: the example stays illustrative; W0(b) publishes fixture-derived examples |
+| 28 | Extra codes and routing | listed in §7.5 | also 404, 405 (+ `Allow`), 503 `fx_unavailable`; never 502 | Spec (§7.5) |
+| 29 | `RATE_LIMIT_SALT` | required; Worker refuses without it | optional: env, else derived from the Travelpayouts token, else random per isolate with an error log; health does not check it | **Decision D18** |
+| 30 | `cabin` | non-economy → 400 with `fields.cabin` | same behaviour; code and text differ | Spec |
+| 31 | `maxStops` without hours | ignored, status `not_requested` | ignored, no status (there is no `recommendations` block yet) | **Worker** (with Δ17) |
+| 32 | Limits | PROVISIONAL numbers | same numbers with the differences now written into §7.2 (window is a day difference, `≤ today + 365 days`, infants count toward the 9) | Spec (§7.2) |
+
+The `Worker` rows are the W0(b) work list (§10). The API keeps the additive-change rule of §7.1: none of them removes a field the Worker returns today.
 
 ---
 
@@ -533,7 +580,7 @@ Gaps between the current engine/Worker and this UI spec (each needs an owner dec
 | Search parameters (route, dates, passengers, bag, hours) | D1 `searches` (no user id, no IP) | 90 days | needed for cache/analysis; disclosed in the privacy policy |
 | Raw offers cache | D1 `search_cache` | TTL 6 h then purge | no personal data |
 | Price history | D1 `prices` | long-term | no personal data |
-| Rate-limit key | D1 `rate_limits` = salted SHA-256 of client IP | 1 day | **raw IPs are never stored**; the salt is a **required** Worker secret `RATE_LIMIT_SALT` (the Worker refuses `/api/search` and `/api/health` fails without it — no public default) |
+| Rate-limit key | D1 `rate_limits` = salted SHA-256 of client IP | 1 day | **raw IPs are never stored**; the salt is the Worker secret `RATE_LIMIT_SALT`, **mandatory in the deployment checklist** (runbook `docs/CLOUDFLARE_SETUP.md`). In code it falls back to a value derived from `TRAVELPAYOUTS_TOKEN`, then to a random per-isolate salt with an error log (no public default); pending D18 |
 | Last search / prefs | `localStorage`, device only | until cleared | no cookies set by us |
 | Cloudflare edge logs | Cloudflare (processor) | per Cloudflare | name Cloudflare in the policy |
 | Click-outs to Aviasales/Travelpayouts | third party | — | disclose affiliate relationship and that the partner site has its own policy |
@@ -566,7 +613,7 @@ Sizes are relative (S/M/L), not calendar promises. Nothing here deploys anything
 | Stream | Scope | Depends on | Exit criteria | Size |
 |---|---|---|---|---|
 | **W0(a) — Phase 0 proof (SPEC §15 gate)** | Owner adds `TRAVELPAYOUTS_TOKEN`/marker; run the coverage test for TLV/ETM sample routes; compare recommendations against a manual Google Flights check (SPEC §15); confirm the affiliate marker, the booking-link domains for the allow-list and the Aviasales party-size link format (§5.6) | owner token | D1 gate passed | S (blocked on owner) |
-| **W0(b) — API contract** | Phase 1 Worker reviewed and merged; NEW contract members implemented (`meta.apiVersion`, `flags`, `links` incl. `bookReturn` and party-aware links, `meta.resolved` with the single `PlaceView`, `meta.recommendations` incl. `excludedForUnknownBagFee`, `meta.validPairs/pairsWithOffers`, `sources[].checkedAt`, `priceContext` ILS fields, `noticeCodes`, optional `airlineNames`, `error.retryAfterSec`, field error codes, `Access-Control-Expose-Headers`); Best Value pool gating, the bag-cost pool rule for 💰/⚖️/🎯 and the base pool (the split builder returns hour-window variants separately); cache stores recomputable inputs and `nearbyAirports` is in the key (C13); `cabin` restricted to `economy`; `RATE_LIMIT_SALT` required | Phase 1 | contract fixtures published; SPEC §16 API-level criteria and AC-API*, AC-SEC6 pass locally | M |
+| **W0(b) — API contract** | Phase 1 Worker reviewed and merged; NEW contract members implemented (`meta.apiVersion`, `flags`, `links` incl. `bookReturn` and party-aware links, `meta.resolved` with the single `PlaceView`, `meta.recommendations` incl. `excludedForUnknownBagFee`, `meta.validPairs/pairsWithOffers`, `sources[].checkedAt`, `priceContext` ILS fields, `noticeCodes`, optional `airlineNames`, `error.retryAfterSec`, field error codes, `Access-Control-Expose-Headers`); Best Value pool gating, the bag-cost pool rule for 💰/⚖️/🎯 and the base pool (the split builder returns hour-window variants separately); cache stores recomputable inputs and `nearbyAirports` is in the key (C13); `cabin` restricted to `economy` (done in Phase 1); `RATE_LIMIT_SALT` per D18; the itemised list is §7.8 (rows marked **Worker**) | Phase 1 | contract fixtures published; SPEC §16 API-level criteria and AC-API*, AC-SEC6 pass locally | M |
 | **W0(c) — Operations** | Data-retention job; **source-failure alert** (SPEC §14: owner emailed after 3 consecutive failures) via a Worker cron trigger reading `source_health` | W0(b); W0(d) (or a local-Worker test of the jobs); email provider (SPEC §17) | retention job and alert verified (AC-SEC7); alert test fires | S–M |
 | **W0(d) — Staging** | Staging Worker + D1 with `ALLOWED_ORIGIN` — **requires the owner's approval to create/deploy (D15, SPEC §18)** and starts only after the Phase 0 gate (README: no Cloudflare deployment before the proof); until then a local Worker + local D1 + fixtures | D15; W0(a) passed; W0(b) merged | `/api/search` returns real results for the agreed sample routes | S |
 | **W1 — Foundations** | Scaffold `web/` (Vite/React/TS/Tailwind RTL), design tokens, `copy/he.ts`, formatters (money/date/bidi) with unit tests, API client + error mapping, CI (typecheck, lint, tests, build), noindex | W0(a) passed (SPEC §15) + W0(b) contract types | CI green; formatter tests cover §5.5 rules | S |
@@ -651,7 +698,7 @@ Legend: F = form, R = results, S = states, A = accessibility, M = mobile/PWA, P 
 - **AC-S4** Given a source with `enabled && !ok`, then the Partial banner is shown.
 - **AC-S5** Given offline, then the form (from the precached shell, query string ignored) remains usable and the Offline message appears on submit.
 - **AC-S6** Given the API is served from cache, then each card shows its age and the disclaimer; given `ageHours ≥ 12`, `stale_price` is shown.
-- **AC-S7** Given 400 `validation_failed` with `fields`, then each field shows its Hebrew message from the `err.*` map, the error summary appears, and focus moves to the summary.
+- **AC-S7** Given 400 `invalid_request` with `fields`, then each field shows its Hebrew message from the `err.*` map, the error summary appears, and focus moves to the summary.
 - **AC-S8** Given 413/415/500, or a fetch rejection while the browser reports it is online, then the generic error state with retry is shown (`state.generic`); given a fetch rejection while `navigator.onLine === false`, the Offline state is shown instead (AC-S5).
 - **AC-S9** Given no response within 25 s, then the timeout state (`state.timeout`) is shown with retry and edit.
 
@@ -672,7 +719,7 @@ Legend: F = form, R = results, S = states, A = accessibility, M = mobile/PWA, P 
 - **AC-SEC3** No third-party requests are made on page load (verified in Playwright network log).
 - **AC-SEC4** No cookies are set; `localStorage` is cleared by the "מחק נתונים שמורים" action.
 - **AC-SEC5** The privacy, terms, affiliate-disclosure and accessibility pages exist and are linked from the footer and near the CTA.
-- **AC-SEC6** `RATE_LIMIT_SALT` is required: without it the Worker refuses `/api/search` and `/api/health` fails; D1 contains no raw IP, and `rate_limits` keys are salted hashes.
+- **AC-SEC6** `RATE_LIMIT_SALT` is set in production (deployment checklist item; pending D18 on whether the Worker must also refuse to run without it); D1 contains no raw IP, and `rate_limits` keys are salted hashes.
 - **AC-SEC7** The retention job deletes `rate_limits` older than 1 day, `searches` older than 90 days and `search_cache` older than 6 h (D11).
 - **AC-SEC8** Every static response carries `X-Robots-Tag: noindex, nofollow`, `Referrer-Policy`, `X-Content-Type-Options: nosniff` and `Permissions-Policy`, and the page has the robots meta, until the recorded launch step removes the indexing flags (D8).
 
@@ -683,10 +730,10 @@ Legend: F = form, R = results, S = states, A = accessibility, M = mobile/PWA, P 
 - **AC-API4** Every card has a non-null `links.book`; `links.bookReturn` is non-null iff the ticket structure is `split` — for splits of **any** source both are one-way search links (never the round-trip `deeplink`); every returned link encodes the requested party (§5.6).
 - **AC-API5** Given a cached search, then a later search that differs only in bag or max stops is re-ranked without new external calls; a search that differs in hours or `nearbyAirports` returns exactly what a fresh search would (the cache key includes `nearbyAirports` and the cache stores recomputable inputs, C13) — verified by a test comparing the cached re-rank against a fresh run.
 - **AC-API6** `meta.validPairs` equals the number of pairs allowed by window and stay range (30 for the §7.2 example) and `meta.pairsWithOffers ≤ validPairs`; `candidatePairs ≤ 5`.
-- **AC-API7** Given `cabin` other than `economy`, then the API answers `400 validation_failed` with `fields.cabin`.
+- **AC-API7** Given `cabin` other than `economy`, then the API answers `400 invalid_request` with `fields.cabin`.
 - **AC-API8** Every entry of `meta.sources` carries `checkedAt` (`string | null`): the fetch time of the fares actually read from that source (the cache row's creation time on a cache hit), `null` only when the source is disabled or returned nothing; the results disclosure shows "נבדק לפני X" per source and omits the line when it is null.
 - **AC-API9** Every API response (including 4xx/5xx and OPTIONS) carries `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`; `Access-Control-Allow-Origin` equals `ALLOWED_ORIGIN` only for that exact origin, is never `*`, and credentials are never allowed; with `ALLOWED_ORIGIN` unset no CORS headers are sent.
-- **AC-API10** The 31st search within 10 minutes from one client returns 429 with `Retry-After` and `error.retryAfterSec`, and `Access-Control-Expose-Headers` lists `Retry-After`.
+- **AC-API10** After 30 `POST /api/search` requests within 10 minutes from one client (valid or not), the next returns 429 with `Retry-After` and `error.retryAfterSec`, and `Access-Control-Expose-Headers` lists `Retry-After`.
 
 ### 11.2 Test strategy
 | Layer | Tooling | Covers |
@@ -766,10 +813,11 @@ Other documents: `README.md` "Known limitations" (Phase 0) are the source of §2
 | D11 | Retention: `searches` 90 days, `rate_limits` 1 day, `search_cache` 6 h | Approve |
 | D12 | Date input: native date fields vs custom range calendar | Native in v1 |
 | D13 | Children/infants pricing: keep multiplication with an "estimated" flag vs disable children/infants until accurate | Keep with flag |
-| D14 | Rate limits: 30 searches/10 min/client on `/api/search`; separate, higher limit for `/api/airports` | Approve; revisit after real traffic (shared mobile IPs) |
+| D14 | Rate limits: 30 `POST /api/search` per 10 min per client; no per-client limit on `/api/airports` in v1 (bundled table, zero D1 rows) | Approve; revisit after real traffic (shared mobile IPs) or abuse |
 | D15 | Approve creating a staging Worker + D1 (SPEC §18) once W0(a) has passed and W0(b) is ready, and who holds the Cloudflare credentials; until then CI uses a local Worker + fixtures | Approve then |
 | D16 | Fixture-only UI scaffolding before the Phase 0 proof (SPEC §15 forbids building the UI before the proof) | No — wait for W0(a) |
 | D17 | Public launch timing: end of Phase 4 (SPEC §15) or a limited launch right after W4 | SPEC §15 unless you decide otherwise |
+| D18 | `RATE_LIMIT_SALT`: keep it optional in code (token-derived fallback, then per-isolate random) and mandatory in the deployment checklist, or make the Worker refuse `/api/search` without it (§7.8 Δ29) | Keep optional in code, mandatory in the checklist: a missing secret then degrades rate limiting instead of taking the API down |
 
 **Carried over from SPEC §17**
 
@@ -784,7 +832,7 @@ Other documents: `README.md` "Known limitations" (Phase 0) are the source of §2
 
 ## 14. Change log
 
-- **v0.4 (2026-09-29)** — after review round 3 (22 findings examined, 20 confirmed): the ⚖️ "fastest" reference and pool are independent of hour-window split variants; the bag-cost pool now applies consistently to 💰, ⚖️ and 🎯 and the closing gating paragraph no longer contradicts it; `bag_cost_unknown` status and note; `excludedForUnknownBagFee` counts only offers that could be cheaper, with matching copy; network errors map to Offline or generic by `navigator.onLine`; `checkedAt` defined as `string | null`; DD/MM echo beside native date fields; native `disabled` for the max-stops select; ACs added for robots/header/CORS/rate-limit enforcement; Hebrew plural forms use one/two/other.
+- **v0.4 (2026-09-29)** — after review round 3 (22 findings examined, 20 confirmed): the ⚖️ "fastest" reference and pool are independent of hour-window split variants; the bag-cost pool now applies consistently to 💰, ⚖️ and 🎯 and the closing gating paragraph no longer contradicts it; `bag_cost_unknown` status and note; `excludedForUnknownBagFee` counts only offers that could be cheaper, with matching copy; network errors map to Offline or generic by `navigator.onLine`; `checkedAt` defined as `string | null`; DD/MM echo beside native date fields; native `disabled` for the max-stops select; ACs added for robots/header/CORS/rate-limit enforcement; Hebrew plural forms use one/two/other. **Delta pass:** §7 compared with the merged Phase 1 Worker (32 differences, §7.8): the spec now uses `invalid_request`, `results`, the city-code `PlaceView`, strict submit-time resolution, the Worker's real limits and error codes, the sliding-window 429 semantics, and treats the remaining differences as the W0(b) work list; D18 added.
 - **v0.3 (2026-09-29)** — after review round 2 (55 findings examined, 49 confirmed): loading copy no longer claims every pair is checked; one trigger for the passenger-estimate note; W0(d) staging gated on the Phase 0 proof and dependencies of W0(c)/W4 fixed; one `PlaceView` (nullable `nameHe`, `airports`); `myTimes.insufficient_data` removed and the 🎯 statuses defined; `sources[].checkedAt`; max-stops reset/restore rules; **bag-cost pool rule** (unknown fee no longer ranks as zero); ⚖️ independent of hour-window split variants, fastest-reference defined; party-aware booking links; `price_converted_ils`; hour window start ≠ end; error `fields` as machine codes, `retryAfterSec` and exposed `Retry-After`; service-worker routing and offline ACs; `RATE_LIMIT_SALT` required; lab/field performance budgets; `X-Robots-Tag` instead of a robots.txt disallow; Hebrew number-agreement forms and missing copy keys; README figures corrected.
 - **v0.2 (2026-09-29)** — after an independent review (3 reviewers, a skeptic per finding; 34 of the 42 examined findings confirmed): UI work gated on the Phase 0 proof (W1 no longer starts early); the fallback for poor coverage no longer assumes a monitor that does not exist yet (D1); public launch stays at the end of Phase 4 unless decided otherwise (D17); cabin removed from v1 (C11); Best Value pool gating for unknown data (§5.3); max-stops control disabled until hours are set; price-context ILS fields; `validPairs` / `pairsWithOffers`; split links composed for every source; cache-key and recompute requirement (C13); live split composition made explicit (C12); source-failure alert scheduled (W0(c)); staging approval decision (D15); SPEC §17 items carried into §13; README/code attribution of limitations corrected; wrong cross-references fixed.
 - **v0.1 (2026-09-29)** — first draft.
