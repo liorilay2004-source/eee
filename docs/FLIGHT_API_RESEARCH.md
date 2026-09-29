@@ -220,3 +220,31 @@ How the code must enforce it (built into the multi-source layer, PR pending):
 Sources with a free allowance that may be used within these rules (allowances as documented by the vendors, unverified against the live services): Ignav (1,000 requests), SearchApi (100), SerpApi (250 per month), Wego (affiliate API; quota not stated, so a conservative cap). Sources that are simply free: Travelpayouts Data API, `fast-flights`, Bank of Israel FX, Frankfurter, open.er-api.com (attribution required), data.gov.il `flydata`, OurAirports, Wikidata, GeoNames, our own price history, and public deal feeds (link out only).
 
 The Google-terms risk of the scraping-based sources (SearchApi, SerpApi, `fast-flights`) is unchanged and stays the owner's call: the adapters are off unless the owner creates a key.
+
+## 15. Live deal-hunt run, 2026-09-29 (what public web research found)
+
+Ten finder agents searched public pages for current fares from Israel, and every deal found was re-checked by a separate skeptical verifier (50 deals checked, 62 agents). A critic then reviewed the shortlist. **Nothing was booking-tested.** The best verdict any row could reach was "seen on the source page"; most rows are "plausible", from one source page each. Prices are as shown on those pages on 2026-09-29 and may already be gone.
+
+**What was found (indicative only)**
+- Wizz Air's own page showed a Larnaca one-way at €36 (16 Oct) and Catania at €40 (3 Oct), each with "seen X hrs ago" and "may no longer be available".
+- Aegean showed Athens at €54 one-way in December (the exact date is unresolved: 21 or 26 Dec).
+- Secret Flights (Hebrew) round trips in USD: Athens $124, Warsaw $128, Sofia about $148, Lyon $157, Batumi $159. Its pages carry no absolute posting date.
+- The Arkia Bangkok/Phuket/Hanoi $449 one-way sale had already **ended** (48-hour window, 25–27 Sep).
+- One unverified round trip is clearly below our cache: Bangkok via Ethiopian at $559 (about ₪1,717, against ₪2,132 in our cache).
+
+**Comparison with our own Travelpayouts cache: no reliable "we are cheaper / dearer" result.** Only Warsaw (20–26 Nov) was an in-window round trip, and it agreed within 3%. Athens agreed within about 6%. Our cached Larnaca round trip (₪166, two one-ways of about $27) is **below** Wizz's own lowest one-way (€36, about ₪125), so it is probably a stale cache entry. Our cached Rhodes (₪746) is far above every external fare seen ($76–$78 one-way), which also looks like a cache anomaly. Aviasales route pages are the same data family as our cache, so they are not independent.
+
+**Which sources gave usable, dated, checkable prices**
+- Usable: airline fare pages (Wizz, Aegean, Ethiopian), Secret Flights deal pages (no posting date), Ratepunk (a dated page, but its "was/now" discounts were not reproduced elsewhere), Kayak/momondo/Aviasales/Kupi route pages (not independent of each other), Israeli press for time-boxed sales (repeats one press release).
+- Blocked or empty for the research agents: Secret Flying, Fly4Free, Skyscanner, Google Flights, Arkia, El Al, Israir booking pages (waiting room, not bypassed), Hulyo, Tripper, Facebook, Expedia (rate limit). The verifiers also hit their web-search budget, so second sources came from page fetches only.
+
+**Corrections the critic made (the shortlist should be read with these)**
+- EUR and GBP fares can be converted at the Bank of Israel rate (USD 3.072, EUR 3.4857, GBP 4.0646 on 2026-09-29); RUB has no rate there and should be dropped from comparisons.
+- Most compared fares fall outside our cached window (20 Oct–19 Dec, 3–7 nights, no bag), so "+22%" style lines are indicative, not like for like.
+- "Confirmed" was overstated: the three confirmed rows are one-way airline-page fares, not booking-tested.
+- Rhodes $149 (Ayala) and Paphos $141 (Issta) come from pages that also sell hotel packages and may not be flight-only.
+- Ratepunk's $40 Rhodes and Thessaloniki fares were not reproduced elsewhere ($62–$78).
+- Several cheapest fares depart within 1–14 days or 9+ months out; both extremes are fragile.
+- 27 of 77 candidates never got a verifier.
+
+**What this means for the product:** a public-web check can find leads but cannot confirm that a price is bookable; the app should show each fare's age and "may change" (see §12), and the deal detector should rely on our own snapshot history rather than on scraped deal pages.
