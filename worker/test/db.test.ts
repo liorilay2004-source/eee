@@ -1140,3 +1140,39 @@ describe("savePrices: skipUnchangedSince (price-history write dedup)", () => {
     expect(plan.join(" | ")).toMatch(/SEARCH prices USING INDEX idx_prices_recent \(origin=\? AND destination=\? AND checked_at>\?\)/);
   });
 });
+
+describe("claimWindowLock (the stale-while-revalidate refresh lock)", () => {
+  it("one claim per fixed window; refused claims write nothing and never extend the lock", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    const t = (sec: number) => new Date(Date.UTC(2026, 10, 1, 12, 0, 0) + sec * 1000); // 12:00:00 is a 600 s boundary
+    expect(await repo.claimWindowLock("refresh:k", 600, t(0))).toBe(true);
+    for (const sec of [1, 60, 300, 599]) expect(await repo.claimWindowLock("refresh:k", 600, t(sec)), String(sec)).toBe(false);
+    expect(await repo.claimWindowLock("refresh:other", 600, t(10))).toBe(true);
+    expect(await repo.claimWindowLock("refresh:k", 600, t(600))).toBe(true); // the very next window, however often it was asked
+    const rows = await db.prepare("SELECT key, count FROM rate_limits ORDER BY key, window_start").all();
+    expect(rows.results).toEqual([
+      { key: "refresh:k", count: 1 },
+      { key: "refresh:k", count: 1 },
+      { key: "refresh:other", count: 1 },
+    ]);
+  });
+
+  it("concurrent claims: exactly one wins", async () => {
+    const repo = createRepo(createTestD1());
+    const got = await Promise.all(Array.from({ length: 10 }, () => repo.claimWindowLock("refresh:k", 600, NOW)));
+    expect(got.filter(Boolean)).toHaveLength(1);
+  });
+
+  it("fails closed on bad input and on storage errors", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    for (const w of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) expect(await repo.claimWindowLock("k", w, NOW), String(w)).toBe(false);
+    expect(await repo.claimWindowLock("", 600, NOW)).toBe(false);
+    expect(await repo.claimWindowLock("k", 600, new Date(Number.NaN))).toBe(false);
+    vi.spyOn(db, "prepare").mockImplementation(() => {
+      throw new Error("D1 down");
+    });
+    expect(await repo.claimWindowLock("k", 600, NOW)).toBe(false);
+  });
+});

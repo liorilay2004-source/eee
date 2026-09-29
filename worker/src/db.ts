@@ -553,6 +553,24 @@ export function createRepo(db: D1Database): Repo {
       }
     },
 
+    async claimWindowLock(key, windowSeconds, now) {
+      // Fixed window, not the sliding-window limiter: that one counts refused attempts and weights the previous window, so a
+      // key asked every few minutes would never be granted again. Old windows go with the daily rate_limits cleanup.
+      try {
+        const windowSec = Math.floor(windowSeconds);
+        const nowSec = Math.floor(now.getTime() / 1000);
+        if (typeof key !== "string" || key === "" || !Number.isSafeInteger(windowSec) || windowSec < 1 || !Number.isSafeInteger(nowSec)) return false;
+        const windowStart = Math.floor(nowSec / windowSec) * windowSec;
+        const res = await db
+          .prepare("INSERT INTO rate_limits (key, window_start, count) VALUES (?, ?, 1) ON CONFLICT(key, window_start) DO NOTHING RETURNING count")
+          .bind(key, windowStart)
+          .all<{ count: number }>();
+        return res.results.length === 1;
+      } catch {
+        return false;
+      }
+    },
+
     async recordSourceHealth(source, ok, error, now) {
       const at = now.toISOString();
       if (ok) {

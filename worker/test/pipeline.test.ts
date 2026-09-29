@@ -26,6 +26,7 @@ import {
 import { BAG_FEES, SCORING } from "../src/scoring.config";
 import { buildSplits, countValidPairs, pairOk, validPairs } from "../src/splits";
 import { monthsBetween, TravelpayoutsError } from "../src/travelpayouts";
+import type { FareQuoteSource } from "../src/quotes";
 import type { FxRates, Leg, Offer, OneWayFare, OneWayPair, SearchRequest, SearchResponse, TravelpayoutsClient } from "../src/types";
 import { createTestD1 } from "./helpers/d1";
 
@@ -1373,7 +1374,7 @@ describe("stale-while-revalidate (SearchDeps.staleWhileRevalidate)", () => {
 
   it("the lock storage failing means no rescan (fail closed), and the answer says so", async () => {
     const { deps, tp, pending, repo } = await staleSetup(7);
-    const broken = new Proxy(repo, { get: (t, k) => (k === "checkRateLimit" ? async () => { throw new Error("D1 down"); } : Reflect.get(t, k)) });
+    const broken = new Proxy(repo, { get: (t, k) => (k === "claimWindowLock" ? async () => { throw new Error("D1 down"); } : Reflect.get(t, k)) });
     const before = tp.callCount();
     const res = await runSearch({ ...deps, repo: broken as typeof repo }, req());
     expect(res.meta.fromCache).toBe(true);
@@ -1401,6 +1402,64 @@ describe("stale-while-revalidate (SearchDeps.staleWhileRevalidate)", () => {
     await expect(Promise.all(pending)).resolves.toBeDefined();
     const [row] = await rows<{ created_at: string }>(db, "SELECT created_at FROM search_cache");
     expect(row?.created_at).toBe(NOW.toISOString());
+  });
+
+  /** A configured stand-in quote vendor that answers every date pair with one fare a little below the cached one. */
+  function quoteVendor(seenAt: Date = later(7)) {
+    const asked: string[] = [];
+    const src: FareQuoteSource = {
+      name: "serpapi",
+      configured: true,
+      quota: { period: "monthly", cap: 100, allowance: 250 },
+      callCount: () => asked.length,
+      quote: async (q) => {
+        asked.push(`${q.departDate}|${q.returnDate}`);
+        return [offer(160, { source: "serpapi", departDate: q.departDate, returnDate: q.returnDate, checkedAt: seenAt.toISOString() })];
+      },
+    };
+    return { src, asked };
+  }
+  const extraOf = async (db: D1Database) =>
+    JSON.parse((await db.prepare("SELECT extra_json FROM search_cache").first<string>("extra_json")) ?? "{}") as { quotes?: Offer[] };
+
+  it("carried quotes expired + a quote source configured: the rescan runs the whole pipeline, so the key gets live quotes again", async () => {
+    const { deps, pending, db } = await staleSetup(7);
+    const v = quoteVendor();
+    const res = await runSearch({ ...deps, quoteSources: [v.src] }, req());
+    expect(res.meta.stale?.revalidating).toBe(true);
+    expect(v.asked).toEqual([]); // not before the answer
+    await Promise.all(pending);
+    expect(v.asked.length).toBeGreaterThan(0);
+    expect((await extraOf(db)).quotes?.length).toBeGreaterThan(0);
+    expect(await count(db, "searches")).toBe(2); // the background pipeline did not log a search of its own
+    // The next identical search is an in-TTL hit that ranks the refreshed quotes.
+    const again = await runSearch({ ...deps, quoteSources: [v.src] }, req());
+    expect(again.meta.fromCache).toBe(true);
+    expect(again.meta.stale).toBeUndefined();
+    expect(again.cards.some((c) => c.offer.source === "serpapi")).toBe(true);
+  });
+
+  it("the whole-pipeline rescan takes no second unit of the global scan budget", async () => {
+    const budget = vi.fn(async () => true);
+    const { deps, pending } = await staleSetup(7, { scanBudget: budget });
+    await runSearch({ ...deps, quoteSources: [quoteVendor().src] }, req());
+    await Promise.all(pending);
+    expect(budget).toHaveBeenCalledTimes(1);
+  });
+
+  it("still-live carried quotes: the lean rescan asks no vendor and keeps them on the rewritten row", async () => {
+    const { deps, pending, db } = await staleSetup(7);
+    const live = offer(160, { source: "serpapi", checkedAt: later(5).toISOString() }); // 2h old at the stale hit
+    const extra = await extraOf(db);
+    await db.prepare("UPDATE search_cache SET extra_json = ?").bind(JSON.stringify({ ...extra, quotes: [live] })).run();
+    const v = quoteVendor();
+    const res = await runSearch({ ...deps, quoteSources: [v.src] }, req());
+    expect(res.meta.stale?.revalidating).toBe(true);
+    await Promise.all(pending);
+    expect(v.asked).toEqual([]);
+    const [row] = await rows<{ created_at: string }>(db, "SELECT created_at FROM search_cache");
+    expect(row?.created_at).toBe(later(7).toISOString());
+    expect((await extraOf(db)).quotes).toEqual([JSON.parse(JSON.stringify(live))]);
   });
 
   it("staleInfo: Hebrew hour forms, and the 'search again' line only while revalidating", () => {

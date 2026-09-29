@@ -278,10 +278,15 @@ describe("POST /api/search: the happy path with Travelpayouts fixtures", () => {
     expect(failing.tpCalls()).toHaveLength(afterBurst);
     const [health] = await rows<{ consecutive_failures: number }>(env, "SELECT consecutive_failures FROM source_health WHERE source = 'travelpayouts'");
     expect(health?.consecutive_failures).toBe(1); // the failed rescan is recorded, once
-    // After the lock window the next stale hit may try again.
-    vi.setSystemTime(new Date(NOW.getTime() + 7 * 3_600_000 + 2 * 600_000 + 1000));
-    const d = await search(env);
-    expect(d.data.meta.stale?.revalidating).toBe(true);
+    // Polled every 5 minutes, the key still gets exactly one rescan per 10-minute window: refused claims never push it back.
+    const t0 = NOW.getTime() + 7 * 3_600_000; // 16:00:00Z, a window boundary
+    const seen: boolean[] = [];
+    for (let i = 1; i <= 6; i++) {
+      vi.setSystemTime(new Date(t0 + i * 5 * 60_000));
+      seen.push((await search(env, BODY, { "CF-Connecting-IP": `198.51.100.${i}` })).data.meta.stale?.revalidating ?? false);
+    }
+    expect(seen).toEqual([false, true, false, true, false, true]);
+    expect(failing.tpCalls().length).toBeGreaterThan(afterBurst);
   });
 
   it("a stale hit with the global scan budget spent answers stale and does not rescan", async () => {

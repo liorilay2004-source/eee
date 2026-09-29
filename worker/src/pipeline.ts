@@ -121,6 +121,8 @@ export interface SearchDeps {
    * default: only the public API turns it on, so the scheduled snapshot always scans.
    */
   staleWhileRevalidate?: boolean;
+  /** True for a background rescan that goes through the whole pipeline: the stale answer already logged this search. */
+  skipSearchLog?: boolean;
 }
 
 export const defaultResolver: Resolver = {
@@ -622,13 +624,14 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   if (fromCache && hit) {
     fx = await fxForCacheHit(deps);
     // Started now, awaited at the end: the lock and budget reads run while this request ranks the stale fares.
-    if (isStale) revalidation = startRevalidation(deps, req, searchKey, pairs, fx);
     rts = cachedRts;
     oneWayPairs = cachedPairs ?? [];
     splitsCheckedAt = hit.createdAt; // the fares are as old as the scan that found them
     tpStatus.ok = true;
     tpStatus.error = hit.notes && hit.notes.length > 0 ? hit.notes.join("; ") : null;
     carriedQuotes = sanitizeOffers(hit.quotes, QUOTE_SOURCE_NAMES).filter((o) => o.ticketStructure === "roundtrip" && ageHours(o.checkedAt, now) <= QUOTE_MAX_AGE_HOURS);
+    // Started now, awaited at the end: the lock and budget reads run while this request ranks the stale fares.
+    if (isStale) revalidation = startRevalidation(deps, req, searchKey, pairs, fx, carriedQuotes);
   } else {
     // FX loads while the scan runs; the scan itself does not need it, only split building and ranking do.
     const fxLoad = settle(resolveFx(deps));
@@ -701,7 +704,7 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   const scanHealth = scan === null ? null : { ok: scan.failures.length === 0 && scan.successes > 0, error: scan.failures.join("; ") || null };
   const quoteHealth = () => [...quoteStats].filter(([, st]) => st.calls > 0).map(([name, st]) => ({ name, ok: quoteOk(st), error: st.failures.join("; ") || null }));
   const jobOf = (part: Partial<PersistJob>): PersistJob => ({
-    repo, req, searchKey, now, fx, pax, logSearch: true, fresh: [], quotes: [], quoteHealth: [], cache: null, health: null, ...part,
+    repo, req, searchKey, now, fx, pax, logSearch: deps.skipSearchLog !== true, fresh: [], quotes: [], quoteHealth: [], cache: null, health: null, ...part,
   });
   const wholeJob = () =>
     jobOf({ fresh: fromCache ? [] : live, quotes: quotedRaw, quoteHealth: quoteHealth(), cache: cacheRow(quotedRaw), health: scanHealth });
@@ -833,24 +836,45 @@ export function staleInfo(cachedAt: string, now: Date, revalidating: boolean): S
  * Decides, before the answer is sent, whether a background rescan starts (so meta.stale.revalidating is true only when one
  * really does): Travelpayouts must be configured, this key's refresh lock free, and the global scan budget not spent, in
  * that order (a refused lock spends no budget). Every failure means "no rescan": the stale answer stands on its own.
+ *
+ * The lock is a FIXED window (Repo.claimWindowLock): one claim per key per REFRESH_LOCK_SECONDS window, and refused
+ * attempts write nothing, so a key polled all day still gets a rescan in every window, never less often.
+ *
+ * Which rescan: while the row still carries live quotes (or no quote source is configured) the lean one below, which keeps
+ * those quotes on the rewritten row; once they have expired and a quote source is configured, the whole pipeline (quote
+ * phase included, with all its caps and shares) runs in the background, so a key kept warm by stale hits still gets its
+ * live price checks.
  */
-async function startRevalidation(deps: SearchDeps, req: SearchRequest, searchKey: string, pairs: Pair[], fx: FxRates): Promise<boolean> {
+async function startRevalidation(deps: SearchDeps, req: SearchRequest, searchKey: string, pairs: Pair[], fx: FxRates, carriedQuotes: Offer[]): Promise<boolean> {
   const { repo, tp, now, waitUntil } = deps;
   if (!waitUntil || !tp.configured) return false;
-  const lock = await attempt(() => repo.checkRateLimit(`refresh:${searchKey}`, 1, REFRESH_LOCK_SECONDS, now));
-  if (!lock?.allowed) return false;
+  const locked = await attempt(() => repo.claimWindowLock(`refresh:${searchKey}`, REFRESH_LOCK_SECONDS, now));
+  if (locked !== true) return false;
   if (deps.scanBudget && !(await attempt(deps.scanBudget))) return false;
-  waitUntil(refreshCache({ ...deps, fx }, req, searchKey, pairs, fx));
+  const quoters = (deps.quoteSources ?? []).filter((s) => s.configured);
+  if (carriedQuotes.length === 0 && quoters.length > 0) {
+    // The budget unit above is this scan's: the pipeline must not take a second one.
+    const full = { ...deps, fx, staleWhileRevalidate: false, waitUntil: undefined, scanBudget: undefined, skipSearchLog: true };
+    waitUntil(
+      runSearch(full, req).then(
+        () => undefined,
+        (err: unknown) => console.error("background refresh failed:", err instanceof Error ? err.name : typeof err),
+      ),
+    );
+  } else {
+    waitUntil(refreshCache({ ...deps, fx }, req, searchKey, pairs, fx, carriedQuotes));
+  }
   return true;
 }
 
 /**
  * The background rescan: the same Travelpayouts scan and the same writes as a fresh search's miss path (cache row, price
- * history, source health), minus what only an answer needs (ranking, price context) and minus the search log (the stale
- * answer already logged this search) and the optional live-quote vendors (their free allowances are kept for searches
- * that a person is waiting on). A scan that is not complete leaves the stale row as it is. Never rejects.
+ * history, source health), minus what only an answer needs (ranking, price context), the search log (the stale answer
+ * already logged this search) and the quote phase: the row's still-live quotes are kept on the rewritten row as they are
+ * (startRevalidation runs the whole pipeline instead once they have expired). A scan that is not complete leaves the stale
+ * row as it is. Never rejects.
  */
-async function refreshCache(deps: SearchDeps, req: SearchRequest, searchKey: string, pairs: Pair[], fx: FxRates): Promise<void> {
+async function refreshCache(deps: SearchDeps, req: SearchRequest, searchKey: string, pairs: Pair[], fx: FxRates, carriedQuotes: Offer[]): Promise<void> {
   try {
     const { repo, tp, now } = deps;
     const pax = paxCount(req);
@@ -867,7 +891,7 @@ async function refreshCache(deps: SearchDeps, req: SearchRequest, searchKey: str
     let notes: string[] = [];
     if (scan.skippedRequests > 0) notes = [`truncated: ${scan.skippedRequests} of ${scan.plannedRequests} planned requests skipped (limit ${MAX_TP_REQUESTS})`];
     if (scan.rejected.length > 0) notes = [...notes, `not searchable at Travelpayouts: ${scan.rejected.slice(0, 6).join(", ")}`];
-    const cache = { offers: capOffers(rts, fx, MAX_CACHED_OFFERS), oneWayPairs: capOneWayPairs(oneWayPairs, fx, MAX_CACHED_ONEWAYS), notes, quotes: [] };
+    const cache = { offers: capOffers(rts, fx, MAX_CACHED_OFFERS), oneWayPairs: capOneWayPairs(oneWayPairs, fx, MAX_CACHED_ONEWAYS), notes, quotes: carriedQuotes };
     await persist({ repo, req, searchKey, now, fx, pax, logSearch: false, fresh: [...rts, ...splits], quotes: [], quoteHealth: [], cache, health });
   } catch (err) {
     console.error("background refresh failed:", err instanceof Error ? err.name : typeof err);

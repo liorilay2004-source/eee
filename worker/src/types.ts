@@ -213,6 +213,12 @@ export interface Repo {
    * the day's counter and the new value is <= cap; false when the share is spent AND on any error (fail closed). See withDailyShare.
    */
   reserveDaily(key: string, cap: number, now: Date): Promise<boolean>;
+  /**
+   * ADDITIVE: claims `key` for the fixed window of `windowSeconds` that `now` falls in (table rate_limits: key + the window's
+   * start). True only for the first claim of that window; false for every later one AND on any error (fail closed). A refused
+   * claim writes nothing, and the next window is always free again.
+   */
+  claimWindowLock(key: string, windowSeconds: number, now: Date): Promise<boolean>;
 }
 
 export interface Env {
