@@ -16,6 +16,8 @@ const ERROR_MAX_LEN = 300;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 /** The only period keys a quota row may have: a one-off allowance, or a UTC month (see quotaPeriodKey in quotes.ts). */
 const QUOTA_PERIOD = /^(lifetime|\d{4}-(0[1-9]|1[0-2]))$/;
+/** The only keys a daily share may have: "quota:" and a vendor name (see withDailyShare in quotes.ts). */
+const DAILY_KEY = /^quota:[a-z_]{1,32}$/;
 const CURRENCY = /^[A-Za-z]{3}$/;
 
 type Bind = string | number | null;
@@ -247,6 +249,8 @@ export function createRepo(db: D1Database): Repo {
         if (!isRecord(extra) || !Array.isArray(extra.oneWayPairs) || !Array.isArray(extra.notes)) return null;
         cached.oneWayPairs = extra.oneWayPairs as OneWayPair[];
         cached.notes = extra.notes.filter((n): n is string => typeof n === "string");
+        // Quotes are optional on top of the fares: a damaged list only means the hit shows none, never a miss.
+        if (Array.isArray(extra.quotes)) cached.quotes = extra.quotes as Offer[];
       }
       return cached;
     },
@@ -453,6 +457,27 @@ export function createRepo(db: D1Database): Repo {
           .all<{ used: number }>();
         const used = res.results.length === 1 ? res.results[0]?.used : undefined;
         return typeof used === "number" && Number.isInteger(used) && used >= 1 && used <= cap;
+      } catch {
+        return false;
+      }
+    },
+
+    async reserveDaily(key, cap, now) {
+      // Fail closed, like reserveQuota. The day's counter lives in rate_limits (window_start = the UTC day's start, in seconds), so no
+      // migration is needed and the daily cleanup of that table drops old days. The share comes from code, never from D1 or env.
+      try {
+        const day = Math.floor(now.getTime() / DAY_MS) * (DAY_MS / 1000);
+        if (!Number.isSafeInteger(cap) || cap < 1 || !DAILY_KEY.test(key) || !Number.isSafeInteger(day)) return false;
+        const res = await db
+          .prepare(
+            "INSERT INTO rate_limits (key, window_start, count) SELECT ?, ?, 1 WHERE ? >= 1 " +
+              "ON CONFLICT(key, window_start) DO UPDATE SET count = count + 1 WHERE count < ? " +
+              "RETURNING count",
+          )
+          .bind(key, day, cap, cap)
+          .all<{ count: number }>();
+        const count = res.results.length === 1 ? res.results[0]?.count : undefined;
+        return typeof count === "number" && Number.isInteger(count) && count >= 1 && count <= cap;
       } catch {
         return false;
       }

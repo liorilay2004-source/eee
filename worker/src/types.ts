@@ -140,6 +140,11 @@ export interface CachedOffers {
   oneWayPairs?: OneWayPair[];
   /** ADDITIVE (fix pass): notes of the scan that produced the row (e.g. truncation), shown again on every hit. */
   notes?: string[];
+  /**
+   * ADDITIVE: the RAW live quotes (whole party, original currency) the scan that wrote the row got from the optional fare sources.
+   * A hit ranks them exactly as that scan did, so a repeat of the search answers the same as the first one. Absent = none.
+   */
+  quotes?: Offer[];
 }
 
 /** ADDITIVE (fix pass): both directions' one-way fares (per adult, original currency) of one airport pair. */
@@ -154,7 +159,7 @@ export interface OneWayPair {
 export interface Repo {
   getCachedOffers(searchKey: string, maxAgeHours: number, now: Date): Promise<CachedOffers | null>;
   /** `extra` is ADDITIVE (fix pass): one-way fares + scan notes stored beside the offers. */
-  putCachedOffers(searchKey: string, offers: Offer[], now: Date, extra?: { oneWayPairs: OneWayPair[]; notes: string[] }): Promise<void>;
+  putCachedOffers(searchKey: string, offers: Offer[], now: Date, extra?: { oneWayPairs: OneWayPair[]; notes: string[]; quotes?: Offer[] }): Promise<void>;
   /** Append to the shared price history (SPEC §12 `prices`). */
   savePrices(offers: Offer[]): Promise<void>;
   /** Recent offers already in the shared DB (e.g. written by the background monitor). */
@@ -181,6 +186,11 @@ export interface Repo {
    * `period` is "lifetime" or a UTC month like "2026-09" (see quotaPeriodKey in quotes.ts).
    */
   reserveQuota(source: SourceName, period: string, cap: number, now: Date): Promise<boolean>;
+  /**
+   * ADDITIVE: reserves ONE unit of a per-UTC-day share (table rate_limits: `key` + the day's start). True only when this call raised
+   * the day's counter and the new value is <= cap; false when the share is spent AND on any error (fail closed). See withDailyShare.
+   */
+  reserveDaily(key: string, cap: number, now: Date): Promise<boolean>;
 }
 
 export interface Env {

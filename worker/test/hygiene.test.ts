@@ -68,4 +68,18 @@ describe("src/ runs in the Workers runtime", () => {
       expect(text, file).not.toMatch(/from\s+["']node:|require\(["']node:|\bprocess\.(env|argv|cwd)|\bBuffer\./);
     }
   });
+
+  it("the vendor path never logs: no console in quotes.ts or any adapter (a SerpApi key sits in its request URL)", () => {
+    const vendorFiles = [join(worker, "src", "quotes.ts"), ...sourceFiles(join(worker, "src", "sources"))];
+    expect(vendorFiles.length).toBeGreaterThanOrEqual(5);
+    for (const file of vendorFiles) expect(readFileSync(file, "utf8"), file).not.toMatch(/\bconsole\b/);
+  });
+
+  it("only quotes.ts and wego.ts can reach fetch: the other adapters describe a request and read an answer, nothing more", () => {
+    const callsFetch = (file: string) => /\bfetch\s*\(/.test(readFileSync(file, "utf8"));
+    const adapters = sourceFiles(join(worker, "src", "sources"));
+    expect(adapters.map((f) => f.split("/").pop()).sort()).toEqual(["ignav.ts", "searchapi.ts", "serpapi.ts", "wego.ts"]);
+    for (const file of adapters) expect(callsFetch(file), file).toBe(file.endsWith("wego.ts"));
+    expect(callsFetch(join(worker, "src", "quotes.ts"))).toBe(true);
+  });
 });

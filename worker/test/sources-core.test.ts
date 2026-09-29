@@ -8,7 +8,10 @@ import { describe, expect, it, vi } from "vitest";
 import { createRepo } from "../src/db";
 import { computeSearchKey, runSearch, type SearchDeps } from "../src/pipeline";
 import {
+  coverKey,
   createQuoteSource,
+  dailyShare,
+  describeQuoteError,
   isQuoteSource,
   LIFETIME_CAP_MAX_PERCENT,
   MAX_QUOTE_CALLS,
@@ -16,15 +19,20 @@ import {
   MAX_QUOTE_PAIRS,
   MONTHLY_CAP_MAX_PERCENT,
   mergeQuoted,
+  MIN_PLAUSIBLE_QUOTE_SHARE,
   pickQuotePairs,
   QUOTE_CONCURRENCY,
   QUOTE_MAX_AGE_HOURS,
+  QUOTE_PHASE_DEADLINE_MS,
   QUOTE_SOURCE_NAMES,
   QUOTE_TIMEOUT_MS,
+  quoteOk,
   quotaPeriodKey,
   quotaSpecIsSafe,
   QuoteError,
   runQuotes,
+  timeCandidates,
+  withDailyShare,
   type FareQuoteSource,
   type ParsedFare,
   type QuoteAdapter,
@@ -33,6 +41,9 @@ import {
   type QuoteSourceName,
 } from "../src/quotes";
 import { recommend } from "../src/scoring";
+import { ignavAdapter } from "../src/sources/ignav";
+import { searchApiAdapter } from "../src/sources/searchapi";
+import { serpApiAdapter } from "../src/sources/serpapi";
 import { TravelpayoutsError } from "../src/travelpayouts";
 import type { FxRates, Leg, Offer, Repo, SearchRequest, TravelpayoutsClient } from "../src/types";
 import { createTestD1 } from "./helpers/d1";
@@ -813,6 +824,568 @@ describe("without a configured extra source nothing changes", () => {
       expect(res).toEqual(baseline);
       expect(await dump(w)).toEqual(expected);
       expect(w.fetchFn).not.toHaveBeenCalled();
+    }
+  });
+});
+
+// --- review fixes -------------------------------------------------------------------------------------------
+
+/** What SearchApi and SerpApi state about the return flight: nothing. */
+const NO_RETURN: Leg = { departTime: null, arriveTime: null, stops: null, durationMin: null, airlines: [] };
+const cardsOf = (r: { cards: Array<{ offer: Offer; kinds: string[] }> }) => r.cards.map((c) => [c.offer.source, c.offer.priceAmount, c.offer.outbound.departTime, [...c.kinds]]);
+const pricesOf = (db: D1Database) => rowsOf(db, "SELECT source, price_amount, price_currency FROM prices ORDER BY source, price_amount");
+
+describe("a cache hit answers like the fresh search that wrote the cache", () => {
+  // The vendor answers with the cached flight itself (dearer than the cached fare) and another flight (cheaper than that quote, dearer than the cache).
+  const answer = () => [fare(120, { outbound: leg({ departTime: "14:00" }), inbound: leg({ departTime: "16:00" }) }), fare(150, { inbound: leg({ departTime: "18:00" }) })];
+
+  for (const [label, r] of [["no preference", req()], ["a departure window on the cached flight", req({ outHours: [9, 11] })]] as const) {
+    it(`the same cards, no vendor call and no new unit (${label})`, async () => {
+      const w = world([offer(100)]); // cached fare: 10:00 out, 18:00 back
+      await w.repo.saveFxRates(FX);
+      const first = await w.run([w.mk("serpapi", { fares: answer })], r);
+      expect(first.meta.fromCache).toBe(false);
+      expect(cardsOf(first)[0]).toEqual(["serpapi", 120, "14:00", ["cheapest", "best_value"]]); // the quote of the cached flight replaced the cheaper cached fare
+      const before = { calls: w.fetchFn.mock.calls.length, quota: await rowsOf(w.db, "SELECT source, period, used FROM source_quota ORDER BY source, period") };
+
+      const second = await w.run([w.mk("serpapi", { fares: answer })], r, { now: new Date(NOW.getTime() + HOUR) });
+      expect(second.meta.fromCache).toBe(true);
+      expect(cardsOf(second)).toEqual(cardsOf(first));
+      expect(w.fetchFn.mock.calls.length).toBe(before.calls);
+      expect(await rowsOf(w.db, "SELECT source, period, used FROM source_quota ORDER BY source, period")).toEqual(before.quota);
+    });
+  }
+
+  it("the quotes ride in the cache row beside the fares, and only when there are some", async () => {
+    const w = world([offer(100)]);
+    await w.run([w.mk("serpapi", { fares: answer })]);
+    const row = (await rowsOf(w.db, "SELECT offers_json, extra_json FROM search_cache"))[0];
+    expect((JSON.parse(String(row?.offers_json)) as Offer[]).map((o) => o.source)).toEqual(["travelpayouts"]); // the fares stay the scan's
+    const extra = JSON.parse(String(row?.extra_json)) as { quotes?: Offer[] };
+    expect(extra.quotes?.map((o) => [o.source, o.priceAmount])).toEqual([["serpapi", 120], ["serpapi", 150]]);
+
+    const plain = world([offer(100)]);
+    await plain.run(undefined);
+    expect(Object.keys(JSON.parse(String((await rowsOf(plain.db, "SELECT extra_json FROM search_cache"))[0]?.extra_json)) as object).sort()).toEqual(["notes", "oneWayPairs"]);
+  });
+
+  it("the quotes in the row are bounded by the per-search limits, far below D1's 2 MB row", async () => {
+    const w = world(pairsOf(4));
+    const many = () => Array.from({ length: 50 }, (_, i) => fare(90 + i, { outbound: leg({ departTime: `0${i % 10}:${10 + i}` }) }));
+    await w.run((["ignav", "searchapi", "serpapi", "wego"] as const).map((n) => w.mk(n, { fares: many })), req({ windowEnd: "2026-11-30" }));
+    const extra = JSON.parse(String((await rowsOf(w.db, "SELECT extra_json FROM search_cache"))[0]?.extra_json)) as { quotes: Offer[] };
+    expect(extra.quotes.length).toBe(MAX_QUOTE_CALLS * MAX_QUOTE_OFFERS_PER_CALL);
+    expect(JSON.stringify(extra.quotes).length).toBeLessThan(400_000);
+  });
+
+  it("a damaged or too old quote list in the row is ignored, never an error", async () => {
+    const w = world([offer(100)]);
+    await w.repo.saveFxRates(FX);
+    await w.run([w.mk("serpapi", { fares: answer })]);
+    const at = (extra: unknown) => w.db.prepare("UPDATE search_cache SET extra_json = ?").bind(JSON.stringify(extra)).run();
+    const baseline = await world([offer(100)]).run(undefined);
+    for (const quotes of ["nonsense", [{ source: "serpapi" }], [{ ...offer(1, { source: "ignav" }), checkedAt: new Date(NOW.getTime() - 7 * HOUR).toISOString() }]]) {
+      await at({ oneWayPairs: [], notes: [], quotes });
+      const res = await w.run([w.mk("serpapi")], req(), { now: new Date(NOW.getTime() + HOUR) });
+      expect(res.meta.fromCache).toBe(true);
+      expect(res.cards[0]?.offer.source).not.toBe("ignav");
+      expect(res.cards[0]?.offer.priceAmount).not.toBe(1);
+    }
+    expect(baseline.cards).toHaveLength(1);
+  });
+});
+
+describe("a live quote that does not state its return flight (SearchApi, SerpApi)", () => {
+  const priced = (price: number, over: Partial<Offer> = {}) => ({ ...offer(price, over), totalIls: price * 3 });
+  const noReturn = (price: number, over: Partial<Offer> = {}) => priced(price, { source: "serpapi", inbound: { ...NO_RETURN }, ...over });
+  const kindsOf = (cards: Array<{ offer: Offer; kinds: string[] }>) => cards.map((c) => [c.offer.source, c.kinds]);
+
+  it("cannot cost the user the 🎯 card: the cached fare it replaced stays a candidate for that card, and only for it", () => {
+    const r = req({ retHours: [18, 24] });
+    const cached = priced(200, { inbound: leg({ departTime: "19:00" }) }); // a verified return at 19:00
+    const quote = noReturn(210);
+    const pool = [cached, quote];
+    const merged = mergeQuoted(pool);
+    expect(merged).toEqual([quote]); // the live price still replaces the cached one
+    const extra = timeCandidates(pool, merged, r);
+    expect(extra).toEqual([cached]);
+    expect(kindsOf(recommend(merged, r))).toEqual([["serpapi", ["cheapest", "best_value"]]]); // without the candidate the card is gone
+    expect(kindsOf(recommend(merged, r, undefined, extra))).toEqual([["serpapi", ["cheapest", "best_value"]], ["travelpayouts", ["my_times"]]]);
+  });
+
+  it("the same with max stops: a quote whose stops are unknown cannot be verified, the cached fare can", () => {
+    const r = req({ outHours: [8, 12], maxStops: 0 });
+    const cached = priced(200);
+    const quote = noReturn(210);
+    expect(timeCandidates([cached, quote], mergeQuoted([cached, quote]), r)).toEqual([cached]);
+  });
+
+  it("adds nothing when the quote can pass the user's times itself, the cached fare cannot, or no time preference was set", () => {
+    const r = req({ retHours: [18, 24] });
+    const cached = priced(200, { inbound: leg({ departTime: "19:00" }) });
+    const stated = priced(210, { source: "ignav", inbound: leg({ departTime: "19:00" }) }); // a vendor that states the return
+    expect(timeCandidates([cached, stated], mergeQuoted([cached, stated]), r)).toEqual([]);
+    const early = priced(200, { inbound: leg({ departTime: "10:00" }) }); // outside the window: no candidate for the 🎯 card either
+    expect(timeCandidates([early, noReturn(210)], mergeQuoted([early, noReturn(210)]), r)).toEqual([]);
+    expect(timeCandidates([cached, noReturn(210)], mergeQuoted([cached, noReturn(210)]), req())).toEqual([]);
+    const pool = [cached];
+    expect(timeCandidates(pool, mergeQuoted(pool), r)).toEqual([]); // no quote in the pool
+  });
+
+  it("end to end, on the first search and on the repeat: the 🎯 card keeps the cached fare and Cheapest / Best value show the live price", async () => {
+    const w = world([offer(200, { inbound: leg({ departTime: "19:00" }) })]);
+    await w.repo.saveFxRates(FX);
+    const r = req({ retHours: [18, 24] });
+    const run = (over: Partial<SearchDeps> = {}) => w.run([w.mk("serpapi", { fares: () => [fare(210, { inbound: { ...NO_RETURN } })] })], r, over);
+    const first = await run();
+    expect(kindsOf(first.cards)).toEqual([["serpapi", ["cheapest", "best_value"]], ["travelpayouts", ["my_times"]]]);
+    const second = await run({ now: new Date(NOW.getTime() + HOUR) });
+    expect(second.meta.fromCache).toBe(true);
+    expect(kindsOf(second.cards)).toEqual(kindsOf(first.cards));
+  });
+
+  it("with a checked bag it still pays the return bag fee (on the outbound carrier): it cannot undercut the fully priced fare it replaces", async () => {
+    const wizz = leg({ airlines: ["W6"] }); // 45 EUR per leg = 157.5 ILS
+    const cached = offer(50, { outbound: wizz, inbound: leg({ departTime: "18:00", airlines: ["W6"] }) });
+    const r = req({ checkedBag: true });
+    const baseline = await world([cached]).run(undefined, r);
+    expect(baseline.cards[0]?.offer.totalIls).toBe(465); // 150 + 2 x 157.5
+
+    const w = world([cached]);
+    const res = await w.run([w.mk("serpapi", { fares: () => [fare(50, { outbound: wizz, inbound: { ...NO_RETURN } })] })], r);
+    expect(res.cards[0]?.offer).toMatchObject({ source: "serpapi", extrasAmountIls: 315, totalIls: 465, tags: [] });
+    expect(res.cards[0]?.offer.inbound.airlines).toEqual([]); // priced as if, never claimed
+  });
+
+  it("a quote whose return carrier is stated keeps its own fee, and no bag asked means no fee", async () => {
+    const wizz = leg({ airlines: ["W6"] });
+    const cached = () => [offer(50, { outbound: wizz, inbound: leg({ departTime: "18:00", airlines: ["W6"] }) })];
+    const withBag = world(cached());
+    const stated = await withBag.run([withBag.mk("ignav", { fares: () => [fare(50, { outbound: wizz, inbound: leg({ departTime: "18:00", airlines: ["FR"] }) })] })], req({ checkedBag: true }));
+    expect(stated.cards[0]?.offer).toMatchObject({ source: "ignav", extrasAmountIls: 157.5 + 140, totalIls: 150 + 157.5 + 140 }); // W6 out, FR back (40 EUR)
+    const noBag = world(cached());
+    const none = await noBag.run([noBag.mk("serpapi", { fares: () => [fare(50, { outbound: wizz, inbound: { ...NO_RETURN } })] })], req());
+    expect(none.cards[0]?.offer).toMatchObject({ source: "serpapi", extrasAmountIls: 0, totalIls: 150, tags: [] });
+  });
+});
+
+describe("the quote phase has one deadline", () => {
+  const primary = { origin: "TLV", dest: "BCN" };
+  const party = { adults: 1 };
+  const dates4: Array<[string, string]> = [["2026-11-10", "2026-11-16"], ["2026-11-11", "2026-11-17"], ["2026-11-12", "2026-11-18"], ["2026-11-13", "2026-11-19"]];
+  const never = () => new Promise<Offer[]>(() => {});
+  /** Real event-loop turns, for work fake timers cannot see (crypto.subtle). */
+  const until = async (cond: () => boolean): Promise<void> => {
+    for (let i = 0; i < 500 && !cond(); i++) await new Promise((r) => setImmediate(r));
+  };
+  const withFakeTimers = async (body: () => Promise<void>): Promise<void> => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      await body();
+    } finally {
+      vi.useRealTimers();
+    }
+  };
+
+  it("runQuotes returns at the deadline with what arrived: a request in flight is a timeout, one not started is skipped, a late answer is ignored", () =>
+    withFakeTimers(async () => {
+      const good = fakeSource("serpapi", async () => [offer(70, { source: "serpapi" })]);
+      const late = fakeSource("searchapi", () => new Promise<Offer[]>((ok) => setTimeout(() => ok([offer(60, { source: "searchapi" })]), QUOTE_PHASE_DEADLINE_MS + 1_000)));
+      const hung = [fakeSource("ignav", never), fakeSource("wego", never)];
+      let finished = false;
+      const run = runQuotes([good, late, ...hung], primary, dates4, party).then((r) => ((finished = true), r));
+      await vi.advanceTimersByTimeAsync(QUOTE_PHASE_DEADLINE_MS - 1);
+      expect(finished).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      const { offers, stats } = await run;
+      expect(finished).toBe(true);
+      expect(offers.map((o) => o.priceAmount)).toEqual([70, 70]); // what arrived in time
+      expect(stats.get("serpapi")).toMatchObject({ succeeded: 2, failures: [], notes: [`2 request(s) skipped (time limit ${QUOTE_PHASE_DEADLINE_MS / 1000} s)`] });
+      expect(stats.get("ignav")).toMatchObject({ succeeded: 0, failures: ["Ignav: timeout"] });
+      expect(stats.get("wego")).toMatchObject({ succeeded: 0, failures: ["Wego: timeout"] });
+      expect(stats.get("searchapi")).toMatchObject({ succeeded: 0, failures: ["SearchApi: timeout"] });
+      const asked = [good, late, ...hung].map((s) => s.asked.length);
+      expect(asked).toEqual([2, 2, 2, 2]); // the six lanes were all taken: the rest never started
+
+      await vi.advanceTimersByTimeAsync(5_000); // the late answer arrives after the phase ended: nothing changes
+      expect(offers.map((o) => o.priceAmount)).toEqual([70, 70]);
+      expect(stats.get("searchapi")?.succeeded).toBe(0);
+      expect([good, late, ...hung].map((s) => s.asked.length)).toEqual(asked); // and nothing started after the deadline
+    }));
+
+  it("the deadline leaves a request that starts at once its whole timeout, and stays well inside the client's 25 s", () => {
+    expect(QUOTE_PHASE_DEADLINE_MS).toBeGreaterThan(QUOTE_TIMEOUT_MS);
+    expect(QUOTE_PHASE_DEADLINE_MS).toBeLessThanOrEqual(10_000);
+  });
+
+  it("a phase that ends in time does not wait for the deadline and leaves no timer behind", () =>
+    withFakeTimers(async () => {
+      const src = fakeSource("serpapi", async () => [offer(70, { source: "serpapi" })]);
+      const { offers } = await runQuotes([src], primary, dates4, party);
+      expect(offers).toHaveLength(4);
+      expect(vi.getTimerCount()).toBe(0);
+    }));
+
+  it("runSearch answers at the deadline, and the scan was already handed to waitUntil before the vendors were asked", () =>
+    withFakeTimers(async () => {
+      const w = world([offer(100)]);
+      const jobs: Array<Promise<unknown>> = [];
+      const hung = fakeSource("serpapi", never);
+      const run = w.run([hung], req(), { waitUntil: (job) => void jobs.push(job) });
+      await until(() => hung.asked.length > 0);
+      await vi.advanceTimersByTimeAsync(QUOTE_PHASE_DEADLINE_MS - 1);
+      expect(hung.asked).toHaveLength(1); // the phase is under way...
+      expect(jobs).toHaveLength(1); // ...and the scan is already registered: a client that leaves now does not lose it
+      await jobs[0];
+      expect(await rowsOf(w.db, "SELECT search_key FROM search_cache")).toHaveLength(1);
+      expect(await rowsOf(w.db, "SELECT source FROM source_health")).toEqual([{ source: "travelpayouts" }]);
+      expect(await rowsOf(w.db, "SELECT id FROM prices")).toEqual([]); // history waits for the ranking: no price context may include this search's own prices
+
+      await vi.advanceTimersByTimeAsync(1);
+      const res = await run;
+      expect(res.cards[0]?.offer).toMatchObject({ source: "travelpayouts", priceAmount: 100 });
+      expect(res.meta.sources[2]).toMatchObject({ name: "serpapi", ok: false, calls: 1, error: "SerpApi: timeout" });
+      expect(jobs).toHaveLength(2);
+      await Promise.all(jobs);
+      expect(await rowsOf(w.db, "SELECT source, price_amount FROM prices")).toEqual([{ source: "travelpayouts", price_amount: 100 }]);
+      expect(await rowsOf(w.db, "SELECT id FROM searches")).toHaveLength(1); // the search is logged once, not once per write
+      expect(await rowsOf(w.db, "SELECT search_key FROM search_cache")).toHaveLength(1);
+    }));
+
+  it("the write is one step without a quote phase, and two (scan, then history) with one, in order, also without waitUntil", async () => {
+    const plain = world([offer(100)]);
+    const jobs: Array<Promise<unknown>> = [];
+    await plain.run(undefined, req(), { waitUntil: (job) => void jobs.push(job) });
+    expect(jobs).toHaveLength(1);
+
+    const w = world([offer(100)]);
+    const order: string[] = [];
+    const spy = { ...w.repo, saveSearch: async (...a: Parameters<Repo["saveSearch"]>) => (order.push("search"), w.repo.saveSearch(...a)), savePrices: async (...a: Parameters<Repo["savePrices"]>) => (order.push("prices"), w.repo.savePrices(...a)) } as Repo;
+    const src = fakeSource("serpapi", async () => (order.push("asked"), [offer(80, { source: "serpapi" })]));
+    await runSearch({ repo: spy, tp: mockTp([offer(100)]), fx: async () => FX, now: NOW, quoteSources: [src] }, req());
+    expect(order).toEqual(["search", "asked", "prices", "prices"]); // the scan is stored before the vendors are asked (no waitUntil: awaited)
+  });
+});
+
+describe("the two writes of a search with a quote phase", () => {
+  it("the cache row with the quotes lands last, even when the first write of the row is the slower one (they never race)", async () => {
+    const w = world([offer(100)]);
+    const landed: boolean[] = [];
+    const slowFirst = async (...a: Parameters<Repo["putCachedOffers"]>) => {
+      const withQuotes = (a[3]?.quotes?.length ?? 0) > 0;
+      if (!withQuotes) await new Promise((r) => setTimeout(r, 25)); // the scan's own write is slow, like a busy D1
+      await w.repo.putCachedOffers(...a);
+      landed.push(withQuotes);
+    };
+    const jobs: Array<Promise<unknown>> = [];
+    const spy = { ...w.repo, putCachedOffers: slowFirst } as Repo;
+    await runSearch({ repo: spy, tp: mockTp([offer(100)]), fx: async () => FX, now: NOW, quoteSources: [fakeSource("serpapi", async () => [offer(80, { source: "serpapi" })])], waitUntil: (job) => void jobs.push(job) }, req());
+    await Promise.all(jobs);
+    expect(landed).toEqual([false, true]);
+    const extra = JSON.parse(String((await rowsOf(w.db, "SELECT extra_json FROM search_cache"))[0]?.extra_json)) as { quotes?: unknown[] };
+    expect(extra.quotes).toHaveLength(1); // what the next identical search reads
+  });
+});
+
+describe("a pair a vendor already answered is not asked again", () => {
+  const primary = { origin: "TLV", dest: "BCN" };
+  const dates4: Array<[string, string]> = [["2026-11-10", "2026-11-16"], ["2026-11-11", "2026-11-17"], ["2026-11-12", "2026-11-18"], ["2026-11-13", "2026-11-19"]];
+
+  it("runQuotes skips exactly the covered (source, pair) combinations, and they take no slot", async () => {
+    const a = fakeSource("serpapi", async () => []);
+    const b = fakeSource("ignav", async () => []);
+    const covered = new Set([coverKey("serpapi", "TLV", "BCN", "2026-11-10", "2026-11-16"), coverKey("serpapi", "TLV", "BCN", "2026-11-12", "2026-11-18"), coverKey("ignav", "TLV", "SDV", "2026-11-11", "2026-11-17")]);
+    await runQuotes([a, b], primary, dates4, { adults: 1 }, covered);
+    expect(a.asked.map((q) => q.departDate)).toEqual(["2026-11-11", "2026-11-13"]);
+    expect(b.asked).toHaveLength(4); // the covered key was for another airport pair
+  });
+
+  it("a second search that only changes the stay range makes no vendor request and spends no unit", async () => {
+    const w = world(pairsOf(2));
+    const first = await w.run([w.mk("serpapi")]);
+    expect(w.fetchFn).toHaveBeenCalledTimes(2);
+    expect(await used(w.db, "serpapi", "2026-11")).toBe(2);
+
+    const second = await w.run([w.mk("serpapi")], req({ stayMax: 8 }), { now: new Date(NOW.getTime() + 60_000) });
+    expect(second.meta.fromCache).toBe(false); // a new search key: the Travelpayouts scan is made again
+    expect(w.fetchFn).toHaveBeenCalledTimes(2);
+    expect(await used(w.db, "serpapi", "2026-11")).toBe(2);
+    expect(second.meta.sources[2]).toMatchObject({ name: "serpapi", ok: true, calls: 0, offers: 2, error: null }); // what the stored quotes still contribute
+    expect(second.cards[0]?.offer).toMatchObject({ source: "serpapi", priceAmount: first.cards[0]?.offer.priceAmount });
+  });
+
+  it("a pair another vendor answered is still asked of this vendor, and a stored quote older than QUOTE_MAX_AGE_HOURS covers nothing", async () => {
+    const w = world(pairsOf(2));
+    await w.run([w.mk("serpapi")]);
+    await w.run([w.mk("serpapi"), w.mk("ignav")], req({ stayMax: 8 }), { now: new Date(NOW.getTime() + 60_000) });
+    expect(w.fetchFn).toHaveBeenCalledTimes(4); // ignav: both pairs, serpapi: none again
+    expect(await used(w.db, "ignav", "2026-11")).toBe(2);
+
+    const old = world(pairsOf(2));
+    await old.run([old.mk("serpapi")]);
+    await old.run([old.mk("serpapi")], req({ stayMax: 8 }), { now: new Date(NOW.getTime() + (QUOTE_MAX_AGE_HOURS + 0.5) * HOUR) });
+    expect(old.fetchFn).toHaveBeenCalledTimes(4);
+  });
+});
+
+describe("a quote far below the cached fare of its own pair is not believed", () => {
+  it("is neither ranked nor stored nor cached, and a source with nothing left says so", async () => {
+    expect(MIN_PLAUSIBLE_QUOTE_SHARE).toBe(0.55);
+    const w = world([offer(100)]);
+    await w.repo.saveFxRates(FX);
+    const res = await w.run([w.mk("serpapi", { fares: () => [fare(45)] })]); // 45% of the cached fare, e.g. a one-way price read as a round trip
+    expect(res.cards[0]?.offer).toMatchObject({ source: "travelpayouts", priceAmount: 100 });
+    expect(await pricesOf(w.db)).toEqual([{ source: "travelpayouts", price_amount: 100, price_currency: "USD" }]);
+    expect(res.meta.sources[2]).toMatchObject({ name: "serpapi", ok: true, calls: 1, error: "1 quote(s) ignored: far below the cached fare" });
+    const extra = JSON.parse(String((await rowsOf(w.db, "SELECT extra_json FROM search_cache"))[0]?.extra_json)) as { quotes?: unknown };
+    expect(extra.quotes).toBeUndefined();
+
+    const again = await w.run([w.mk("serpapi")], req(), { now: new Date(NOW.getTime() + HOUR) }); // the repeat shows the same, from the cache
+    expect(again.meta.fromCache).toBe(true);
+    expect(again.cards[0]?.offer.source).toBe("travelpayouts");
+  });
+
+  it("a real drop still wins, and a far-below quote next to believable ones costs only itself", async () => {
+    const w = world(pairsOf(2)); // cached: 100 and 110
+    const res = await w.run([w.mk("serpapi", { fares: (q) => [fare(q.departDate === "2026-11-10" ? 60 : 40)] })]); // 60% of 100 stays, 36% of 110 goes
+    expect(res.cards[0]?.offer).toMatchObject({ source: "serpapi", priceAmount: 60 });
+    expect(await pricesOf(w.db)).toEqual([
+      { source: "serpapi", price_amount: 60, price_currency: "USD" },
+      { source: "travelpayouts", price_amount: 100, price_currency: "USD" },
+      { source: "travelpayouts", price_amount: 110, price_currency: "USD" },
+    ]);
+    expect(res.meta.sources[2]).toMatchObject({ ok: true, offers: 2, error: null }); // not everything of the source was disbelieved
+  });
+
+  it("a pair whose cached fare has no total (or none at all) is not judged", async () => {
+    const w = world([offer(100)]);
+    const res = await w.run([w.mk("serpapi", { fares: () => [fare(1, { currency: "XXX" })] })]);
+    expect(res.meta.sources[2]).toMatchObject({ ok: true, calls: 1, offers: 1, error: null }); // unrankable, not "implausible"
+  });
+});
+
+describe("the daily share: a ration in front of the caps", () => {
+  const primary = { origin: "TLV", dest: "BCN" };
+  const dates4: Array<[string, string]> = [["2026-11-10", "2026-11-16"], ["2026-11-11", "2026-11-17"], ["2026-11-12", "2026-11-18"], ["2026-11-13", "2026-11-19"]];
+  const LIFE_50: QuotaSpec = { period: "lifetime", cap: 50, allowance: 100 };
+
+  it("is the cap over 30 days (one-off) or 31 (monthly), rounded up, and at least 1", () => {
+    expect(dailyShare("lifetime", 800)).toBe(27);
+    expect(dailyShare("lifetime", 50)).toBe(2);
+    expect(dailyShare("lifetime", 30)).toBe(1);
+    expect(dailyShare("lifetime", 1)).toBe(1);
+    expect(dailyShare("2026-10", 100)).toBe(4);
+    expect(dailyShare("2026-10", 31)).toBe(1);
+    expect(dailyShare("2026-10", 32)).toBe(2);
+  });
+
+  it("a source gets its day's share and no more, however many searches ask; what the share refuses costs nothing of the allowance; the next UTC day renews it", async () => {
+    const db = createTestD1();
+    const fetchFn = okFetch();
+    const source = (now: Date) => createQuoteSource(testAdapter("searchapi", LIFE_50), { key: "k", repo: withDailyShare(createRepo(db)), now, fetchFn: asFetch(fetchFn) });
+    const results = await Promise.allSettled(Array.from({ length: 40 }, () => source(NOW).quote(Q)));
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(dailyShare("lifetime", 50));
+    for (const r of results) if (r.status === "rejected") expect(r.reason).toMatchObject({ code: "ration_exhausted" });
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+    expect(await used(db, "searchapi", "lifetime")).toBe(2); // 38 refusals took nothing from the allowance
+
+    await Promise.allSettled(Array.from({ length: 40 }, () => source(new Date(NOW.getTime() + 24 * HOUR)).quote(Q)));
+    expect(fetchFn).toHaveBeenCalledTimes(4);
+    expect(await used(db, "searchapi", "lifetime")).toBe(4);
+  });
+
+  it("the caps still bind under the share: the real counter refuses at its cap, and the share is per vendor", async () => {
+    const db = createTestD1();
+    const repo = withDailyShare(createRepo(db));
+    const fetchFn = okFetch();
+    const tight = createQuoteSource(testAdapter("ignav", { period: "lifetime", cap: 1, allowance: 10 }), { key: "k", repo, now: NOW, fetchFn: asFetch(fetchFn) });
+    const other = createQuoteSource(testAdapter("serpapi", MONTHLY_3), { key: "k", repo, now: NOW, fetchFn: asFetch(fetchFn) });
+    await expect(tight.quote(Q)).resolves.toHaveLength(1);
+    await expect(tight.quote(Q)).rejects.toMatchObject({ code: "ration_exhausted" }); // share 1 spent first
+    await expect(other.quote(Q)).resolves.toHaveLength(1); // another vendor has its own share
+    expect(await rowsOf(db, "SELECT source, period, used FROM source_quota ORDER BY source")).toEqual([{ source: "ignav", period: "lifetime", used: 1 }, { source: "serpapi", period: "2026-11", used: 1 }]);
+  });
+
+  it("fails closed: a daily counter that cannot be read or raised means no request and no unit of the allowance", async () => {
+    const noTable = createTestD1();
+    await noTable.prepare("DROP TABLE rate_limits").run();
+    const real = () => createRepo(createTestD1());
+    const bad: Array<[string, Repo]> = [
+      ["missing table", createRepo(noTable)],
+      ["rejecting", { ...real(), reserveDaily: async () => { throw new Error("D1 down"); } }],
+      ["throwing", { ...real(), reserveDaily: () => { throw new Error("D1 down"); } }],
+      ["refusing", { ...real(), reserveDaily: async () => false }],
+      ["odd answer", { ...real(), reserveDaily: async () => 1 as unknown as boolean }],
+      ["no such method", { reserveQuota: async () => true } as unknown as Repo],
+    ];
+    for (const [label, repo] of bad) {
+      const fetchFn = okFetch();
+      const s = createQuoteSource(testAdapter("serpapi", MONTHLY_3), { key: "k", repo: withDailyShare(repo), now: NOW, fetchFn: asFetch(fetchFn) });
+      await expect(s.quote(Q), label).rejects.toMatchObject({ code: "ration_exhausted" });
+      expect(fetchFn, label).not.toHaveBeenCalled();
+      expect(s.callCount(), label).toBe(0);
+    }
+    const db = createTestD1();
+    await db.prepare("DROP TABLE rate_limits").run();
+    const s = createQuoteSource(testAdapter("serpapi", MONTHLY_3), { key: "k", repo: withDailyShare(createRepo(db)), now: NOW, fetchFn: asFetch(okFetch()) });
+    await expect(s.quote(Q)).rejects.toMatchObject({ code: "ration_exhausted" });
+    expect(await rowsOf(db, "SELECT * FROM source_quota")).toEqual([]);
+  });
+
+  it("is reported as its own note (not a failure), and stops that source for the rest of the search", async () => {
+    const db = createTestD1();
+    const fetchFn = okFetch();
+    const s = createQuoteSource(testAdapter("serpapi", { period: "lifetime", cap: 30, allowance: 100 }), { key: "k", repo: withDailyShare(createRepo(db)), now: NOW, fetchFn: asFetch(fetchFn) }); // share 1
+    const { stats } = await runQuotes([s], primary, dates4, { adults: 1 });
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(stats.get("serpapi")).toMatchObject({ calls: 1, succeeded: 1, failures: [], notes: ["SerpApi: today's share of the free quota used up"] });
+    expect(describeQuoteError(s, new QuoteError("ration_exhausted"))).toBe("SerpApi: today's share of the free quota used up");
+  });
+});
+
+describe("a source that answers some pairs and fails others", () => {
+  it("is not ok, keeps the offers it did deliver in the ranking, and its health row records the failure", async () => {
+    const w = world(pairsOf(4));
+    const fetchFn = vi.fn(async (url: unknown) => (String(url).includes("d=2026-11-10") || String(url).includes("d=2026-11-11") ? new Response("{}", { status: 200 }) : new Response("no", { status: 500 })));
+    const res = await w.run([w.mk("serpapi", { fetchFn, fares: () => [fare(70)] })]);
+    expect(res.meta.sources[2]).toEqual({ name: "serpapi", enabled: true, ok: false, calls: 4, offers: 2, error: "SerpApi: HTTP 500" });
+    expect(res.cards[0]?.offer).toMatchObject({ source: "serpapi", priceAmount: 70 });
+    expect(await rowsOf(w.db, "SELECT source, consecutive_failures, last_ok_at, last_error FROM source_health WHERE source = 'serpapi'")).toEqual([
+      { source: "serpapi", consecutive_failures: 1, last_ok_at: null, last_error: "SerpApi: HTTP 500" },
+    ]);
+  });
+
+  it("meta.sources and source_health use one rule (quoteOk)", () => {
+    const stat = (over: Partial<Parameters<typeof quoteOk>[0]> = {}) => ({ calls: 2, succeeded: 2, offers: 3, failures: [], notes: [], ...over });
+    expect(quoteOk(stat())).toBe(true);
+    expect(quoteOk(stat({ failures: ["SerpApi: HTTP 500"] }))).toBe(false);
+    expect(quoteOk(stat({ succeeded: 0 }))).toBe(false);
+    expect(quoteOk(stat({ calls: 0 }))).toBe(false);
+    expect(quoteOk(stat({ notes: ["SerpApi: free quota used up (monthly)"] }))).toBe(true); // a note is not a failure
+  });
+});
+
+describe("what a live quote leaves in the history and in the ranking", () => {
+  it("history stores a live quote per passenger while the card shows the party, and the price context matches the card", async () => {
+    const w = world([offer(100)]);
+    const first = await w.run([w.mk("serpapi", { fares: () => [fare(80)] })], req({ adults: 2 }));
+    expect(first.cards[0]?.offer).toMatchObject({ source: "serpapi", priceAmount: 160 });
+    expect(await pricesOf(w.db)).toEqual([
+      { source: "serpapi", price_amount: 80, price_currency: "USD" },
+      { source: "travelpayouts", price_amount: 100, price_currency: "USD" },
+    ]);
+    const second = await w.run([w.mk("serpapi")], req({ adults: 2, stayMax: 8 }), { now: new Date(NOW.getTime() + HOUR) });
+    expect(second.cards[0]?.priceContext).toMatchObject({ currency: "USD", lowestAmount: 160 }); // 80 per person x 2, not 320
+  });
+
+  it("with children and infants the history is per traveller too", async () => {
+    const w = world([offer(100)]);
+    const res = await w.run([w.mk("serpapi", { fares: () => [fare(80)] })], req({ adults: 2, children: 1, infants: 1 }));
+    expect(res.cards[0]?.offer).toMatchObject({ source: "serpapi", priceAmount: 320 });
+    expect((await pricesOf(w.db)).find((r) => r.source === "serpapi")?.price_amount).toBe(80);
+  });
+
+  it("an unknown OUTBOUND departure never matches a known one (the return time is the lenient one): the quote does not replace the cached fare", async () => {
+    const priced = (price: number, over: Partial<Offer> = {}) => ({ ...offer(price, over), totalIls: price * 3 });
+    const cached = priced(100);
+    const blind = priced(150, { source: "serpapi", outbound: leg({ departTime: null }), inbound: leg({ departTime: null }) });
+    expect(mergeQuoted([cached, blind])).toEqual([cached, blind]);
+    const older = priced(80, { source: "serpapi", outbound: leg({ departTime: null }), checkedAt: "2026-11-01T06:00:00.000Z" });
+    const a = priced(90, { source: "searchapi", outbound: leg({ departTime: null }) });
+    const b = priced(85, { source: "serpapi", outbound: leg({ departTime: null }) });
+    expect(mergeQuoted([older, a, b]).map((o) => [o.source, o.priceAmount])).toEqual([["serpapi", 85]]); // two of the same unknown itinerary: newest, then cheapest
+
+    const w = world([offer(100)]);
+    const res = await w.run([w.mk("serpapi", { fares: () => [fare(150, { outbound: leg({ departTime: null }) })] })]);
+    expect(res.cards[0]?.offer).toMatchObject({ source: "travelpayouts", priceAmount: 100 }); // the cached fare is not confirmed, so it stays
+  });
+
+  it("a quote in a convertible foreign currency is ranked in ILS and stored in its own currency", async () => {
+    const w = world([offer(100)]);
+    const res = await w.run([w.mk("serpapi", { fares: () => [fare(80, { currency: "EUR" })] })]);
+    expect(res.cards[0]?.offer).toMatchObject({ source: "serpapi", priceAmount: 80, priceCurrency: "EUR", totalIls: 280 }); // 80 x 3.5 beats the cached 100 x 3
+    expect((await pricesOf(w.db)).find((r) => r.source === "serpapi")).toEqual({ source: "serpapi", price_amount: 80, price_currency: "EUR" });
+  });
+});
+
+describe("the phase's defensive branches", () => {
+  const primary = { origin: "TLV", dest: "BCN" };
+  const dates4: Array<[string, string]> = [["2026-11-10", "2026-11-16"], ["2026-11-11", "2026-11-17"], ["2026-11-12", "2026-11-18"], ["2026-11-13", "2026-11-19"]];
+
+  it("a source refused before any request gives its slots back: the others still get all MAX_QUOTE_CALLS", async () => {
+    const repo = createRepo(createTestD1());
+    const fetchFn = okFetch();
+    const healthy = (["ignav", "searchapi", "serpapi"] as const).map((n) => createQuoteSource(testAdapter(n, BIG), { key: "k", repo, now: NOW, fetchFn: asFetch(fetchFn) }));
+    // stands in for a Wego whose counter is spent: it says it would need 5 slots, then sends nothing
+    const spent = fakeSource("wego", async () => { await Promise.resolve(); throw new QuoteError("quota_exhausted"); }, { nextQuoteRequests: () => 5, callCount: () => 0 });
+    const { stats } = await runQuotes([spent, ...healthy], primary, dates4, { adults: 1 });
+    expect(fetchFn).toHaveBeenCalledTimes(MAX_QUOTE_CALLS);
+    for (const n of ["ignav", "searchapi", "serpapi"] as const) expect(stats.get(n)?.calls, n).toBe(4);
+    expect(stats.get("wego")).toMatchObject({ calls: 0, succeeded: 0 });
+  });
+
+  it("a source that sent nothing leaves no source_health row, one that made a request does", async () => {
+    const w = world(pairsOf(2));
+    const exhausted = w.mk("ignav", { quota: LIFETIME_1 });
+    await w.repo.reserveQuota("ignav", "lifetime", 1, NOW);
+    for (let i = 0; i < 2; i++) await w.run([exhausted, w.mk("serpapi")], req({ stayMax: 7 + i }));
+    expect(await rowsOf(w.db, "SELECT source, consecutive_failures FROM source_health ORDER BY source")).toEqual([
+      { source: "serpapi", consecutive_failures: 0 },
+      { source: "travelpayouts", consecutive_failures: 0 },
+    ]);
+  });
+
+  it("a source that breaks while being counted cannot fail the search: it is listed, the others answer", async () => {
+    const baseline = await world([offer(100)]).run(undefined);
+    const w = world([offer(100)]);
+    const broken = fakeSource("ignav", async () => [], { callCount: () => { throw new Error("boom"); } });
+    const res = await w.run([broken]);
+    expect(res.cards).toEqual(baseline.cards);
+    expect(res.meta.sources[2]).toMatchObject({ name: "ignav", enabled: true, ok: false, calls: 0 });
+  });
+});
+
+describe("the vendor path never logs (a SerpApi key sits in its URL)", () => {
+  const KEY = "K-LOG-SECRET-0123456789abcdef";
+  const answers: Array<[string, (url: string) => Response | Promise<Response>]> = [
+    ["a good answer", () => new Response("{}", { status: 200 })],
+    ["HTTP 401", () => new Response(`denied ${KEY}`, { status: 401 })],
+    ["HTTP 429", () => new Response("slow down", { status: 429 })],
+    ["HTTP 500", () => new Response("boom", { status: 500 })],
+    ["a redirect", () => new Response(null, { status: 302, headers: { Location: "https://elsewhere.test/" } })],
+    ["invalid JSON", () => new Response("<html>", { status: 200 })],
+    ["an oversized body", () => new Response(`{"x":"${"a".repeat(600_000)}"}`, { status: 200 })],
+    ["a timeout", () => { throw Object.assign(new Error("t"), { name: "TimeoutError" }); }],
+    ["a network error that echoes the URL", (url) => { throw new TypeError(`fetch failed for ${url}`); }],
+  ];
+
+  it("no console output for any answer, refusal or storage failure, and no error carries the key or the URL", async () => {
+    const spies = (["log", "info", "warn", "error", "debug"] as const).map((m) => vi.spyOn(console, m).mockImplementation(() => {}));
+    try {
+      for (const adapter of [ignavAdapter, searchApiAdapter, serpApiAdapter]) {
+        const bad: Array<[string, Repo]> = [
+          ["a D1 error", { reserveQuota: async () => { throw new Error(`D1 failed for ${KEY}`); } } as unknown as Repo],
+          ["a refused unit", { reserveQuota: async () => false } as unknown as Repo],
+        ];
+        for (const [label, repo] of bad) {
+          const s = createQuoteSource(adapter, { key: KEY, repo, now: NOW, fetchFn: asFetch(okFetch()) });
+          const err = await s.quote(Q).catch((e: unknown) => e);
+          expect(err, `${adapter.name} ${label}`).toBeInstanceOf(QuoteError);
+          expect(JSON.stringify([String(err), (err as Error).message, (err as Error).stack ?? ""]), `${adapter.name} ${label}`).not.toContain(KEY);
+        }
+        for (const [label, answer] of answers) {
+          const urls: string[] = [];
+          const fetchFn = vi.fn(async (url: unknown) => (urls.push(String(url)), answer(String(url))));
+          const s = createQuoteSource(adapter, { key: KEY, repo: createRepo(createTestD1()), now: NOW, fetchFn: asFetch(fetchFn) });
+          const got = await s.quote(Q).then(() => null, (e: unknown) => e);
+          const text = JSON.stringify([String(got), got instanceof Error ? [got.message, got.stack] : null, got instanceof QuoteError ? describeQuoteError(s, got) : null]);
+          expect(text, `${adapter.name} ${label}`).not.toContain(KEY);
+          for (const url of urls) expect(text, `${adapter.name} ${label}`).not.toContain(url);
+        }
+      }
+      for (const spy of spies) expect(spy).not.toHaveBeenCalled();
+    } finally {
+      for (const spy of spies) spy.mockRestore();
     }
   });
 });

@@ -397,7 +397,8 @@ export function createWegoSource(opts: WegoOptions): FareQuoteSource {
       let reserved = false;
       try {
         reserved = (await opts.repo.reserveQuota("wego", quotaPeriodKey(quota.period, opts.now), quota.cap, opts.now)) === true;
-      } catch {
+      } catch (err) {
+        if (err instanceof QuoteError) throw err; // the daily share (withDailyShare) says why it refused
         reserved = false;
       }
       if (!reserved) throw new QuoteError("quota_exhausted");

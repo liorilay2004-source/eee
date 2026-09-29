@@ -966,3 +966,86 @@ describe("pruneHistory leaves the quota counters alone", () => {
     expect(await count(db, "source_quota")).toBe(1);
   });
 });
+
+describe("reserveDaily (the per-day share in front of the quota counters)", () => {
+  const today = (db: D1Database, key: string) => db.prepare("SELECT window_start, count FROM rate_limits WHERE key = ?").bind(key).all<{ window_start: number; count: number }>().then((r) => r.results);
+
+  it("hands out exactly cap units per UTC day, then refuses, and never raises the counter past the cap", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    const got: boolean[] = [];
+    for (let i = 0; i < 6; i++) got.push(await repo.reserveDaily("quota:ignav", 3, NOW));
+    expect(got).toEqual([true, true, true, false, false, false]);
+    expect(await today(db, "quota:ignav")).toEqual([{ window_start: Date.parse("2026-11-01T00:00:00Z") / 1000, count: 3 }]);
+  });
+
+  it("is atomic: 20 concurrent reservations of a share of 5 raise it exactly 5 times", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    const got = await Promise.all(Array.from({ length: 20 }, () => repo.reserveDaily("quota:serpapi", 5, NOW)));
+    expect(got.filter(Boolean)).toHaveLength(5);
+    expect((await today(db, "quota:serpapi"))[0]?.count).toBe(5);
+  });
+
+  it("a new UTC day renews the share, another vendor has its own, and the day boundary is exact", async () => {
+    const repo = createRepo(createTestD1());
+    expect(await repo.reserveDaily("quota:ignav", 1, new Date("2026-11-01T23:59:59Z"))).toBe(true);
+    expect(await repo.reserveDaily("quota:ignav", 1, new Date("2026-11-01T00:00:00Z"))).toBe(false);
+    expect(await repo.reserveDaily("quota:ignav", 1, new Date("2026-11-02T00:00:00Z"))).toBe(true);
+    expect(await repo.reserveDaily("quota:serpapi", 1, new Date("2026-11-02T00:00:00Z"))).toBe(true);
+  });
+
+  it("refuses anything that is not a whole share of at least 1, a quota key, or a real clock", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    for (const cap of [0, -1, 0.5, 2.5, Number.NaN, Number.POSITIVE_INFINITY, 2 ** 60]) expect(await repo.reserveDaily("quota:ignav", cap, NOW), String(cap)).toBe(false);
+    for (const key of ["", "ignav", "search:abc", "quota:", "quota:IGNAV", "quota:x'; DROP TABLE rate_limits; --", "global:scan"]) expect(await repo.reserveDaily(key, 5, NOW), key).toBe(false);
+    expect(await repo.reserveDaily("quota:ignav", 5, new Date(Number.NaN))).toBe(false);
+    expect(await count(db, "rate_limits")).toBe(0);
+  });
+
+  it("fails closed on a missing table or a database error", async () => {
+    const noTable = createTestD1();
+    await noTable.prepare("DROP TABLE rate_limits").run();
+    expect(await createRepo(noTable).reserveDaily("quota:ignav", 5, NOW)).toBe(false);
+    const broken = { prepare: () => { throw new Error("D1_ERROR"); } } as unknown as D1Database;
+    expect(await createRepo(broken).reserveDaily("quota:ignav", 5, NOW)).toBe(false);
+  });
+
+  it("does not touch source_quota, and the rate limiter's own cleanup keeps today's row", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    await repo.reserveDaily("quota:ignav", 5, NOW);
+    await repo.checkRateLimit("search:x", 5, 600, NOW); // the first hit of a window sweeps dead windows (older than a day)
+    expect(await count(db, "source_quota")).toBe(0);
+    expect((await today(db, "quota:ignav"))[0]?.count).toBe(1);
+    // ...and a day-old row is swept by the daily retention job like any dead window
+    await pruneHistory(db, new Date(NOW.getTime() + 2 * DAY));
+    expect(await today(db, "quota:ignav")).toEqual([]);
+  });
+});
+
+describe("search cache: live quotes beside the fares", () => {
+  const offers = [mkOffer()];
+  const quotes = [mkOffer({ source: "serpapi", priceAmount: 150, inbound: { departTime: null, arriveTime: null, stops: null, durationMin: null, airlines: [] } })];
+  const pairs: OneWayPair[] = [];
+
+  it("round-trips the quotes with the fares and the notes", async () => {
+    const repo = createRepo(createTestD1());
+    await repo.putCachedOffers("k", offers, NOW, { oneWayPairs: pairs, notes: ["n"], quotes });
+    expect(await repo.getCachedOffers("k", 6, NOW)).toEqual({ offers, createdAt: NOW.toISOString(), oneWayPairs: pairs, notes: ["n"], quotes });
+  });
+
+  it("a row without quotes (every row written before, or a scan that got none) comes back without the field", async () => {
+    const repo = createRepo(createTestD1());
+    await repo.putCachedOffers("k", offers, NOW, { oneWayPairs: pairs, notes: [] });
+    expect(await repo.getCachedOffers("k", 6, NOW)).toEqual({ offers, createdAt: NOW.toISOString(), oneWayPairs: pairs, notes: [] });
+  });
+
+  it("a damaged quote list is dropped, never a miss: the fares and the split tickets stay usable", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    await db.prepare("INSERT INTO search_cache (search_key, offers_json, extra_json, created_at) VALUES (?, ?, ?, ?)").bind("k", JSON.stringify(offers), JSON.stringify({ oneWayPairs: [], notes: [], quotes: "x" }), NOW.toISOString()).run();
+    expect(await repo.getCachedOffers("k", 6, NOW)).toEqual({ offers, createdAt: NOW.toISOString(), oneWayPairs: [], notes: [] });
+  });
+});

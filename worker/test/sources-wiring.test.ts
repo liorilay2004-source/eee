@@ -9,7 +9,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import roundtripFixture from "./fixtures/tp_roundtrip.json";
 import onewayFixture from "./fixtures/tp_oneway.json";
 import * as entry from "../src/index";
-import { MAX_QUOTE_CALLS } from "../src/quotes";
+import { MAX_TP_REQUESTS } from "../src/pipeline";
+import { dailyShare, MAX_QUOTE_CALLS } from "../src/quotes";
 import { IGNAV_QUOTA } from "../src/sources/ignav";
 import { SEARCHAPI_QUOTA } from "../src/sources/searchapi";
 import { SERPAPI_QUOTA } from "../src/sources/serpapi";
@@ -406,5 +407,169 @@ describe("the scheduled job", () => {
     await Promise.all(pending);
     expect(up.fn).not.toHaveBeenCalled();
     expect(await quotaRows(env)).toEqual([{ source: "ignav", period: "lifetime", used: 7 }]); // long past every retention window, still there
+  });
+});
+
+// --- review fixes -------------------------------------------------------------------------------------------
+
+describe("the affiliate marker reaches every live booking link", () => {
+  /** One round trip for the dates asked, in the shape each vendor's docs show, cheaper than the cached 189 and not "implausibly" so. */
+  const searchApiAnswer = (url: URL): Response => {
+    const dep = url.searchParams.get("outbound_date") ?? "";
+    return json({
+      best_flights: [
+        {
+          flights: [{ departure_airport: { id: "TLV", date: dep, time: "08:05" }, arrival_airport: { id: "BCN", date: dep, time: "12:55" }, duration: 290, airline: "El Al", travel_class: "Economy", flight_number: "LY 395" }],
+          total_duration: 290,
+          price: 150,
+          type: "Round trip",
+        },
+      ],
+    });
+  };
+  const serpApiAnswer = (url: URL): Response => {
+    const dep = url.searchParams.get("outbound_date") ?? "";
+    return json({
+      best_flights: [
+        {
+          flights: [{ departure_airport: { id: "TLV", time: `${dep} 08:05` }, arrival_airport: { id: "BCN", time: `${dep} 12:55` }, duration: 290, airline: "El Al", travel_class: "Economy", flight_number: "LY 395" }],
+          total_duration: 290,
+          price: 150,
+          type: "Round trip",
+        },
+      ],
+    });
+  };
+  const marked = [
+    { name: "ignav", envVar: "IGNAV_API_KEY", host: "ignav.com", answer: (_url: URL, init: RequestInit) => ignavAnswer(init) },
+    { name: "searchapi", envVar: "SEARCHAPI_KEY", host: "www.searchapi.io", answer: (url: URL) => searchApiAnswer(url) },
+    { name: "serpapi", envVar: "SERPAPI_KEY", host: "serpapi.com", answer: (url: URL) => serpApiAnswer(url) },
+  ] as const;
+
+  for (const v of marked) {
+    it(`${v.name}: the live offer that wins the cheapest card links to Aviasales with TRAVELPAYOUTS_MARKER`, async () => {
+      stubUpstream({ vendors: { [v.host]: v.answer } });
+      const { data } = await search(makeEnv({ [v.envVar]: KEYS[v.envVar] } as Partial<Env>));
+      const cheapest = data.cards.find((c) => (c.kinds as string[]).includes("cheapest"));
+      expect(cheapest?.offer.source).toBe(v.name);
+      expect(cheapest?.offer.deeplink).toMatch(/^https:\/\/www\.aviasales\.com\/search\/TLV1211BCN18111\?marker=12345/);
+    });
+  }
+});
+
+describe("the daily shares hold at the Worker entry", () => {
+  const dayStart = Math.floor(NOW.getTime() / 86_400_000) * 86_400;
+  const usedBy = async (env: Env) => Object.fromEntries((await quotaRows(env)).map((r) => [r.source, r.used]));
+
+  it("30 searches from one client, each dodging the cache, use a day's share of each vendor and nothing more; the next day renews it", async () => {
+    const up = stubUpstream({ vendors: { "ignav.com": (_url, init) => ignavAnswer(init) } });
+    const env = makeEnv({ IGNAV_API_KEY: KEYS.IGNAV_API_KEY, SEARCHAPI_KEY: KEYS.SEARCHAPI_KEY, SERPAPI_KEY: KEYS.SERPAPI_KEY });
+    const dodge = (i: number) => ({ ...BODY, stayMax: 6 + (i % 15), adults: 1 + Math.floor(i / 15) }); // 30 different search keys
+    for (let i = 0; i < 30; i++) expect((await search(env, dodge(i))).res.status).toBe(200);
+    const ration = { searchapi: dailyShare("lifetime", SEARCHAPI_QUOTA.cap), serpapi: dailyShare("2026-10", SERPAPI_QUOTA.cap), ignav: dailyShare("lifetime", IGNAV_QUOTA.cap) };
+    expect(up.host("www.searchapi.io")).toHaveLength(ration.searchapi);
+    expect(up.host("serpapi.com")).toHaveLength(ration.serpapi);
+    expect(up.host("ignav.com").length).toBeLessThanOrEqual(ration.ignav);
+    const used = await usedBy(env);
+    expect(used.searchapi).toBe(ration.searchapi); // 2 of the 50: the allowance is intact
+    expect(used.serpapi).toBe(ration.serpapi); // 4 of the 100 of this month
+    expect(used.ignav).toBeLessThanOrEqual(ration.ignav);
+    expect(await quotaRows(env)).toHaveLength(3); // the daily counters live elsewhere: one row per vendor and period, as before
+
+    vi.setSystemTime(new Date(NOW.getTime() + 24 * 3_600_000));
+    await search(env, { ...BODY, stayMax: 25 });
+    expect((await usedBy(env)).searchapi).toBe(2 * ration.searchapi);
+    expect(up.host("www.searchapi.io")).toHaveLength(2 * ration.searchapi);
+  });
+
+  it("a vendor whose share is spent is not called and says so, the others are; its real counter does not move", async () => {
+    const up = stubUpstream({ vendors: { "ignav.com": (_url, init) => ignavAnswer(init) } });
+    const env = makeEnv(ALL_KEYS);
+    await env.DB.prepare("INSERT INTO rate_limits (key, window_start, count) VALUES ('quota:ignav', ?, ?)").bind(dayStart, dailyShare("lifetime", IGNAV_QUOTA.cap)).run();
+    const { res, data } = await search(env);
+    expect(res.status).toBe(200);
+    expect(up.host("ignav.com")).toEqual([]);
+    expect(data.meta.sources.find((s) => s.name === "ignav")).toMatchObject({ calls: 0, ok: false, error: "Ignav: today's share of the free quota used up" });
+    expect((await quotaRows(env)).find((r) => r.source === "ignav")).toBeUndefined();
+    for (const other of VENDORS.filter((o) => o.name !== "ignav")) expect(up.host(other.host).length, other.name).toBeGreaterThan(0);
+  });
+
+  it("with the daily counters unreadable (no rate_limits table) no vendor is called, and the search still answers", async () => {
+    const up = stubUpstream({ vendors: { "ignav.com": (_url, init) => ignavAnswer(init) } });
+    const env = makeEnv(ALL_KEYS);
+    await env.DB.prepare("DROP TABLE rate_limits").run();
+    const { res, data } = await search(env);
+    expect(res.status).toBe(200);
+    expect(up.vendorCalls()).toEqual([]);
+    expect(data.cards.length).toBeGreaterThan(0);
+    for (const v of VENDORS) expect(data.meta.sources.find((s) => s.name === v.name), v.name).toMatchObject({ calls: 0, ok: false, error: expect.stringContaining("free quota used up") });
+    expect(await quotaRows(env)).toEqual([]);
+  });
+});
+
+describe("the 50-subrequest budget, measured (not computed)", () => {
+  const FX_HOSTS = ["boi.org.il", "open.er-api.com"];
+  const measure = (up: ReturnType<typeof stubUpstream>) => ({
+    total: up.fn.mock.calls.length,
+    travelpayouts: up.tpCalls().length,
+    vendors: up.vendorCalls().length,
+    fx: up.calls.filter((c) => FX_HOSTS.includes(c.url.hostname)).length,
+  });
+
+  it("a search with every key: every outbound call is Travelpayouts, FX or a vendor, and the total stays under 50", async () => {
+    const up = stubUpstream({ vendors: { "ignav.com": (_url, init) => ignavAnswer(init) } });
+    await search(makeEnv(ALL_KEYS));
+    const m = measure(up);
+    expect(m.total).toBeLessThanOrEqual(50);
+    expect(m.travelpayouts).toBeLessThanOrEqual(MAX_TP_REQUESTS);
+    expect(m.fx).toBeLessThanOrEqual(2);
+    expect(m.vendors).toBeLessThanOrEqual(MAX_QUOTE_CALLS);
+    expect(m.total).toBe(m.travelpayouts + m.fx + m.vendors); // nothing else leaves the Worker
+  });
+
+  it("and when Travelpayouts uses its whole budget first (wide window, nearby airports) the vendors are still asked and the total still holds", async () => {
+    const up = stubUpstream({ tp: manyPairsTp, vendors: { "ignav.com": (_url, init) => ignavAnswer(init) } });
+    const { res } = await search(makeEnv(ALL_KEYS), { ...BODY, windowEnd: "2027-01-05", nearbyAirports: true });
+    expect(res.status).toBe(200);
+    const m = measure(up);
+    expect(m.travelpayouts).toBe(MAX_TP_REQUESTS); // the scan really reached its cap
+    expect(m.vendors).toBeGreaterThan(0);
+    expect(m.vendors).toBeLessThanOrEqual(MAX_QUOTE_CALLS);
+    expect(m.total).toBeLessThanOrEqual(50);
+    expect(m.total).toBe(m.travelpayouts + m.fx + m.vendors);
+  }, 15_000);
+});
+
+describe("nothing a search logs holds a key or a vendor URL", () => {
+  it("every key set, every kind of vendor failure, and a database that cannot take the counters", async () => {
+    const spies = (["log", "info", "warn", "error", "debug"] as const).map((m) => vi.spyOn(console, m).mockImplementation(() => {}));
+    stubUpstream({
+      vendors: {
+        "ignav.com": () => json({ error: "boom" }, 500),
+        "www.searchapi.io": () => json({ error: "no" }, 401),
+        "serpapi.com": () => {
+          throw new TypeError("fetch failed");
+        },
+        "affiliate-api.wego.com": () => new Response("<html>", { status: 200 }),
+      },
+    });
+    const flaky = createTestD1();
+    const db = new Proxy(flaky, {
+      get(target, prop) {
+        if (prop !== "prepare") return Reflect.get(target, prop, target) as unknown;
+        return (sql: string) => {
+          if (/source_quota/i.test(sql)) throw new Error("D1_ERROR: write quota exceeded");
+          return target.prepare(sql);
+        };
+      },
+    });
+    for (const env of [makeEnv(ALL_KEYS), makeEnv({ ...ALL_KEYS, DB: db as D1Database })]) {
+      const { text } = await search(env);
+      for (const key of Object.values(KEYS)) expect(text).not.toContain(key);
+    }
+    const logged = JSON.stringify(spies.flatMap((spy) => spy.mock.calls));
+    for (const key of Object.values(KEYS)) expect(logged).not.toContain(key);
+    for (const host of VENDOR_HOSTS) expect(logged).not.toContain(host);
+    for (const spy of spies) spy.mockRestore();
   });
 });

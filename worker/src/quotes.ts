@@ -6,13 +6,16 @@
  * OWNER RULE: nothing here may ever cost money. Every vendor has a hard request cap BELOW its free allowance, counted
  * in D1 (table source_quota). createQuoteSource is the only code that calls fetch, and it reserves one unit BEFORE
  * every request: no unit (cap reached, missing table, D1 error) means no request. No retries, no card details.
+ * On top of the cap every vendor has a per-day share of it (withDailyShare, wired in index.ts), so a client that dodges the
+ * search cache cannot use up a whole allowance in minutes. It is taken first and fails closed the same way.
  * A vendor adapter only says how to build one request and how to read the answer; it cannot reach fetch or the counter.
  *
  * Prices follow the Travelpayouts round trips: ONE adult, the vendor's ORIGINAL currency, RAW (no extras, no ILS).
  * The pipeline scales them to the party (scaledCopy) like every other raw offer.
  */
+import { hasTimePrefs, matchesTimes } from "./scoring";
 import { aviasalesSearchLink, type Party } from "./travelpayouts";
-import type { Leg, Offer, Repo, SourceName, SourceStatus } from "./types";
+import type { Leg, Offer, Repo, SearchRequest, SourceName, SourceStatus } from "./types";
 
 // --- limits ---------------------------------------------------------------------------------------------
 
@@ -26,8 +29,20 @@ export const QUOTE_TIMEOUT_MS = 5_000;
 export const QUOTE_CONCURRENCY = 6;
 /** Offers kept per vendor request (the cheapest): ranking needs a few alternatives, not a whole result page. */
 export const MAX_QUOTE_OFFERS_PER_CALL = 20;
+/**
+ * The whole quote phase, from the first request to the last answer. No request STARTS after it and a late answer is ignored,
+ * so a slow or hanging vendor cannot hold a search (whose Travelpayouts scan is already stored by then) for ceil(calls / lanes)
+ * timeouts. A request that was in flight still used its reserved unit: abandoning it can only overcount.
+ */
+export const QUOTE_PHASE_DEADLINE_MS = 6_000;
 /** A stored quote older than this is no longer shown as a "live" fare on later searches. */
 export const QUOTE_MAX_AGE_HOURS = 6;
+/**
+ * A live quote below this share of the cheapest cached fare of its own date pair is not believed (an adapter reading a one-way
+ * or a per-party price would land far below it): it is neither ranked nor stored. A real drop under a 2-7 day old cache is
+ * the point of the feature, so the bound is loose.
+ */
+export const MIN_PLAUSIBLE_QUOTE_SHARE = 0.55;
 /** Free Workers get 10 ms of CPU per invocation and parsing costs CPU: a vendor page beyond this is refused before it is parsed. */
 const MAX_BODY_CHARS = 500_000;
 
@@ -90,7 +105,7 @@ export interface FareQuoteSource {
   quote(q: QuoteQuery): Promise<Offer[]>;
 }
 
-export type QuoteErrorCode = "not_configured" | "quota_exhausted" | "timeout" | "network" | "http" | "response";
+export type QuoteErrorCode = "not_configured" | "quota_exhausted" | "ration_exhausted" | "timeout" | "network" | "http" | "response";
 
 /** The message is only the code: vendor bodies, URLs and keys never reach an error. */
 export class QuoteError extends Error {
@@ -131,6 +146,36 @@ export function quotaPeriodKey(period: QuotaPeriod, now: Date): string {
   return period === "lifetime" ? "lifetime" : now.toISOString().slice(0, 7);
 }
 
+/**
+ * The cap alone only stops spending: nothing in it stops a few clients that dodge the search cache (any changed parameter is a
+ * new search) from using a whole one-off allowance in minutes, and a lifetime counter never renews. So the Worker also rations
+ * every vendor per UTC day: at most its cap divided over 30 days (a lifetime allowance) or 31 (a monthly one), rounded up.
+ */
+export function dailyShare(period: string, cap: number): number {
+  return Math.max(1, Math.ceil(cap / (period === "lifetime" ? 30 : 31)));
+}
+
+/**
+ * A Repo whose reserveQuota first takes one unit of today's share, THEN one of the real counter: a refusal by the share costs
+ * nothing of the allowance. Same rule as the counter: a share that is spent or cannot be read means no request (fail closed),
+ * reported as "ration_exhausted". Wraps the repo only where the Worker wires the vendors, so the caps themselves stay testable alone.
+ */
+export function withDailyShare(repo: Repo): Repo {
+  return {
+    ...repo,
+    async reserveQuota(source, period, cap, now) {
+      let granted = false;
+      try {
+        granted = (await repo.reserveDaily(`quota:${source}`, dailyShare(period, cap), now)) === true;
+      } catch {
+        granted = false;
+      }
+      if (!granted) throw new QuoteError("ration_exhausted");
+      return repo.reserveQuota(source, period, cap, now);
+    },
+  };
+}
+
 // --- the one place that talks to a vendor ---------------------------------------------------------------
 
 export function createQuoteSource(
@@ -153,7 +198,8 @@ export function createQuoteSource(
     let reserved = false;
     try {
       reserved = (await opts.repo.reserveQuota(adapter.name, quotaPeriodKey(quota.period, opts.now), quota.cap, opts.now)) === true;
-    } catch {
+    } catch (err) {
+      if (err instanceof QuoteError) throw err; // the daily share (withDailyShare) says why it refused
       reserved = false;
     }
     if (!reserved) throw new QuoteError("quota_exhausted");
@@ -243,11 +289,8 @@ export function createQuoteSource(
 
 // --- choosing the pairs, merging the answers ------------------------------------------------------------
 
-/**
- * The cheapest date pairs by ILS total (extras included, as the ranker sees them) among the Travelpayouts fares of the
- * primary airport pair: those are the cached prices worth confirming. Needs totalIls, i.e. after applyExtrasAndFx.
- */
-export function pickQuotePairs(offers: Offer[], primary: { origin: string; dest: string }, max: number = MAX_QUOTE_PAIRS): Array<[string, string]> {
+/** The cheapest ILS total per date pair among the Travelpayouts fares of the primary airport pair: the cached prices worth confirming. Needs totalIls. */
+function cheapestCachedByPair(offers: Offer[], primary: { origin: string; dest: string }): Map<string, { dates: [string, string]; ils: number }> {
   const best = new Map<string, { dates: [string, string]; ils: number }>();
   for (const o of offers) {
     if (o.source !== "travelpayouts" || o.totalIls === null || o.origin !== primary.origin || o.destination !== primary.dest) continue;
@@ -255,11 +298,36 @@ export function pickQuotePairs(offers: Offer[], primary: { origin: string; dest:
     const cur = best.get(key);
     if (!cur || o.totalIls < cur.ils) best.set(key, { dates: [o.departDate, o.returnDate], ils: o.totalIls });
   }
-  return [...best.values()]
+  return best;
+}
+
+/**
+ * The cheapest date pairs by ILS total (extras included, as the ranker sees them) among the Travelpayouts fares of the
+ * primary airport pair: those are the cached prices worth confirming. Needs totalIls, i.e. after applyExtrasAndFx.
+ */
+export function pickQuotePairs(offers: Offer[], primary: { origin: string; dest: string }, max: number = MAX_QUOTE_PAIRS): Array<[string, string]> {
+  return [...cheapestCachedByPair(offers, primary).values()]
     .sort((a, b) => a.ils - b.ils || a.dates[0].localeCompare(b.dates[0]) || a.dates[1].localeCompare(b.dates[1]))
     .slice(0, Math.min(max, MAX_QUOTE_PAIRS)) // a caller can ask for fewer pairs, never for more
     .map((v) => v.dates);
 }
+
+/**
+ * Per quote: false when it is below MIN_PLAUSIBLE_QUOTE_SHARE of the cheapest cached fare of its own date pair (`cached` = the
+ * pool before the quotes, priced). A quote without a cached fare to compare with, or without a total, is not judged here.
+ * Nothing about the vendor's price is verified by the code: this only keeps a wrong reading from becoming "the lowest price ever seen".
+ */
+export function plausibleQuotes(quotes: Offer[], cached: Offer[], primary: { origin: string; dest: string }): boolean[] {
+  const floor = cheapestCachedByPair(cached, primary);
+  return quotes.map((q) => {
+    const ref = floor.get(`${q.departDate}|${q.returnDate}`);
+    return ref === undefined || q.totalIls === null || q.totalIls >= ref.ils * MIN_PLAUSIBLE_QUOTE_SHARE;
+  });
+}
+
+/** What identifies "this vendor was asked for this pair" (runQuotes' `covered`): the quotes already in the pool are the vendor's answer. */
+export const coverKey = (source: string, origin: string, destination: string, departDate: string, returnDate: string): string =>
+  [source, origin, destination, departDate, returnDate].join("|");
 
 const outKey = (o: Offer): string => JSON.stringify([o.origin, o.destination, o.departDate, o.returnDate, o.outbound.departTime]);
 /** Some vendors do not state the return departure: an unknown one cannot contradict a known one. */
@@ -292,6 +360,26 @@ export function mergeQuoted(pool: Offer[]): Offer[] {
   });
 }
 
+/**
+ * Cached round trips that mergeQuoted dropped for a quote that cannot itself pass the user's hour windows or max stops (its
+ * vendor does not state the return flight: unknown departure hour or stops) while the cached fare, with its verified return,
+ * can. They stay candidates for the 🎯 card ONLY (the last argument of recommend): the live price still replaces them for
+ * Cheapest and Best value, and no return flight is ever claimed for a quote. `pool` is what went into mergeQuoted.
+ */
+export function timeCandidates(pool: Offer[], merged: Offer[], req: SearchRequest): Offer[] {
+  if (merged === pool || !hasTimePrefs(req)) return [];
+  const kept = new Set(merged);
+  const covering = merged.filter((q) => isQuoteSource(q.source) && q.ticketStructure === "roundtrip");
+  return pool.filter(
+    (o) =>
+      !kept.has(o) &&
+      !isQuoteSource(o.source) &&
+      o.ticketStructure === "roundtrip" &&
+      matchesTimes(o, req) &&
+      !covering.some((q) => outKey(q) === outKey(o) && sameReturn(q, o) && matchesTimes(q, req)),
+  );
+}
+
 // --- the phase ------------------------------------------------------------------------------------------
 
 export interface QuoteStat {
@@ -299,7 +387,7 @@ export interface QuoteStat {
   succeeded: number;
   offers: number;
   failures: string[];
-  /** Remarks that are not failures: quota reached, calls skipped by the per-search limit. */
+  /** Remarks that are not failures: quota reached, calls skipped by the per-search limits, quotes not believed. */
   notes: string[];
 }
 
@@ -323,6 +411,8 @@ export function describeQuoteError(source: FareQuoteSource, e: unknown): string 
   switch (e.code) {
     case "quota_exhausted":
       return `${label}: free quota used up (${source.quota.period})`; // also what an unreadable counter looks like: fail closed
+    case "ration_exhausted":
+      return `${label}: today's share of the free quota used up`; // also what an unreadable daily counter looks like: fail closed
     case "not_configured":
       return `${label}: not configured`;
     case "timeout":
@@ -340,13 +430,17 @@ export function describeQuoteError(source: FareQuoteSource, e: unknown): string 
  * Asks every source for every date pair (pair-major: if MAX_QUOTE_CALLS bites, the cheapest pairs keep all sources),
  * at most QUOTE_CONCURRENCY requests at a time, and never more than MAX_QUOTE_CALLS in total. One failing source, pair
  * or request never affects another. A source that is out of quota, unconfigured or refused with 401/403/429 is not
- * asked again in this search.
+ * asked again in this search. A (source, pair) in `covered` (see coverKey) is not asked at all: a stored quote of that
+ * vendor for that pair is still live, and asking again would only spend allowance.
+ * The whole phase ends at QUOTE_PHASE_DEADLINE_MS: what arrived by then is returned, nothing starts later, and a request
+ * still in flight is reported as a timeout (its unit was reserved before it went out, so abandoning it never undercounts).
  */
 export async function runQuotes(
   sources: FareQuoteSource[],
   primary: { origin: string; dest: string },
   dates: Array<[string, string]>,
   party: Party,
+  covered: ReadonlySet<string> = new Set(),
 ): Promise<{ offers: Offer[]; stats: Map<QuoteSourceName, QuoteStat> }> {
   const stats = new Map<QuoteSourceName, QuoteStat>();
   const before = new Map<QuoteSourceName, number>();
@@ -355,15 +449,21 @@ export async function runQuotes(
     before.set(s.name, s.callCount());
   }
   const queue = dates.slice(0, MAX_QUOTE_PAIRS).flatMap(([departDate, returnDate]) =>
-    sources.map((source) => ({ source, q: { origin: primary.origin, destination: primary.dest, departDate, returnDate, party } satisfies QuoteQuery })),
+    sources
+      .filter((source) => !covered.has(coverKey(source.name, primary.origin, primary.dest, departDate, returnDate)))
+      .map((source) => ({ source, q: { origin: primary.origin, destination: primary.dest, departDate, returnDate, party } satisfies QuoteQuery })),
   );
   const offers: Offer[] = [];
   const stopped = new Set<QuoteSourceName>();
   const skipped = new Map<QuoteSourceName, number>();
+  const flying = new Map<QuoteSourceName, number>(); // requests of a source that were asked for and have not answered yet
   let slots = 0; // requests started or about to start (worst case per quote): taken before any await, so MAX_QUOTE_CALLS holds under concurrency
+  let closed = false; // the deadline passed: nothing starts any more and a late answer is ignored
 
   async function lane(): Promise<void> {
-    for (let item = queue.shift(); item !== undefined; item = queue.shift()) {
+    while (!closed) {
+      const item = queue.shift();
+      if (item === undefined) return;
       const { source, q } = item;
       const stat = stats.get(source.name);
       if (!stat || stopped.has(source.name)) continue;
@@ -373,23 +473,41 @@ export async function runQuotes(
         continue;
       }
       slots += cost;
+      flying.set(source.name, (flying.get(source.name) ?? 0) + 1);
       try {
         const got = await source.quote(q);
+        if (closed) return;
         stat.succeeded += 1;
         stat.offers += got.length;
         offers.push(...got);
       } catch (e) {
+        if (closed) return;
         const err = e instanceof QuoteError ? e : null;
         const text = describeQuoteError(source, e);
-        const noRequest = err?.code === "quota_exhausted" || err?.code === "not_configured";
-        const list = err?.code === "quota_exhausted" ? stat.notes : stat.failures;
+        const spent = err?.code === "quota_exhausted" || err?.code === "ration_exhausted";
+        const noRequest = spent || err?.code === "not_configured";
+        const list = spent ? stat.notes : stat.failures;
         if (!list.includes(text)) list.push(text);
         if (noRequest) slots -= cost; // nothing went out: give the slots back
         if (noRequest || (err?.code === "http" && (err.status === 401 || err.status === 403 || err.status === 429))) stopped.add(source.name);
+      } finally {
+        flying.set(source.name, (flying.get(source.name) ?? 1) - 1);
       }
     }
   }
-  await Promise.allSettled(Array.from({ length: Math.min(QUOTE_CONCURRENCY, queue.length) }, lane));
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<"deadline">((resolve) => {
+    timer = setTimeout(() => resolve("deadline"), QUOTE_PHASE_DEADLINE_MS);
+  });
+  let late = false;
+  try {
+    const lanes = Array.from({ length: Math.min(QUOTE_CONCURRENCY, queue.length) }, lane);
+    late = (await Promise.race([Promise.allSettled(lanes).then(() => "done" as const), deadline])) === "deadline";
+  } finally {
+    clearTimeout(timer);
+  }
+  closed = true;
 
   for (const s of sources) {
     const stat = stats.get(s.name);
@@ -397,18 +515,27 @@ export async function runQuotes(
     stat.calls = s.callCount() - (before.get(s.name) ?? 0);
     const n = skipped.get(s.name) ?? 0;
     if (n > 0) stat.notes.push(`${n} request(s) skipped (limit ${MAX_QUOTE_CALLS} per search)`);
+    if (!late) continue;
+    const text = describeQuoteError(s, new QuoteError("timeout"));
+    if ((flying.get(s.name) ?? 0) > 0 && !stat.failures.includes(text)) stat.failures.push(text);
+    const unstarted = queue.filter((item) => item.source === s).length;
+    if (unstarted > 0) stat.notes.push(`${unstarted} request(s) skipped (time limit ${QUOTE_PHASE_DEADLINE_MS / 1000} s)`);
   }
   return { offers, stats };
 }
 
-/** meta.sources entry: the fresh run's numbers, or (cache hit, nothing asked) what stored quotes still contribute. */
+/** A source worked in this search: it was asked, every request it made succeeded, and it answered at least once. Health and meta.sources share it. */
+export const quoteOk = (stat: QuoteStat): boolean => stat.failures.length === 0 && stat.succeeded > 0 && stat.calls > 0;
+
+/** meta.sources entry: the fresh run's numbers, or (cache hit, or every pair already answered by a stored quote) what stored quotes still contribute. */
 export function quoteStatus(source: FareQuoteSource, stat: QuoteStat | undefined, storedOffers: number): SourceStatus {
-  if (!stat) return { name: source.name, enabled: true, ok: storedOffers > 0, calls: 0, offers: storedOffers, error: null };
+  const asked = stat !== undefined && (stat.calls > 0 || stat.succeeded > 0 || stat.failures.length > 0 || stat.notes.length > 0);
+  if (!stat || !asked) return { name: source.name, enabled: true, ok: storedOffers > 0, calls: 0, offers: storedOffers, error: null };
   const notes = [...stat.failures, ...stat.notes];
   return {
     name: source.name,
     enabled: true,
-    ok: stat.failures.length === 0 && stat.succeeded > 0 && stat.calls > 0, // a source that was refused before any request did not work
+    ok: quoteOk(stat), // a source that was refused before any request did not work
     calls: stat.calls,
     offers: stat.offers,
     error: notes.length > 0 ? notes.join("; ") : null,

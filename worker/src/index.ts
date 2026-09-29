@@ -11,7 +11,7 @@
 import { createRepo, pruneHistory } from "./db";
 import { getFxRates } from "./fx";
 import { defaultResolver, PipelineError, runSearch, sha256Hex } from "./pipeline";
-import type { FareQuoteSource } from "./quotes";
+import { withDailyShare, type FareQuoteSource } from "./quotes";
 import { clientIdentity, createMemoryLimiter, limiterSalt } from "./ratelimit";
 import { createIgnavSource } from "./sources/ignav";
 import { createSearchApiSource } from "./sources/searchapi";
@@ -133,11 +133,14 @@ const secret = (value: unknown): string | undefined => (typeof value === "string
 /**
  * The optional live fare sources (quotes.ts), built once per search and only for the keys that are set: a source without a
  * key is not constructed, so it is never called, never counted and not listed in meta.sources. Only this request path uses
- * them: the scheduled job never does. The hard request caps live in the adapters and are counted in D1 (migration 0004).
+ * them: the scheduled job never does. The hard request caps live in the adapters and are counted in D1 (migration 0004);
+ * the daily shares (rate_limits) come on top.
  */
 function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: typeof fetch, now: Date): FareQuoteSource[] {
   const marker = env.TRAVELPAYOUTS_MARKER;
-  const shared = { repo, now, fetchFn };
+  // Every vendor request also takes one unit of that vendor's daily share first (see withDailyShare): a client that dodges the
+  // search cache cannot use up a whole allowance in minutes. Fails closed like the caps.
+  const shared = { repo: withDailyShare(repo), now, fetchFn };
   const ignav = secret(env.IGNAV_API_KEY);
   const wego = secret(env.WEGO_API_TOKEN);
   const searchApi = secret(env.SEARCHAPI_KEY);
