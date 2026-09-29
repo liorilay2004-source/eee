@@ -26,11 +26,11 @@ from tpe.config import BAG_FEES, SCORING  # noqa: E402
 from tpe.fx import FxRates  # noqa: E402
 from tpe.models import Leg, Offer, SearchRequest  # noqa: E402
 from tpe.pipeline import apply_extras_and_fx  # noqa: E402
-from tpe.scoring import fastest_by_direction, matches_times, recommend, value_score  # noqa: E402
+from tpe.scoring import fastest_by_direction, matches_times, recommend, recommendations_meta, value_score  # noqa: E402
 
 DEFAULT_OUT = ROOT / "worker" / "test" / "fixtures" / "parity.json"
 SEED = 20260929
-SCENARIOS_PER_FLAVOUR = 26  # x 10 flavours = 260 scenarios
+SCENARIOS_PER_FLAVOUR = 26  # x 11 flavours = 286 scenarios
 CHECKED_AT = datetime(2026, 11, 1, 12, 0, tzinfo=timezone.utc)
 
 FX_RATES = {"USD": 3.0, "EUR": 3.5, "GBP": 4.0}
@@ -99,6 +99,10 @@ FLAVOURS = {
     "twins": dict(n=(2, 3), dup=1.0, null_time=0.02, null_stops=0.03, null_dur=0.2, win=0.3),
     # Best Value scores tie exactly; the lower total must win (SPEC §8 tie-break), whatever the input order.
     "score_ties": dict(score_ties=True, ils_only=True, bag=0.0, null_dur=1.0, win=0.3, n=(3, 6)),
+    # Bag requested, many full-service carriers without a table fee (bag-cost pool rule, WEB_APP_SPEC §5.3): unknown-fee
+    # offers must not win 💰/⚖️/🎯 over known-fee ones, and ⚖️ disappears when no offer has a known bag cost.
+    # Appended last so every earlier flavour draws exactly the same numbers as before.
+    "bag_unknown_mix": dict(bag=1.0, lowcost=0.35, included=0.05, win=0.35, n=(1, 8)),
 }
 
 
@@ -305,6 +309,7 @@ def run_scenario(name: str, req: SearchRequest, offers: list[Offer]) -> dict:
     priced = [o for o in offers if o.total_ils is not None]
     fastest = fastest_by_direction(priced)
     cards = recommend(offers, req)
+    meta = recommendations_meta(offers, req, cards)
     return {
         "name": name,
         **inputs,
@@ -321,6 +326,7 @@ def run_scenario(name: str, req: SearchRequest, offers: list[Offer]) -> dict:
                  "savingsVsRoundtripIls": c.savings_vs_roundtrip_ils}
                 for c in cards
             ],
+            "recommendations": meta,
         },
     }
 
@@ -330,7 +336,8 @@ def coverage(scenarios: list[dict]) -> dict[str, int]:
                         "merged_cards", "triple_cards", "bonus_tag", "bag_unknown_tag", "bag_fee_added",
                         "wrap_window", "unmatched_window_scenario", "max_stops", "null_stops", "null_duration",
                         "night_departure", "unknown_carrier", "GBP", "USD", "EUR", "ILS", "pax_2", "pax_3",
-                        "unknown_return_leg", "stale_input")}
+                        "unknown_return_leg", "stale_input", "bag_pool_excluded", "bag_cost_unknown",
+                        "bag_value_merged", "bag_value_shown")}
     for s in scenarios:
         r, offers, exp = s["request"], s["offers"], s["expected"]
         c["scenarios"] += 1
@@ -344,6 +351,11 @@ def coverage(scenarios: list[dict]) -> dict[str, int]:
         c["my_times"] += any("my_times" in k["kinds"] for k in exp["cards"])
         c["merged_cards"] += any(len(k["kinds"]) > 1 for k in exp["cards"])
         c["triple_cards"] += any(len(k["kinds"]) == 3 for k in exp["cards"])
+        rec = exp["recommendations"]
+        c["bag_pool_excluded"] += rec["cheapest"]["excludedForUnknownBagFee"] > 0
+        c["bag_cost_unknown"] += rec["bestValue"]["status"] == "bag_cost_unknown"
+        c["bag_value_merged"] += r["checkedBag"] and rec["bestValue"]["status"] == "merged"
+        c["bag_value_shown"] += r["checkedBag"] and rec["bestValue"]["status"] == "shown"
         if (r["outHours"] or r["retHours"]) and offers and not any(o["matchesTimes"] for o in exp["offers"]):
             c["unmatched_window_scenario"] += 1
         for o, e in zip(offers, exp["offers"]):
@@ -378,7 +390,8 @@ def main() -> None:
     floor = {"scenarios": 200, "empty": 3, "single": 3, "savings": 15, "my_times": 40, "merged_cards": 40,
              "triple_cards": 5, "bonus_tag": 40, "bag_unknown_tag": 40, "bag_fee_added": 60, "wrap_window": 15,
              "unmatched_window_scenario": 3, "max_stops": 30, "null_stops": 50, "night_departure": 50,
-             "unknown_return_leg": 20, "GBP": 5, "stale_input": 20}
+             "unknown_return_leg": 20, "GBP": 5, "stale_input": 20, "bag_pool_excluded": 15, "bag_cost_unknown": 5,
+             "bag_value_merged": 10, "bag_value_shown": 10}
     missing = {k: (cov[k], v) for k, v in floor.items() if cov[k] < v}
     assert not missing, f"fixture coverage too thin (got, need): {missing}"
 

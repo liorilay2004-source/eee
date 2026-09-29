@@ -4,12 +4,15 @@ import { applyExtrasAndFx, paxCount, round2, TAG_BAG_UNKNOWN, TAG_BONUS_BAG } fr
 import { toIls } from "../src/money";
 import { BAG_FEES, SCORING, type BagFeeTable, type ScoringConfig } from "../src/scoring.config";
 import {
+  bagCostKnown,
+  bagCostPool,
   departHour,
   fastestByDirection,
   hasTimePrefs,
   inWindow,
   matchesTimes,
   recommend,
+  recommendationsMeta,
   valueScore,
 } from "../src/scoring";
 import type { FxRates, Leg, Offer, SearchRequest } from "../src/types";
@@ -582,5 +585,125 @@ describe("SPEC §16: split ticket savings", () => {
     const cards = recommend([rt, split], r);
     expect(cards.every((c) => c.savingsVsRoundtripIls === null)).toBe(true);
     expect(cards[0]!.offer).toBe(rt);
+  });
+});
+
+// WEB_APP_SPEC §5.3 / AC-R7 (gap 16): with a bag requested an unknown fee must not rank as zero.
+describe("bag-cost pool rule", () => {
+  const bag = req({ checkedBag: true });
+  // LY has no table fee (unknown); W6 has one (EUR 45 per leg = 157.5 ILS per leg at 3.5).
+  const unknownFee = (usd: number, over: Partial<Offer> = {}) => offer(usd, over);
+  const knownFee = (usd: number, over: Partial<Offer> = {}) =>
+    offer(usd, { outbound: leg({ airlines: ["W6"] }), inbound: leg({ departTime: "18:00", airlines: ["W6"] }), ...over });
+
+  it("an unknown-fee offer cheaper on paper does not win 💰 or ⚖️ over a fully priced one", () => {
+    const offers = priced([unknownFee(100), knownFee(200)], bag); // 300 ILS lower bound vs 600 + 315 = 915 ILS
+    expect(offers[0]!.tags).toContain(TAG_BAG_UNKNOWN);
+    const cards = recommend(offers, bag);
+    expect(kindsOf(cards)).toEqual([["cheapest", "best_value"]]);
+    expect(cards[0]!.offer).toBe(offers[1]);
+    expect(recommendationsMeta(offers, bag, cards)).toEqual({
+      cheapest: { status: "shown", excludedForUnknownBagFee: 1 },
+      bestValue: { status: "merged" },
+    });
+  });
+
+  it("counts only excluded offers whose lower bound is below the shown 💰 total", () => {
+    const offers = priced([unknownFee(100), unknownFee(400), unknownFee(305), knownFee(200)], bag); // 300, 1200, 915 vs 915
+    const cards = recommend(offers, bag);
+    expect(cardFor(cards, "cheapest")!.offer).toBe(offers[3]);
+    // 915 is not BELOW 915: only the 300 lower bound could be cheaper.
+    expect(recommendationsMeta(offers, bag, cards).cheapest.excludedForUnknownBagFee).toBe(1);
+  });
+
+  it("falls back to the cheapest lower bound for 💰, hides ⚖️ and reports bag_cost_unknown when no fee is known", () => {
+    const offers = priced([unknownFee(300), unknownFee(100)], bag);
+    const cards = recommend(offers, bag);
+    expect(kindsOf(cards)).toEqual([["cheapest"]]);
+    expect(cards[0]!.offer).toBe(offers[1]);
+    expect(cards[0]!.offer.tags).toContain(TAG_BAG_UNKNOWN); // the card shows "לפחות" and the warning
+    expect(recommendationsMeta(offers, bag, cards)).toEqual({
+      cheapest: { status: "shown", excludedForUnknownBagFee: 0 },
+      bestValue: { status: "bag_cost_unknown" },
+    });
+  });
+
+  it("a bag the fare includes is a known cost, even on a carrier without a table fee", () => {
+    const offers = priced([unknownFee(100), unknownFee(150, { includes: { checkedBag: true } }), knownFee(200)], bag);
+    const cards = recommend(offers, bag);
+    expect(cardFor(cards, "cheapest")!.offer).toBe(offers[1]);
+    expect(offers[1]!.tags).not.toContain(TAG_BAG_UNKNOWN);
+  });
+
+  it("a partly known fee (one leg's carrier unknown) is still excluded", () => {
+    const mixed = unknownFee(100, { outbound: leg({ airlines: ["W6"] }) }); // 300 + 157.5, return fee unknown
+    const offers = priced([mixed, knownFee(200)], bag);
+    expect(offers[0]!.tags).toContain(TAG_BAG_UNKNOWN);
+    expect(offers[0]!.extrasAmountIls).toBe(157.5);
+    expect(cardFor(recommend(offers, bag), "cheapest")!.offer).toBe(offers[1]);
+  });
+
+  it("⚖️ is ranked within the known pool while 💰 can differ", () => {
+    // Known A: cheap but 2 stops each way; known B: dearer, direct. Unknown C: cheapest and direct.
+    const a = knownFee(200, { outbound: leg({ airlines: ["W6"], stops: 2, durationMin: 700 }), inbound: leg({ departTime: "18:00", airlines: ["W6"], stops: 2, durationMin: 700 }) });
+    const b = knownFee(260);
+    const c = unknownFee(150);
+    const offers = priced([a, b, c], bag);
+    const cards = recommend(offers, bag);
+    expect(cardFor(cards, "cheapest")!.offer).toBe(a);
+    expect(cardFor(cards, "best_value")!.offer).toBe(b);
+    expect(recommendationsMeta(offers, bag, cards).bestValue.status).toBe("shown");
+  });
+
+  it("🎯 prefers a matching offer with a known bag cost and falls back to the cheapest match otherwise", () => {
+    const timed = req({ checkedBag: true, outHours: [8, 12] });
+    const offers = priced([unknownFee(100), knownFee(200), knownFee(150, { outbound: leg({ departTime: "20:00", airlines: ["W6"] }) })], timed);
+    expect(cardFor(recommend(offers, timed), "my_times")!.offer).toBe(offers[1]);
+    const onlyUnknown = priced([unknownFee(100), knownFee(150, { outbound: leg({ departTime: "20:00", airlines: ["W6"] }) })], timed);
+    expect(cardFor(recommend(onlyUnknown, timed), "my_times")!.offer).toBe(onlyUnknown[0]);
+  });
+
+  it("time-only candidates obey the same rule", () => {
+    const timed = req({ checkedBag: true, outHours: [8, 12] });
+    const [main] = priced([knownFee(150, { outbound: leg({ departTime: "20:00", airlines: ["W6"] }) })], timed);
+    const extra = priced([unknownFee(50), knownFee(300)], timed);
+    expect(cardFor(recommend([main!], timed, SCORING, extra), "my_times")!.offer).toBe(extra[1]);
+  });
+
+  it("a 🎯 split shown with an unknown bag fee (lower bound) claims no saving over a fully priced round trip", () => {
+    const timed = req({ checkedBag: true, outHours: [8, 12] });
+    const rt = knownFee(120, { outbound: leg({ departTime: "20:00", airlines: ["W6"] }) }); // 360 + 315 = 675, outside the window
+    const split = unknownFee(150, { ticketStructure: "split" }); // 450 lower bound, matches
+    const offers = priced([rt, split], timed);
+    const mine = cardFor(recommend(offers, timed), "my_times")!;
+    expect(mine.offer).toBe(split);
+    expect(mine.savingsVsRoundtripIls).toBeNull();
+    // With a known fee the same split keeps its saving.
+    const knownSplit = knownFee(40, { ticketStructure: "split" }); // 120 + 315 = 435
+    const again = priced([rt, knownSplit], timed);
+    expect(cardFor(recommend(again, timed), "my_times")!.savingsVsRoundtripIls).toBe(240);
+  });
+
+  it("changes nothing when no bag is requested", () => {
+    const noBag = req();
+    const offers = priced([unknownFee(100), knownFee(200)], noBag);
+    expect(offers.every((o) => bagCostKnown(o, noBag))).toBe(true);
+    expect(bagCostPool(offers, noBag)).toEqual({ pool: offers, fallback: false });
+    const cards = recommend(offers, noBag);
+    expect(cardFor(cards, "cheapest")!.offer).toBe(offers[0]);
+    expect(recommendationsMeta(offers, noBag, cards)).toEqual({
+      cheapest: { status: "shown", excludedForUnknownBagFee: 0 },
+      bestValue: { status: "merged" },
+    });
+  });
+
+  it("reports no_offers when nothing is priced", () => {
+    const offers = priced([unknownFee(100, { priceCurrency: "XXX" })], bag);
+    expect(recommend(offers, bag)).toEqual([]);
+    expect(recommendationsMeta(offers, bag, [])).toEqual({
+      cheapest: { status: "no_offers", excludedForUnknownBagFee: 0 },
+      bestValue: { status: "no_offers" },
+    });
+    expect(bagCostPool([], bag)).toEqual({ pool: [], fallback: false });
   });
 });
