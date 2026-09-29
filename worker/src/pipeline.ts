@@ -2,14 +2,16 @@
  * Live search pipeline (SPEC §7) for the Worker. Port of engine/tpe/pipeline.run_search minus the fast-flights
  * deep search, which is background-only (SPEC §6): its offers arrive through the shared DB (step 6).
  *
- *  1 expand airports   2 cache check   3 wide scan (Travelpayouts)   4 narrow   6 merge with recent DB offers
- *  7 extras + FX       8 recommend     9 persist
+ *  1 expand airports   2 cache check   3 wide scan (Travelpayouts)   4 narrow   5 live quotes (optional sources)
+ *  6 merge with recent DB offers   7 extras + FX   8 recommend   9 persist
  *
  * Money rules (SPEC §4.2): offers keep their ORIGINAL amount + currency everywhere; ILS is derived per request.
- * The cache holds RAW data (no extras, no ILS): the round trips plus the one-way fares. Split tickets are NOT
- * cached, they are rebuilt on every request from those fares, because which legs get combined depends on the
- * request's hour windows, max stops and bag choice. So a different bag choice, hour window or max-stops setting
- * re-ranks cached data without touching any external service, exactly as a fresh scan would.
+ * The cache holds RAW data (no extras, no ILS): the round trips plus the one-way fares, and the live quotes the
+ * optional fare sources gave that scan (so a hit ranks exactly what the scan ranked, not only the cheapest quote
+ * per pair that the price history keeps). Split tickets are NOT cached, they are rebuilt on every request from
+ * those fares, because which legs get combined depends on the request's hour windows, max stops and bag choice.
+ * So a different bag choice, hour window or max-stops setting re-ranks cached data without touching any external
+ * service, exactly as a fresh scan would.
  *
  * Passenger convention: `Offer.priceAmount` is the total for the whole party (like Python), and the shared
  * `prices` history stores PER-PASSENGER amounts so searches with different party sizes stay comparable.
@@ -20,6 +22,22 @@ import { applyExtrasAndFx, paxCount, round2 } from "./extras";
 import { toIls } from "./money";
 import { departHour, recommend } from "./scoring";
 import { SCORING } from "./scoring.config";
+import {
+  coverKey,
+  isQuoteSource,
+  mergeQuoted,
+  pickQuotePairs,
+  plausibleQuotes,
+  QUOTE_MAX_AGE_HOURS,
+  QUOTE_SOURCE_NAMES,
+  quoteOk,
+  quoteStatus,
+  runQuotes,
+  timeCandidates,
+  type FareQuoteSource,
+  type QuoteSourceName,
+  type QuoteStat,
+} from "./quotes";
 import { buildSplits, dayNumber, pairOk } from "./splits";
 import { monthsBetween, TravelpayoutsError, withPartySize, type Party } from "./travelpayouts";
 import type {
@@ -85,6 +103,8 @@ export interface SearchDeps {
    * so no scan is made and the search is answered from stored fares only, like a source outage.
    */
   scanBudget?: () => Promise<boolean>;
+  /** Optional live fare sources (quotes.ts). Asked on complete fresh scans only, and only those with a key. */
+  quoteSources?: FareQuoteSource[];
 }
 
 export const defaultResolver: Resolver = {
@@ -192,7 +212,7 @@ function parseLeg(v: unknown): Leg | null {
  * The cache is JSON written by an earlier version of this code: rebuild every offer from known fields and drop
  * anything malformed, so a bad row can never crash ranking. Derived fields are reset (the cache is RAW).
  */
-export function sanitizeOffers(raw: unknown): Offer[] {
+export function sanitizeOffers(raw: unknown, sources: readonly string[] = SOURCE_NAMES): Offer[] {
   if (!Array.isArray(raw)) return [];
   const out: Offer[] = [];
   for (const v of raw as unknown[]) {
@@ -205,7 +225,7 @@ export function sanitizeOffers(raw: unknown): Offer[] {
     if (typeof v.origin !== "string" || typeof v.destination !== "string") continue;
     if (typeof v.departDate !== "string" || typeof v.returnDate !== "string") continue;
     if (typeof v.priceCurrency !== "string" || v.priceCurrency === "") continue;
-    if (typeof v.source !== "string" || !SOURCE_NAMES.includes(v.source)) continue;
+    if (typeof v.source !== "string" || !sources.includes(v.source)) continue;
     if (typeof v.ticketStructure !== "string" || !STRUCTURES.includes(v.ticketStructure)) continue;
     if (typeof v.checkedAt !== "string" || !Number.isFinite(Date.parse(v.checkedAt))) continue;
     const includes = isRecord(v.includes) && typeof v.includes.checkedBag === "boolean" ? { checkedBag: v.includes.checkedBag } : {};
@@ -564,6 +584,9 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   let splitsCheckedAt = now.toISOString();
   let scan: ScanResult | null = null;
   let scanNotes: string[] = []; // what a later cache hit must still tell the caller about this scan
+  let quotedRaw: Offer[] = []; // RAW live quotes of THIS scan, whole party: stored beside the cache row, and added to the price history
+  let carriedQuotes: Offer[] = []; // RAW live quotes the scan that wrote the cache row got (cache hit only): a hit ranks them like that scan did
+  let quoteStats = new Map<QuoteSourceName, QuoteStat>();
 
   // Step 2: cache check. A row that holds fares is a hit, and so is a scan that found nothing (for a shorter time:
   // repeating a no-result search must not repeat up to 30 upstream calls). A damaged row is a miss.
@@ -580,6 +603,7 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
     splitsCheckedAt = hit.createdAt; // the fares are as old as the scan that found them
     tpStatus.ok = true;
     tpStatus.error = hit.notes && hit.notes.length > 0 ? hit.notes.join("; ") : null;
+    carriedQuotes = sanitizeOffers(hit.quotes, QUOTE_SOURCE_NAMES).filter((o) => o.ticketStructure === "roundtrip" && ageHours(o.checkedAt, now) <= QUOTE_MAX_AGE_HOURS);
   } else {
     // FX loads while the scan runs; the scan itself does not need it, only split building and ranking do.
     const fxLoad = settle(resolveFx(deps));
@@ -628,46 +652,44 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
     repo,
     pairs,
     req,
-    tpUnavailable ? undefined : ["google_flights"],
+    tpUnavailable ? undefined : ["google_flights", ...QUOTE_SOURCE_NAMES],
     tpUnavailable ? FALLBACK_MAX_AGE_HOURS : RECENT_ENRICHMENT_MAX_AGE_HOURS,
     now,
   );
-  const fromDb = latestPerFlight(stored).map((o) => scaledCopy(o, pax)); // stored fares are per passenger
+  // A scan that succeeded completely: its result is cached below, and the live quotes are asked only in this case, so within
+  // the cache TTL every repeat of the search is a cache hit that costs the vendors' free allowances nothing.
+  const scanComplete = !fromCache && scan !== null && scan.failures.length === 0 && scan.successes > 0;
+  const fromDb = latestPerFlight(stored)
+    .filter((o) => !isQuoteSource(o.source) || ageHours(o.checkedAt, now) <= QUOTE_MAX_AGE_HOURS) // a stored quote is "live" for a few hours only
+    .map((o) => scaledCopy(o, pax)); // stored fares are per passenger
   const gfOffers = fromDb.filter((o) => o.source === "google_flights").length;
   const gfStatus: SourceStatus = { name: "google_flights", enabled: gfOffers > 0, ok: gfOffers > 0, calls: 0, offers: gfOffers, error: null };
 
   // Step 9 (part): what to write. Only fresh scan results feed the history, never rows read back from the DB.
-  const persistJob = () =>
-    persist({
-      repo,
-      req,
-      searchKey,
-      now,
-      fx,
-      pax,
-      fresh: fromCache ? [] : live,
-      // A scan that succeeded but found nothing is cached too (as an empty row).
-      cache:
-        !fromCache && scan !== null && scan.failures.length === 0 && scan.successes > 0
-          ? {
-              offers: capOffers(rts, fx, MAX_CACHED_OFFERS),
-              oneWayPairs: capOneWayPairs(oneWayPairs, fx, MAX_CACHED_ONEWAYS),
-              notes: scanNotes,
-            }
-          : null,
-      health: scan === null ? null : { ok: scan.failures.length === 0 && scan.successes > 0, error: scan.failures.join("; ") || null },
-    });
-  const finish = (): Promise<void> => {
-    const job = persistJob();
+  // A scan that succeeded but found nothing is cached too (as an empty row). The capped fares are computed once: the row can be written twice.
+  let capped: { offers: Offer[]; oneWayPairs: OneWayPair[] } | null = null;
+  const cacheRow = (quotes: Offer[]): PersistJob["cache"] => {
+    if (!scanComplete) return null;
+    capped ??= { offers: capOffers(rts, fx, MAX_CACHED_OFFERS), oneWayPairs: capOneWayPairs(oneWayPairs, fx, MAX_CACHED_ONEWAYS) };
+    return { ...capped, notes: scanNotes, quotes };
+  };
+  const scanHealth = scan === null ? null : { ok: scan.failures.length === 0 && scan.successes > 0, error: scan.failures.join("; ") || null };
+  const quoteHealth = () => [...quoteStats].filter(([, st]) => st.calls > 0).map(([name, st]) => ({ name, ok: quoteOk(st), error: st.failures.join("; ") || null }));
+  const jobOf = (part: Partial<PersistJob>): PersistJob => ({
+    repo, req, searchKey, now, fx, pax, logSearch: true, fresh: [], quotes: [], quoteHealth: [], cache: null, health: null, ...part,
+  });
+  const wholeJob = () =>
+    jobOf({ fresh: fromCache ? [] : live, quotes: quotedRaw, quoteHealth: quoteHealth(), cache: cacheRow(quotedRaw), health: scanHealth });
+  const write = (work: Promise<void>): Promise<void> => {
     if (deps.waitUntil) {
-      deps.waitUntil(job);
+      deps.waitUntil(work);
       return Promise.resolve();
     }
-    return job;
+    return work;
   };
 
   if (live.length + fromDb.length === 0 && tpUnavailable) {
-    await finish();
+    await write(persist(wholeJob()));
     throw new PipelineError("source_unavailable", "No fare source is available right now");
   }
 
@@ -676,11 +698,67 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   const party: Party = { adults: req.adults, children: req.children, infants: req.infants };
   for (const o of working) linkParty(o, party);
   applyExtrasAndFx(working, req, fx);
-  const cards = recommend(working, req);
+
+  /** RAW whole-party quotes -> ranked copies. The same for this scan's quotes and for the ones a cache hit carries. */
+  const rankable = (raw: Offer[]): Offer[] => {
+    const copies = raw.map(cloneOffer);
+    for (const o of copies) linkParty(o, party);
+    // SearchApi and SerpApi do not state the return flight (empty carrier list), yet the fare flies back on its carrier, as
+    // Travelpayouts assumes for its own: price the return bag fee for that carrier, or a bag would make the quote cheaper than
+    // the fully priced fare it replaces. The list is filled for the fee only and emptied again: no return carrier is claimed.
+    const unstated = copies.filter((o) => o.inbound.airlines.length === 0 && o.outbound.airlines.length > 0);
+    for (const o of unstated) o.inbound.airlines = [...o.outbound.airlines];
+    applyExtrasAndFx(copies, req, fx);
+    for (const o of unstated) o.inbound.airlines = [];
+    return copies;
+  };
+
+  // Step 5: live quotes for the cheapest date pairs of the primary airport pair. Complete fresh scans only: a cache hit
+  // makes zero external calls (SPEC §16) and ranks the quotes the scan stored with its cache row (carriedQuotes) plus the
+  // stored history rows (step 6); a failed or partial scan is not cached, so every repeat would ask the vendors again.
+  // Failures here never fail the search.
+  const quoters = (deps.quoteSources ?? []).filter((s) => s.configured);
+  const primary = pairs[0];
+  const dates = scanComplete && quoters.length > 0 && primary ? pickQuotePairs(working, primary) : [];
+  let scanStored: Promise<void> | null = null; // the scan's own write, when it was made before the quote phase
+  if (primary && dates.length > 0) {
+    // The scan is worth up to 30 upstream requests: store it BEFORE the vendors are asked, so a client that gives up during
+    // the phase (a new search cancels the old one) does not lose it. The price history is written after the ranking has read
+    // its context (below), and what depends on the quotes (their history, their health, the cache row's quotes) after the phase.
+    scanStored = persist(jobOf({ cache: cacheRow([]), health: scanHealth }));
+    await write(scanStored);
+    // A vendor whose stored quote for a pair is still live (step 6) is not asked for that pair again: the pair is already confirmed.
+    const covered = new Set(fromDb.filter((o) => isQuoteSource(o.source)).map((o) => coverKey(o.source, o.origin, o.destination, o.departDate, o.returnDate)));
+    const run = await attempt(() => runQuotes(quoters, primary, dates, party, covered));
+    if (run) {
+      quoteStats = run.stats;
+      const raw = run.offers.filter((o) => pairOk(req, o.departDate, o.returnDate)).map((o) => scaledCopy(o, pax)); // per adult -> party, like every raw fare
+      const ranked = rankable(raw);
+      // A price far below the cached fare of its own date pair is more likely a misread price than a bargain: not ranked, not stored.
+      const believable = plausibleQuotes(ranked, working, primary);
+      // Said in meta.sources when a source has NOTHING left: one reading a wrong price wrongly is wrong for every quote it makes,
+      // while a single pair far below its cached fare next to believable ones is only a big drop.
+      const disbelieved = new Map<QuoteSourceName, { all: number; ignored: number }>();
+      ranked.forEach((o, i) => {
+        if (!isQuoteSource(o.source)) return;
+        const n = disbelieved.get(o.source) ?? { all: 0, ignored: 0 };
+        disbelieved.set(o.source, { all: n.all + 1, ignored: n.ignored + (believable[i] ? 0 : 1) });
+      });
+      for (const [name, n] of disbelieved) if (n.ignored === n.all) quoteStats.get(name)?.notes.push(`${n.ignored} quote(s) ignored: far below the cached fare`);
+      quotedRaw = raw.filter((_, i) => believable[i]);
+      working.push(...ranked.filter((_, i) => believable[i]));
+    }
+  } else if (fromCache) {
+    working.push(...rankable(carriedQuotes));
+  }
+  // A live price replaces the cached one for the same flight; the same flight seen by two sources counts once.
+  const ranking = mergeQuoted(working);
+  // ...but a quote that does not state its return flight cannot pass the user's return-hour window or max stops: the cached fare it replaced stays a 🎯 candidate.
+  const cards = recommend(ranking, req, SCORING, timeCandidates(working, ranking, req));
 
   // Step 4 bookkeeping: how many date pairs are candidates for the deep search (top N cheapest pairs).
   const pairsWithPrice = new Set<string>();
-  for (const o of working) if (o.totalIls !== null) pairsWithPrice.add(`${o.departDate}|${o.returnDate}`);
+  for (const o of ranking) if (o.totalIls !== null) pairsWithPrice.add(`${o.departDate}|${o.returnDate}`);
 
   const views: CardView[] = await Promise.all(
     cards.map(async (card) => ({
@@ -690,7 +768,10 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
     })),
   );
 
-  await finish();
+  // History and vendor health come last: the ranking above has read its price context before this search's own prices are written.
+  // After the scan's own write, never beside it: both may write the cache row, and the one with the quotes must be the last.
+  const rest = jobOf({ logSearch: false, fresh: fromCache ? [] : live, quotes: quotedRaw, quoteHealth: quoteHealth(), cache: quotedRaw.length > 0 ? cacheRow(quotedRaw) : null });
+  await write(scanStored ? scanStored.then(() => persist(rest)) : persist(wholeJob()));
 
   return {
     cards: views,
@@ -700,7 +781,7 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
       fromCache,
       fxSource: fx.source,
       fxDate: fx.date,
-      sources: [tpStatus, gfStatus],
+      sources: [tpStatus, gfStatus, ...quoters.map((s) => quoteStatus(s, quoteStats.get(s.name), fromDb.filter((o) => o.source === s.name).length))],
       candidatePairs: Math.min(SCORING.topNCandidates, pairsWithPrice.size),
       generatedAt: now.toISOString(),
     },
@@ -716,20 +797,29 @@ interface PersistJob {
   now: Date;
   fx: FxRates;
   pax: number;
+  /** False when the search log row was already written (the quote phase splits the write in two). */
+  logSearch: boolean;
   fresh: Offer[];
+  /** Live quotes of this search (raw, whole party): history, and the cache row's `quotes`. */
+  quotes: Offer[];
+  quoteHealth: Array<{ name: SourceName; ok: boolean; error: string | null }>;
   /** What to keep for the next identical search, or null when this scan must not be reused. */
-  cache: { offers: Offer[]; oneWayPairs: OneWayPair[]; notes: string[] } | null;
+  cache: { offers: Offer[]; oneWayPairs: OneWayPair[]; notes: string[]; quotes: Offer[] } | null;
   health: { ok: boolean; error: string | null } | null;
 }
 
 /** Best effort and never rejects: a storage hiccup must not turn a good answer into an error. */
 async function persist(job: PersistJob): Promise<void> {
   const { repo, now } = job;
-  const work: Array<Promise<unknown>> = [attempt(() => repo.saveSearch(job.req, job.searchKey, now))];
+  const work: Array<Promise<unknown>> = [];
+  if (job.logSearch) work.push(attempt(() => repo.saveSearch(job.req, job.searchKey, now)));
   if (job.fresh.length > 0) work.push(attempt(() => repo.savePrices(historyRows(job.fresh, job.fx, job.pax))));
+  if (job.quotes.length > 0) work.push(attempt(() => repo.savePrices(historyRows(job.quotes, job.fx, job.pax))));
+  for (const h of job.quoteHealth) work.push(attempt(() => repo.recordSourceHealth(h.name, h.ok, h.error, now)));
   if (job.cache) {
-    const { offers, oneWayPairs, notes } = job.cache;
-    work.push(attempt(() => repo.putCachedOffers(job.searchKey, offers, now, { oneWayPairs, notes })));
+    const { offers, oneWayPairs, notes, quotes } = job.cache;
+    // Without quotes the row is exactly what it was before the optional sources existed.
+    work.push(attempt(() => repo.putCachedOffers(job.searchKey, offers, now, { oneWayPairs, notes, ...(quotes.length > 0 ? { quotes } : {}) })));
   }
   if (job.health) work.push(attempt(() => repo.recordSourceHealth("travelpayouts", job.health!.ok, job.health!.error, now)));
   await Promise.all(work);

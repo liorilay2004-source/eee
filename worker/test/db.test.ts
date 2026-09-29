@@ -828,3 +828,224 @@ describe("pruneHistory (daily retention)", () => {
     expect(await pruneHistory(createTestD1(), NOW)).toEqual({ prices: 0, searches: 0, search_cache: 0, rate_limits: 0 });
   });
 });
+
+describe("source_quota (migration 0004) and reserveQuota", () => {
+  const used = async (db: D1Database, source: string, period: string) =>
+    (await db.prepare("SELECT used FROM source_quota WHERE source = ? AND period = ?").bind(source, period).first<number>("used")) ?? 0;
+
+  it("creates the counter table: one row per (source, period), used never negative", async () => {
+    const db = createTestD1();
+    const info = (await db.prepare("PRAGMA table_info(source_quota)").all<{ name: string; pk: number }>()).results;
+    expect(info.map((c) => c.name)).toEqual(["source", "period", "used", "updated_at"]);
+    expect(info.filter((c) => c.pk > 0).sort((a, b) => a.pk - b.pk).map((c) => c.name)).toEqual(["source", "period"]);
+    await expect(db.prepare("INSERT INTO source_quota (source, period, used, updated_at) VALUES ('x', 'lifetime', -1, 'now')").run()).rejects.toThrow();
+  });
+
+  it("hands out exactly cap units, then refuses, and never raises the counter past the cap", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    const got: boolean[] = [];
+    for (let i = 0; i < 8; i++) got.push(await repo.reserveQuota("serpapi", "2026-11", 3, NOW));
+    expect(got).toEqual([true, true, true, false, false, false, false, false]);
+    expect(await used(db, "serpapi", "2026-11")).toBe(3);
+    expect(await db.prepare("SELECT updated_at FROM source_quota").first("updated_at")).toBe(NOW.toISOString());
+  });
+
+  it("is atomic: 20 concurrent reservations against a cap of 5 hand out exactly 5", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    const got = await Promise.all(Array.from({ length: 20 }, () => repo.reserveQuota("ignav", "lifetime", 5, NOW)));
+    expect(got.filter(Boolean)).toHaveLength(5);
+    expect(await used(db, "ignav", "lifetime")).toBe(5);
+  });
+
+  it("never lets a fresh row in when the cap is not a whole number of at least one", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    for (const cap of [0, -1, 0.5, 2.5, Number.NaN, Number.POSITIVE_INFINITY, 2 ** 60]) expect(await repo.reserveQuota("ignav", "lifetime", cap, NOW)).toBe(false);
+    expect(await count(db, "source_quota")).toBe(0);
+  });
+
+  it("accepts only a UTC month or the word lifetime as period: a free-form key would be a fresh allowance", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    for (const period of ["", "daily", "2026-13", "2026-00", "2026-9", "2026-11-05", "LIFETIME", "lifetime "]) {
+      expect(await repo.reserveQuota("serpapi", period, 5, NOW), period).toBe(false);
+    }
+    expect(await count(db, "source_quota")).toBe(0);
+    expect(await repo.reserveQuota("serpapi", "2026-11", 5, NOW)).toBe(true);
+    expect(await repo.reserveQuota("serpapi", "lifetime", 5, NOW)).toBe(true);
+  });
+
+  it("counts per vendor and per period: a new month is a new allowance, lifetime is one for ever", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    expect(await repo.reserveQuota("serpapi", "2026-11", 1, NOW)).toBe(true);
+    expect(await repo.reserveQuota("serpapi", "2026-11", 1, NOW)).toBe(false);
+    expect(await repo.reserveQuota("serpapi", "2026-12", 1, NOW)).toBe(true);
+    expect(await repo.reserveQuota("ignav", "2026-11", 1, NOW)).toBe(true); // another vendor has its own counter
+    expect(await repo.reserveQuota("ignav", "lifetime", 1, NOW)).toBe(true);
+    expect(await repo.reserveQuota("ignav", "lifetime", 1, new Date("2031-01-01T00:00:00Z"))).toBe(false); // time alone never resets it
+    expect(await count(db, "source_quota")).toBe(4);
+  });
+
+  it("a lowered cap takes effect at once, a raised one only adds room", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    for (let i = 0; i < 5; i++) await repo.reserveQuota("ignav", "lifetime", 5, NOW);
+    expect(await repo.reserveQuota("ignav", "lifetime", 3, NOW)).toBe(false);
+    expect(await repo.reserveQuota("ignav", "lifetime", 5, NOW)).toBe(false);
+    expect(await repo.reserveQuota("ignav", "lifetime", 6, NOW)).toBe(true);
+    expect(await used(db, "ignav", "lifetime")).toBe(6);
+  });
+
+  it("fails closed on every storage error: missing table, throwing D1, rejected statement, unreadable or odd result", async () => {
+    const noTable = createTestD1();
+    await noTable.prepare("DROP TABLE source_quota").run();
+    expect(await createRepo(noTable).reserveQuota("ignav", "lifetime", 10, NOW)).toBe(false);
+
+    const answers = (results: unknown): D1Database =>
+      ({ prepare: () => ({ bind: () => ({ all: async () => results }) }) }) as unknown as D1Database;
+    const reserve = (db: D1Database) => createRepo(db).reserveQuota("ignav", "lifetime", 10, NOW);
+    expect(await reserve({ prepare: () => { throw new Error("D1_ERROR: boom"); } } as unknown as D1Database)).toBe(false);
+    expect(await reserve({ prepare: () => ({ bind: () => ({ all: async () => { throw new Error("D1_ERROR: unavailable"); } }) }) } as unknown as D1Database)).toBe(false);
+    expect(await reserve(answers({ results: [] }))).toBe(false); // nothing was raised
+    expect(await reserve(answers({ results: [{ used: 2 }, { used: 3 }] }))).toBe(false);
+    expect(await reserve(answers({ results: [{ used: 11 }] }))).toBe(false); // beyond the cap
+    expect(await reserve(answers({ results: [{ used: 0 }] }))).toBe(false);
+    expect(await reserve(answers({ results: [{ used: "3" }] }))).toBe(false);
+    expect(await reserve(answers({ results: [{}] }))).toBe(false);
+    expect(await reserve(answers({}))).toBe(false);
+    expect(await reserve(answers(undefined))).toBe(false);
+    expect(await reserve(answers({ results: [{ used: 3 }] }))).toBe(true); // the one shape that counts
+  });
+
+  it("an invalid clock is a refusal, not a crash and not a free unit", async () => {
+    const db = createTestD1();
+    expect(await createRepo(db).reserveQuota("ignav", "lifetime", 5, new Date(Number.NaN))).toBe(false);
+    expect(await count(db, "source_quota")).toBe(0);
+  });
+
+  it("stored quote fares (the four optional sources) survive the round trip through the price history", async () => {
+    const repo = createRepo(createTestD1());
+    const sources = ["ignav", "wego", "searchapi", "serpapi"] as const;
+    await repo.savePrices(sources.map((source, i) => mkOffer({ source, priceAmount: 100 + i, departDate: `2026-11-1${i}`, returnDate: `2026-11-1${i + 5}` })));
+    expect((await loadAll(repo)).map((o) => o.source).sort()).toEqual([...sources].sort());
+    expect((await loadAll(repo, 24, ["serpapi"])).map((o) => o.source)).toEqual(["serpapi"]);
+  });
+});
+
+describe("pruneHistory leaves the quota counters alone", () => {
+  it("keeps source_quota rows however old, and reports nothing about them", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    const long = new Date("2020-01-15T00:00:00Z");
+    await repo.reserveQuota("serpapi", "2020-01", 5, long);
+    await repo.reserveQuota("serpapi", "2020-01", 5, long);
+    await repo.reserveQuota("ignav", "lifetime", 5, long);
+    // rows the retention job does delete are still deleted around them
+    await db.prepare("INSERT INTO search_cache (search_key, offers_json, created_at) VALUES (?, ?, ?)").bind("stale", "[]", ago(8 * DAY)).run();
+
+    const res = await pruneHistory(db, NOW);
+    expect(res).toEqual({ prices: 0, searches: 0, search_cache: 1, rate_limits: 0 });
+    expect((await db.prepare("SELECT source, period, used, updated_at FROM source_quota ORDER BY source").all()).results).toEqual([
+      { source: "ignav", period: "lifetime", used: 1, updated_at: long.toISOString() },
+      { source: "serpapi", period: "2020-01", used: 2, updated_at: long.toISOString() },
+    ]);
+    // ...and the counter still refuses once its cap is reached, so nothing was handed back
+    expect(await repo.reserveQuota("ignav", "lifetime", 1, NOW)).toBe(false);
+  });
+
+  it("the other opportunistic deletes (cache write, rate-limit window rollover) never touch it either", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    await repo.reserveQuota("ignav", "lifetime", 5, new Date("2020-01-15T00:00:00Z"));
+    await repo.putCachedOffers("k", [mkOffer()], NOW);
+    await repo.checkRateLimit("k", 5, 60, NOW);
+    await repo.checkRateLimit("k", 5, 60, new Date(NOW.getTime() + 3 * DAY));
+    expect(await count(db, "source_quota")).toBe(1);
+  });
+});
+
+describe("reserveDaily (the per-day share in front of the quota counters)", () => {
+  const today = (db: D1Database, key: string) => db.prepare("SELECT window_start, count FROM rate_limits WHERE key = ?").bind(key).all<{ window_start: number; count: number }>().then((r) => r.results);
+
+  it("hands out exactly cap units per UTC day, then refuses, and never raises the counter past the cap", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    const got: boolean[] = [];
+    for (let i = 0; i < 6; i++) got.push(await repo.reserveDaily("quota:ignav", 3, NOW));
+    expect(got).toEqual([true, true, true, false, false, false]);
+    expect(await today(db, "quota:ignav")).toEqual([{ window_start: Date.parse("2026-11-01T00:00:00Z") / 1000, count: 3 }]);
+  });
+
+  it("is atomic: 20 concurrent reservations of a share of 5 raise it exactly 5 times", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    const got = await Promise.all(Array.from({ length: 20 }, () => repo.reserveDaily("quota:serpapi", 5, NOW)));
+    expect(got.filter(Boolean)).toHaveLength(5);
+    expect((await today(db, "quota:serpapi"))[0]?.count).toBe(5);
+  });
+
+  it("a new UTC day renews the share, another vendor has its own, and the day boundary is exact", async () => {
+    const repo = createRepo(createTestD1());
+    expect(await repo.reserveDaily("quota:ignav", 1, new Date("2026-11-01T23:59:59Z"))).toBe(true);
+    expect(await repo.reserveDaily("quota:ignav", 1, new Date("2026-11-01T00:00:00Z"))).toBe(false);
+    expect(await repo.reserveDaily("quota:ignav", 1, new Date("2026-11-02T00:00:00Z"))).toBe(true);
+    expect(await repo.reserveDaily("quota:serpapi", 1, new Date("2026-11-02T00:00:00Z"))).toBe(true);
+  });
+
+  it("refuses anything that is not a whole share of at least 1, a quota key, or a real clock", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    for (const cap of [0, -1, 0.5, 2.5, Number.NaN, Number.POSITIVE_INFINITY, 2 ** 60]) expect(await repo.reserveDaily("quota:ignav", cap, NOW), String(cap)).toBe(false);
+    for (const key of ["", "ignav", "search:abc", "quota:", "quota:IGNAV", "quota:x'; DROP TABLE rate_limits; --", "global:scan"]) expect(await repo.reserveDaily(key, 5, NOW), key).toBe(false);
+    expect(await repo.reserveDaily("quota:ignav", 5, new Date(Number.NaN))).toBe(false);
+    expect(await count(db, "rate_limits")).toBe(0);
+  });
+
+  it("fails closed on a missing table or a database error", async () => {
+    const noTable = createTestD1();
+    await noTable.prepare("DROP TABLE rate_limits").run();
+    expect(await createRepo(noTable).reserveDaily("quota:ignav", 5, NOW)).toBe(false);
+    const broken = { prepare: () => { throw new Error("D1_ERROR"); } } as unknown as D1Database;
+    expect(await createRepo(broken).reserveDaily("quota:ignav", 5, NOW)).toBe(false);
+  });
+
+  it("does not touch source_quota, and the rate limiter's own cleanup keeps today's row", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    await repo.reserveDaily("quota:ignav", 5, NOW);
+    await repo.checkRateLimit("search:x", 5, 600, NOW); // the first hit of a window sweeps dead windows (older than a day)
+    expect(await count(db, "source_quota")).toBe(0);
+    expect((await today(db, "quota:ignav"))[0]?.count).toBe(1);
+    // ...and a day-old row is swept by the daily retention job like any dead window
+    await pruneHistory(db, new Date(NOW.getTime() + 2 * DAY));
+    expect(await today(db, "quota:ignav")).toEqual([]);
+  });
+});
+
+describe("search cache: live quotes beside the fares", () => {
+  const offers = [mkOffer()];
+  const quotes = [mkOffer({ source: "serpapi", priceAmount: 150, inbound: { departTime: null, arriveTime: null, stops: null, durationMin: null, airlines: [] } })];
+  const pairs: OneWayPair[] = [];
+
+  it("round-trips the quotes with the fares and the notes", async () => {
+    const repo = createRepo(createTestD1());
+    await repo.putCachedOffers("k", offers, NOW, { oneWayPairs: pairs, notes: ["n"], quotes });
+    expect(await repo.getCachedOffers("k", 6, NOW)).toEqual({ offers, createdAt: NOW.toISOString(), oneWayPairs: pairs, notes: ["n"], quotes });
+  });
+
+  it("a row without quotes (every row written before, or a scan that got none) comes back without the field", async () => {
+    const repo = createRepo(createTestD1());
+    await repo.putCachedOffers("k", offers, NOW, { oneWayPairs: pairs, notes: [] });
+    expect(await repo.getCachedOffers("k", 6, NOW)).toEqual({ offers, createdAt: NOW.toISOString(), oneWayPairs: pairs, notes: [] });
+  });
+
+  it("a damaged quote list is dropped, never a miss: the fares and the split tickets stay usable", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    await db.prepare("INSERT INTO search_cache (search_key, offers_json, extra_json, created_at) VALUES (?, ?, ?, ?)").bind("k", JSON.stringify(offers), JSON.stringify({ oneWayPairs: [], notes: [], quotes: "x" }), NOW.toISOString()).run();
+    expect(await repo.getCachedOffers("k", 6, NOW)).toEqual({ offers, createdAt: NOW.toISOString(), oneWayPairs: [], notes: [] });
+  });
+});

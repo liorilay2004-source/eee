@@ -113,7 +113,11 @@ function firstMin<T>(items: T[], less: (a: T, b: T) => boolean): T | undefined {
   return best;
 }
 
-export function recommend(offers: Offer[], req: SearchRequest, cfg: ScoringConfig = SCORING): Card[] {
+/**
+ * `timeOnly` are extra candidates for the 🎯 card alone (never for Cheapest or Best value): the pipeline passes cached fares whose
+ * verified return leg a live quote (which does not state its own) replaced, so the quote cannot cost the user that card.
+ */
+export function recommend(offers: Offer[], req: SearchRequest, cfg: ScoringConfig = SCORING, timeOnly: Offer[] = []): Card[] {
   const priced = offers.filter(isPriced);
   if (priced.length === 0) return [];
 
@@ -128,7 +132,7 @@ export function recommend(offers: Offer[], req: SearchRequest, cfg: ScoringConfi
   if (best) picks.push(["best_value", best.o]);
 
   if (hasTimePrefs(req)) {
-    const mine = firstMin(priced.filter((o) => matchesTimes(o, req)), (a, b) => a.totalIls < b.totalIls);
+    const mine = firstMin([...priced, ...timeOnly.filter(isPriced)].filter((o) => matchesTimes(o, req)), (a, b) => a.totalIls < b.totalIls);
     if (mine) picks.push(["my_times", mine]);
   }
 
