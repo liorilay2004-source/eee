@@ -3,8 +3,11 @@
  * Travelpayouts row it says when we fetched the vendor's cache, not when the vendor last saw that price.
  * These helpers say what is actually known about the fare's own age, and nothing more (SPEC P1: never guess):
  *
- *  - "live":    the fare comes from a live search (the Google Flights monitor or a live quote vendor, see quotes.ts),
- *               so it was seen at `checkedAt`: the fare's age IS the check's age.
+ *  - "live":    the fare was seen at `checkedAt` by our own scrape of the live site (the Google Flights monitor only).
+ *  - "bounded": a search API that documents a result cache of at most N minutes (SerpApi: "Cache expires after 1h", and
+ *               `no_cache` is not sent): the fare is at most scan age + N old. Only that upper bound is claimed.
+ *  - quote vendors that promise no freshness and document no cache (Ignav, Wego, SearchApi) are "unknown": the time of
+ *    OUR search is known, the fare's own age is not, and the label says exactly that.
  *  - "source":  the vendor stated when it saw the fare (`found_at` on a Travelpayouts row). The v3 `prices_for_dates`
  *               endpoint we use does NOT send it today (verified only against third-party copies of its field list,
  *               the vendor's own help page was unreachable); v2 endpoints such as `prices/latest` do. Parsed
@@ -24,12 +27,20 @@ export const FARE_AGING_MAX_HOURS = 72;
 /** A vendor clock may run slightly ahead of ours; a `found_at` further in the future than this is not believed. */
 export const FOUND_AT_MAX_SKEW_MS = 5 * 60_000;
 
+/** Sources whose fare was seen at `checkedAt` by our own scrape of the live site. Travelpayouts is a cache: never here. */
+export const LIVE_FARE_SOURCES: readonly SourceName[] = ["google_flights"];
+
 /**
- * Sources whose fares come from a live search at `checkedAt`. Must stay in step with QUOTE_SOURCE_NAMES (quotes.ts;
- * not imported here to keep travelpayouts.ts free of an import cycle) plus the google_flights monitor. Travelpayouts is
- * a cache and is never on this list.
+ * Documented upper bound of a vendor's result cache, in minutes. SerpApi (https://serpapi.com/search-api): "Cache expires
+ * after 1h"; serpapi.ts does not send `no_cache`, so an answer may be up to an hour old when we get it.
  */
-export const LIVE_FARE_SOURCES: readonly SourceName[] = ["google_flights", "ignav", "wego", "searchapi", "serpapi"];
+export const VENDOR_CACHE_MAX_MINUTES: Readonly<Partial<Record<SourceName, number>>> = { serpapi: 60 };
+
+/**
+ * Live search APIs that neither promise freshness nor document a cache. Must stay in step with QUOTE_SOURCE_NAMES
+ * (quotes.ts; not imported here, to keep travelpayouts.ts free of an import cycle) minus VENDOR_CACHE_MAX_MINUTES (tested).
+ */
+export const UNSTATED_AGE_QUOTE_SOURCES: readonly SourceName[] = ["ignav", "wego", "searchapi"];
 
 /** ISO date-time WITH an explicit zone ("Z" or "+HH:MM"): a zoneless time would have to be guessed. */
 const ZONED_ISO = /^(\d{4})-(\d{2})-(\d{2})T([01]\d|2[0-3]):[0-5]\d(:[0-5]\d(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})$/;
@@ -81,6 +92,8 @@ export interface FareFreshness {
   fareAgeHours: number | null;
   /** Whole minutes since fareFoundAt; null when unknown. */
   fareAgeMinutes: number | null;
+  /** Upper bound on the fare's age in whole minutes: = fareAgeMinutes when that is known, the documented bound for "bounded", else null. */
+  fareAgeMaxMinutes: number | null;
   /** Whole minutes since OUR check (`checkedAt`): how old our read is, NOT how old the fare is (see fareAgeBasis). */
   scanAgeMinutes: number;
   fareAgeBasis: FareAgeBasis;
@@ -116,43 +129,63 @@ export function hebrewAgo(minutes: number): string {
   return d === 1 ? "לפני יום" : d === 2 ? "לפני יומיים" : `לפני ${d} ימים`;
 }
 
+const EXPIRED_HE = "תוקף המחיר פג לפי מקור הנתונים";
+
 /** What is known about the age of an offer's fare at `now`. */
 export function fareFreshness(o: Offer, now: Date): FareFreshness {
-  let foundAt: string | null = null;
-  let basis: FareAgeBasis = "unknown";
-  if (o.fareFoundAt) {
-    foundAt = o.fareFoundAt;
-    basis = "source";
-  } else if (LIVE_FARE_SOURCES.includes(o.source)) {
-    foundAt = o.checkedAt;
-    basis = "live";
-  }
-  const scanAgeMinutes = minutesSince(o.checkedAt, now) ?? 0;
-  const fareMinutes = foundAt === null ? null : minutesSince(foundAt, now);
+  const scanMinutes = minutesSince(o.checkedAt, now);
+  const scanAgeMinutes = scanMinutes ?? 0;
   const expired = fareExpired(o, now);
-  if (fareMinutes === null || foundAt === null) {
+  const unknown = (ageLabelKey: AgeLabelKey, ageLabelHe: string): FareFreshness => ({
+    fareFoundAt: null,
+    fareAgeHours: null,
+    fareAgeMinutes: null,
+    fareAgeMaxMinutes: null,
+    scanAgeMinutes,
+    fareAgeBasis: "unknown",
+    freshness: expired ? "stale" : "unknown",
+    ageLabelKey: expired ? "fare_expired" : ageLabelKey,
+    ageLabelHe: expired ? EXPIRED_HE : ageLabelHe,
+  });
+
+  // 1. A time stated by the source, or 2. our own scrape of the live site: the fare's age is known.
+  const foundAt = o.fareFoundAt ? o.fareFoundAt : LIVE_FARE_SOURCES.includes(o.source) ? o.checkedAt : null;
+  const fareMinutes = foundAt === null ? null : minutesSince(foundAt, now);
+  if (foundAt !== null && fareMinutes !== null) {
+    return {
+      fareFoundAt: foundAt,
+      fareAgeHours: hoursOf(fareMinutes),
+      fareAgeMinutes: fareMinutes,
+      fareAgeMaxMinutes: fareMinutes,
+      scanAgeMinutes,
+      fareAgeBasis: o.fareFoundAt ? "source" : "live",
+      freshness: expired ? "stale" : classifyAge(hoursOf(fareMinutes)),
+      ageLabelKey: expired ? "fare_expired" : "fare_found_ago",
+      ageLabelHe: expired ? EXPIRED_HE : `המחיר נמצא ${hebrewAgo(fareMinutes)}`,
+    };
+  }
+
+  // 3. A documented vendor cache: only an upper bound (our search's age + the cache's maximum) is claimed.
+  const bound = VENDOR_CACHE_MAX_MINUTES[o.source];
+  if (bound !== undefined && scanMinutes !== null) {
+    const max = scanMinutes + bound;
     return {
       fareFoundAt: null,
       fareAgeHours: null,
       fareAgeMinutes: null,
+      fareAgeMaxMinutes: max,
       scanAgeMinutes,
-      fareAgeBasis: "unknown",
-      freshness: expired ? "stale" : "unknown",
-      ageLabelKey: expired ? "fare_expired" : "cached_fare_unknown_age",
-      ageLabelHe: expired
-        ? "תוקף המחיר פג לפי מקור הנתונים"
-        : `מחיר שמור ממאגר מחירים, נשלף ${hebrewAgo(scanAgeMinutes)}. מתי נמצא המחיר עצמו לא ידוע, וייתכן שהשתנה.`,
+      fareAgeBasis: "bounded",
+      freshness: expired ? "stale" : classifyAge(hoursOf(max)),
+      ageLabelKey: expired ? "fare_expired" : "fare_found_within",
+      ageLabelHe: expired ? EXPIRED_HE : `המחיר נמצא ${hebrewAgo(max)} לכל היותר`,
     };
   }
-  const hours = hoursOf(fareMinutes);
-  return {
-    fareFoundAt: foundAt,
-    fareAgeHours: hours,
-    fareAgeMinutes: fareMinutes,
-    scanAgeMinutes,
-    fareAgeBasis: basis,
-    freshness: expired ? "stale" : classifyAge(hours),
-    ageLabelKey: expired ? "fare_expired" : "fare_found_ago",
-    ageLabelHe: expired ? "תוקף המחיר פג לפי מקור הנתונים" : `המחיר נמצא ${hebrewAgo(fareMinutes)}`,
-  };
+
+  // 4. A search API that states nothing about the fare's age: our search time only.
+  if (UNSTATED_AGE_QUOTE_SOURCES.includes(o.source) || bound !== undefined) {
+    return unknown("quote_unknown_age", `מחיר מחיפוש שבוצע ${hebrewAgo(scanAgeMinutes)}. מקור הנתונים אינו מציין מתי נמצא המחיר עצמו.`);
+  }
+  // 5. A cached fare without a timestamp (every Travelpayouts fare today).
+  return unknown("cached_fare_unknown_age", `מחיר שמור ממאגר מחירים, נשלף ${hebrewAgo(scanAgeMinutes)}. מתי נמצא המחיר עצמו לא ידוע, וייתכן שהשתנה.`);
 }

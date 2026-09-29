@@ -15,6 +15,8 @@ import {
   hebrewAgo,
   LIVE_FARE_SOURCES,
   olderOf,
+  UNSTATED_AGE_QUOTE_SOURCES,
+  VENDOR_CACHE_MAX_MINUTES,
   vendorTimestamp,
 } from "../src/freshness";
 import { runSearch, sanitizeOffers, sanitizeOneWayPairs, type SearchDeps } from "../src/pipeline";
@@ -178,6 +180,7 @@ describe("fareFreshness", () => {
       fareFoundAt: null,
       fareAgeHours: null,
       fareAgeMinutes: null,
+      fareAgeMaxMinutes: null,
       scanAgeMinutes: 7,
       fareAgeBasis: "unknown",
       freshness: "unknown",
@@ -188,12 +191,40 @@ describe("fareFreshness", () => {
     expect(f.ageLabelHe).not.toMatch(/נמצא לפני|נבדק עכשיו/);
   });
 
-  it("every live source counts as seen at checkedAt; Travelpayouts never does", () => {
-    expect([...LIVE_FARE_SOURCES].sort()).toEqual(["google_flights", ...QUOTE_SOURCE_NAMES].sort());
-    expect(LIVE_FARE_SOURCES).not.toContain("travelpayouts");
-    for (const source of LIVE_FARE_SOURCES) {
-      const f = fareFreshness(offer(100, { source, checkedAt: ago(90 * MIN) }), NOW);
-      expect(f).toMatchObject({ fareFoundAt: ago(90 * MIN), fareAgeMinutes: 90, fareAgeHours: 1.5, scanAgeMinutes: 90, fareAgeBasis: "live", freshness: "fresh", ageLabelKey: "fare_found_ago", ageLabelHe: "המחיר נמצא לפני שעה" });
+  it("the source lists cover every quote vendor exactly once, and Travelpayouts is on none", () => {
+    const quoteVendors = [...UNSTATED_AGE_QUOTE_SOURCES, ...Object.keys(VENDOR_CACHE_MAX_MINUTES)].sort();
+    expect(quoteVendors).toEqual([...QUOTE_SOURCE_NAMES].sort());
+    expect(new Set(quoteVendors).size).toBe(quoteVendors.length);
+    expect(LIVE_FARE_SOURCES).toEqual(["google_flights"]);
+    for (const list of [LIVE_FARE_SOURCES, UNSTATED_AGE_QUOTE_SOURCES, Object.keys(VENDOR_CACHE_MAX_MINUTES)]) expect(list).not.toContain("travelpayouts");
+  });
+
+  it("the Google Flights monitor row counts as seen at checkedAt", () => {
+    const f = fareFreshness(offer(100, { source: "google_flights", checkedAt: ago(90 * MIN) }), NOW);
+    expect(f).toMatchObject({ fareFoundAt: ago(90 * MIN), fareAgeMinutes: 90, fareAgeMaxMinutes: 90, fareAgeHours: 1.5, scanAgeMinutes: 90, fareAgeBasis: "live", freshness: "fresh", ageLabelKey: "fare_found_ago", ageLabelHe: "המחיר נמצא לפני שעה" });
+  });
+
+  it("REGRESSION: a SerpApi quote made just now is never 'found just now': its vendor cache may be an hour old", () => {
+    const f = fareFreshness(offer(100, { source: "serpapi", checkedAt: NOW.toISOString() }), NOW);
+    expect(f).toMatchObject({ fareFoundAt: null, fareAgeMinutes: null, fareAgeHours: null, fareAgeMaxMinutes: 60, scanAgeMinutes: 0, fareAgeBasis: "bounded", freshness: "fresh", ageLabelKey: "fare_found_within", ageLabelHe: "המחיר נמצא לפני שעה לכל היותר" });
+    expect(f.ageLabelHe).not.toContain("ממש עכשיו");
+    const later2 = fareFreshness(offer(100, { source: "serpapi", checkedAt: ago(5 * HOUR) }), NOW);
+    expect(later2).toMatchObject({ fareAgeMaxMinutes: 6 * 60, ageLabelHe: "המחיר נמצא לפני 6 שעות לכל היותר" });
+  });
+
+  it("REGRESSION: Ignav, Wego and SearchApi promise no freshness: search time known, fare age not claimed", () => {
+    for (const source of UNSTATED_AGE_QUOTE_SOURCES) {
+      const f = fareFreshness(offer(100, { source, checkedAt: ago(3 * MIN) }), NOW);
+      expect(f, source).toMatchObject({ fareFoundAt: null, fareAgeMinutes: null, fareAgeMaxMinutes: null, fareAgeHours: null, scanAgeMinutes: 3, fareAgeBasis: "unknown", freshness: "unknown", ageLabelKey: "quote_unknown_age" });
+      expect(f.ageLabelHe).toContain("לפני 3 דקות");
+      expect(f.ageLabelHe).toContain("אינו מציין");
+      expect(f.ageLabelHe).not.toMatch(/המחיר נמצא|ממאגר/);
+    }
+  });
+
+  it("a vendor-stated found_at beats every source default", () => {
+    for (const source of ["serpapi", "ignav", "google_flights"] as const) {
+      expect(fareFreshness(offer(100, { source, fareFoundAt: ago(2 * HOUR) }), NOW)).toMatchObject({ fareAgeBasis: "source", fareAgeMinutes: 120 });
     }
   });
 
@@ -205,7 +236,9 @@ describe("fareFreshness", () => {
 
   it("an expired fare is stale whatever else is known", () => {
     expect(fareFreshness(offer(100, { fareExpiresAt: ago(MIN) }), NOW)).toMatchObject({ freshness: "stale", ageLabelKey: "fare_expired", fareAgeBasis: "unknown" });
-    expect(fareFreshness(offer(100, { source: "serpapi", fareExpiresAt: ago(MIN) }), NOW)).toMatchObject({ freshness: "stale", ageLabelKey: "fare_expired", fareAgeBasis: "live" });
+    expect(fareFreshness(offer(100, { source: "google_flights", fareExpiresAt: ago(MIN) }), NOW)).toMatchObject({ freshness: "stale", ageLabelKey: "fare_expired", fareAgeBasis: "live" });
+    expect(fareFreshness(offer(100, { source: "serpapi", fareExpiresAt: ago(MIN) }), NOW)).toMatchObject({ freshness: "stale", ageLabelKey: "fare_expired", fareAgeBasis: "bounded" });
+    expect(fareFreshness(offer(100, { source: "wego", fareExpiresAt: ago(MIN) }), NOW)).toMatchObject({ freshness: "stale", ageLabelKey: "fare_expired", fareAgeBasis: "unknown" });
   });
 
   it("a found time slightly ahead of now (clock skew) reads as zero, never negative", () => {
@@ -213,8 +246,10 @@ describe("fareFreshness", () => {
   });
 
   it("a malformed checkedAt yields scanAgeMinutes 0 and an unknown live age rather than a crash", () => {
-    const f = fareFreshness(offer(100, { source: "ignav", checkedAt: "bad" }), NOW);
-    expect(f).toMatchObject({ scanAgeMinutes: 0, fareAgeBasis: "unknown", fareFoundAt: null, freshness: "unknown" });
+    for (const source of ["google_flights", "serpapi", "ignav"] as const) {
+      const f = fareFreshness(offer(100, { source, checkedAt: "bad" }), NOW);
+      expect(f, source).toMatchObject({ scanAgeMinutes: 0, fareAgeBasis: "unknown", fareFoundAt: null, fareAgeMaxMinutes: null, freshness: "unknown" });
+    }
   });
 });
 
@@ -322,5 +357,15 @@ describe("runSearch: card freshness fields", () => {
     const cheapest = res.cards.find((c) => c.kinds.includes("cheapest"));
     expect(cheapest?.offer.ticketStructure).toBe("split");
     expect(cheapest?.offer.priceAmount).toBe(60);
+  });
+
+  it("REGRESSION: a source-expired fare is not written to the price history (the table keeps no expiry)", async () => {
+    const db = createTestD1();
+    const d: SearchDeps = { repo: createRepo(db), tp: mockTp([offer(50, { fareExpiresAt: ago(MIN) }), offer(100, { departDate: "2026-11-13", returnDate: "2026-11-19" })]), fx: vi.fn(async () => FX), now: NOW };
+    await runSearch(d, req());
+    const rows = (await db.prepare("SELECT depart_date, price_amount FROM prices").all<{ depart_date: string; price_amount: number }>()).results;
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.map((r) => r.depart_date)).not.toContain("2026-11-12");
+    expect(rows.map((r) => r.price_amount)).toContain(100);
   });
 });

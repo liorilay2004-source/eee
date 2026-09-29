@@ -104,12 +104,15 @@ export interface SourceStatus {
   error: string | null;
 }
 
-/** ADDITIVE: how the fare's age is known. "live" = seen by a live search at checkedAt; "source" = vendor timestamp; "unknown" = cached, no timestamp. */
-export type FareAgeBasis = "live" | "source" | "unknown";
+/**
+ * ADDITIVE: how the fare's age is known. "live" = our own scrape of the live site at checkedAt; "source" = vendor timestamp;
+ * "bounded" = a documented vendor cache, only an upper bound (fareAgeMaxMinutes) is known; "unknown" = not stated.
+ */
+export type FareAgeBasis = "live" | "source" | "bounded" | "unknown";
 /** ADDITIVE: fresh < 24h, aging < 72h, stale >= 72h or vendor-expired; "unknown" when the fare's age is not known. */
 export type Freshness = "fresh" | "aging" | "stale" | "unknown";
 /** ADDITIVE: which sentence CardView.ageLabelHe is. */
-export type AgeLabelKey = "fare_found_ago" | "cached_fare_unknown_age" | "fare_expired";
+export type AgeLabelKey = "fare_found_ago" | "fare_found_within" | "quote_unknown_age" | "cached_fare_unknown_age" | "fare_expired";
 
 export interface CardView extends Card {
   priceContext: PriceContext | null;
@@ -121,11 +124,13 @@ export interface CardView extends Card {
   fareAgeHours: number | null;
   /** ADDITIVE: whole minutes since fareFoundAt; null = unknown. */
   fareAgeMinutes: number | null;
+  /** ADDITIVE: upper bound on the fare's age in minutes (= fareAgeMinutes when known; the documented bound for "bounded"); null = unknown. */
+  fareAgeMaxMinutes: number | null;
   /** ADDITIVE: whole minutes since our own check (checkedAt). */
   scanAgeMinutes: number;
   fareAgeBasis: FareAgeBasis;
   freshness: Freshness;
-  /** ADDITIVE: "fare_found_ago" | "cached_fare_unknown_age" | "fare_expired". */
+  /** ADDITIVE: which sentence ageLabelHe is (AgeLabelKey). */
   ageLabelKey: AgeLabelKey;
   /** ADDITIVE: ready Hebrew sentence for the age line (never implies a live check for a cached fare). */
   ageLabelHe: string;

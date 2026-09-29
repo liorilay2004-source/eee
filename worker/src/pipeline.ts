@@ -495,9 +495,12 @@ function capOneWayPairs(pairs: OneWayPair[], fx: FxRates, max: number): OneWayPa
 }
 
 /** Price-history rows for a fresh scan: the cheapest fare per (pair, source, structure), per passenger. */
-function historyRows(live: Offer[], fx: FxRates, pax: number): Offer[] {
+function historyRows(live: Offer[], fx: FxRates, pax: number, now: Date): Offer[] {
   const best = new Map<string, { o: Offer; ils: number }>();
   for (const o of live) {
+    // A source-expired fare is not ranked, so it must not reach the history either: the `prices` table keeps no expiry,
+    // and a fallback read of it could not tell it apart from a valid fare.
+    if (fareExpired(o, now)) continue;
     const key = [o.origin, o.destination, o.departDate, o.returnDate, o.source, o.ticketStructure].join("|");
     const ils = baseIls(fx, o);
     const cur = best.get(key);
@@ -829,8 +832,8 @@ async function persist(job: PersistJob): Promise<void> {
   const { repo, now } = job;
   const work: Array<Promise<unknown>> = [];
   if (job.logSearch) work.push(attempt(() => repo.saveSearch(job.req, job.searchKey, now)));
-  if (job.fresh.length > 0) work.push(attempt(() => repo.savePrices(historyRows(job.fresh, job.fx, job.pax))));
-  if (job.quotes.length > 0) work.push(attempt(() => repo.savePrices(historyRows(job.quotes, job.fx, job.pax))));
+  if (job.fresh.length > 0) work.push(attempt(() => repo.savePrices(historyRows(job.fresh, job.fx, job.pax, job.now))));
+  if (job.quotes.length > 0) work.push(attempt(() => repo.savePrices(historyRows(job.quotes, job.fx, job.pax, job.now))));
   for (const h of job.quoteHealth) work.push(attempt(() => repo.recordSourceHealth(h.name, h.ok, h.error, now)));
   if (job.cache) {
     const { offers, oneWayPairs, notes, quotes } = job.cache;
