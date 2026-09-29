@@ -15,9 +15,12 @@ import {
   MAX_PERSISTED_PRICES,
   MAX_TP_REQUESTS,
   PipelineError,
+  REFRESH_LOCK_SECONDS,
   runSearch,
   sanitizeOffers,
   sanitizeOneWayPairs,
+  STALE_MAX_AGE_HOURS,
+  staleInfo,
   type SearchDeps,
 } from "../src/pipeline";
 import { BAG_FEES, SCORING } from "../src/scoring.config";
@@ -1285,5 +1288,129 @@ describe("sanitizeOneWayPairs", () => {
     expect(out[0]?.backs).toHaveLength(1);
     expect(sanitizeOneWayPairs("nope")).toEqual([]);
     expect(sanitizeOneWayPairs([{ ...good, outs: "x", backs: undefined }])).toEqual([{ origin: "TLV", destination: "BCN", outs: [], backs: [] }]);
+  });
+});
+
+describe("stale-while-revalidate (SearchDeps.staleWhileRevalidate)", () => {
+  const later = (h: number) => new Date(NOW.getTime() + h * HOUR);
+  /** Fills the cache at NOW with one round trip at `price`, then returns deps for a search `hours` later. */
+  async function staleSetup(hours: number, over: Partial<SearchDeps> = {}) {
+    const pending: Promise<unknown>[] = [];
+    const tp = mockTp({ rt: rtFor([offer(164)]) });
+    const base = setup({ tp });
+    await runSearch(base.deps, req());
+    const deps: SearchDeps = { ...base.deps, now: later(hours), staleWhileRevalidate: true, waitUntil: (p) => void pending.push(p), ...over };
+    return { ...base, tp, deps, pending };
+  }
+
+  /** A Travelpayouts client whose every request waits until release() is called. */
+  function gatedTp() {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const inner = mockTp({ rt: rtFor([offer(170)]) });
+    const tp: TravelpayoutsClient = {
+      ...inner,
+      roundTrips: async (...a) => (await gate, inner.roundTrips(...a)),
+      oneWays: async (...a) => (await gate, inner.oneWays(...a)),
+    };
+    return { tp, release, inner };
+  }
+
+  it("bounds are what the SPEC states: 24h stale bound, 10 min lock", () => {
+    expect(STALE_MAX_AGE_HOURS).toBe(24);
+    expect(REFRESH_LOCK_SECONDS).toBe(600);
+  });
+
+  it("off by default (the scheduled snapshot path): a row past the TTL is a miss and the scan runs in the request", async () => {
+    const { deps, tp } = await staleSetup(7);
+    const before = tp.callCount();
+    const res = await runSearch({ ...deps, staleWhileRevalidate: undefined }, req());
+    expect(res.meta.fromCache).toBe(false);
+    expect(res.meta.stale).toBeUndefined();
+    expect(tp.callCount()).toBeGreaterThan(before);
+  });
+
+  it("needs waitUntil: without it a stale row is not served", async () => {
+    const { deps } = await staleSetup(7);
+    const res = await runSearch({ ...deps, waitUntil: undefined }, req());
+    expect(res.meta.fromCache).toBe(false);
+    expect(res.meta.stale).toBeUndefined();
+  });
+
+  it("answers from the stale row WITHOUT waiting for the rescan, which runs in waitUntil and rewrites the row", async () => {
+    const { deps, pending, db } = await staleSetup(7);
+    const g = gatedTp();
+    const res = await runSearch({ ...deps, tp: g.tp }, req()); // resolves while every upstream request is still blocked
+    expect(res.meta.fromCache).toBe(true);
+    expect(res.meta.stale).toMatchObject({ cachedAt: NOW.toISOString(), ageHours: 7, revalidating: true });
+    expect(res.cards[0]?.offer.priceAmount).toBe(164); // the old fare, not the rescan's 170
+    expect(res.cards[0]?.ageHours).toBe(7); // the card's own age is the old scan's
+    expect(g.inner.log).toEqual([]); // no upstream request has completed
+    g.release();
+    await Promise.all(pending);
+    expect(g.inner.log.length).toBeGreaterThan(0);
+    const [row] = await rows<{ created_at: string }>(db, "SELECT created_at FROM search_cache");
+    expect(row?.created_at).toBe(later(7).toISOString());
+    expect(await count(db, "searches")).toBe(2); // the stale answer's log row only, not one more for the rescan
+  });
+
+  it("a row inside the TTL is an ordinary hit: no stale mark, no rescan", async () => {
+    const { deps, tp, pending } = await staleSetup(5);
+    const before = tp.callCount();
+    const res = await runSearch(deps, req());
+    expect(res.meta.fromCache).toBe(true);
+    expect(res.meta.stale).toBeUndefined();
+    await Promise.all(pending);
+    expect(tp.callCount()).toBe(before);
+  });
+
+  it("Travelpayouts not configured: stale answer, revalidating false, no background job", async () => {
+    const { deps, pending } = await staleSetup(7);
+    const res = await runSearch({ ...deps, tp: mockTp({ configured: false }) }, req());
+    expect(res.meta.stale?.revalidating).toBe(false);
+    expect(pending).toHaveLength(1); // only the search-log write
+  });
+
+  it("the lock storage failing means no rescan (fail closed), and the answer says so", async () => {
+    const { deps, tp, pending, repo } = await staleSetup(7);
+    const broken = new Proxy(repo, { get: (t, k) => (k === "checkRateLimit" ? async () => { throw new Error("D1 down"); } : Reflect.get(t, k)) });
+    const before = tp.callCount();
+    const res = await runSearch({ ...deps, repo: broken as typeof repo }, req());
+    expect(res.meta.fromCache).toBe(true);
+    expect(res.meta.stale?.revalidating).toBe(false);
+    await Promise.all(pending);
+    expect(tp.callCount()).toBe(before);
+  });
+
+  it("the global scan budget is asked only after the per-key lock is won", async () => {
+    const budget = vi.fn(async () => true);
+    const { deps } = await staleSetup(7, { scanBudget: budget });
+    const g = gatedTp(); // the first rescan stays in flight, so the row is still stale for the second search
+    await runSearch({ ...deps, tp: g.tp }, req());
+    expect(budget).toHaveBeenCalledTimes(1);
+    const second = await runSearch({ ...deps, tp: g.tp }, req()); // lock held now
+    expect(second.meta.stale?.revalidating).toBe(false);
+    expect(budget).toHaveBeenCalledTimes(1);
+  });
+
+  it("a failed background scan leaves the stale row untouched and never rejects", async () => {
+    const { deps, pending, db } = await staleSetup(7);
+    const failing: TravelpayoutsClient = { ...mockTp(), roundTrips: async () => { throw new TravelpayoutsError("HTTP 502"); }, oneWays: async () => { throw new TravelpayoutsError("HTTP 502"); } };
+    const res = await runSearch({ ...deps, tp: failing }, req());
+    expect(res.meta.stale?.revalidating).toBe(true);
+    await expect(Promise.all(pending)).resolves.toBeDefined();
+    const [row] = await rows<{ created_at: string }>(db, "SELECT created_at FROM search_cache");
+    expect(row?.created_at).toBe(NOW.toISOString());
+  });
+
+  it("staleInfo: Hebrew hour forms, and the 'search again' line only while revalidating", () => {
+    const at = (h: number) => new Date(NOW.getTime() + h * HOUR);
+    expect(staleInfo(NOW.toISOString(), at(1.5), false).messageHe).toContain("לפני שעה,");
+    expect(staleInfo(NOW.toISOString(), at(2.2), false).messageHe).toContain("לפני שעתיים,");
+    const s = staleInfo(NOW.toISOString(), at(13.26), true);
+    expect(s).toMatchObject({ ageHours: 13.3, revalidating: true, cachedAt: NOW.toISOString() });
+    expect(s.messageHe).toContain("לפני 13 שעות");
+    expect(s.messageHe).toContain("חפשו שוב");
+    expect(staleInfo(NOW.toISOString(), at(13), false).messageHe).not.toContain("חפשו שוב");
   });
 });

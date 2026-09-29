@@ -216,15 +216,115 @@ describe("POST /api/search: the happy path with Travelpayouts fixtures", () => {
     expect(up.fn.mock.calls.length).toBe(outbound);
   });
 
-  it("after the TTL a fresh scan runs again", async () => {
+  it("after the TTL the stale row answers at once, marked, and ONE background rescan refreshes it", async () => {
+    const up = stubUpstream();
+    const env = makeEnv();
+    const first = await search(env);
+    expect(first.data.meta.stale).toBeUndefined();
+    vi.setSystemTime(new Date(NOW.getTime() + 6 * 3_600_000 + 1000));
+    const { res, data } = await search(env);
+    expect(res.status).toBe(200);
+    expect(data.meta.fromCache).toBe(true);
+    expect(data.meta.stale).toEqual({
+      cachedAt: NOW.toISOString(),
+      ageHours: 6,
+      revalidating: true,
+      messageHe: expect.stringContaining("לפני 6 שעות"),
+    });
+    expect(data.meta.stale?.messageHe).toContain("חפשו שוב");
+    expect(data.cards.map((c) => c.offer.priceAmount)).toEqual(first.data.cards.map((c) => c.offer.priceAmount));
+    // Every card says its fares are as old as the scan behind them.
+    for (const c of data.cards) expect(c.ageHours).toBeGreaterThanOrEqual(6);
+    expect(up.tpCalls()).toHaveLength(6); // the background rescan (waitUntil) made the same 3 requests again
+    expect(up.fxCalls()).toHaveLength(1); // same UTC day: rates come from D1
+
+    // The rescan rewrote the row: the next identical search is an ordinary in-TTL hit, no stale mark, no call.
+    const again = await search(env);
+    expect(again.data.meta.fromCache).toBe(true);
+    expect(again.data.meta.stale).toBeUndefined();
+    expect(up.tpCalls()).toHaveLength(6);
+    // The stale answer logged its search once; the rescan did not log another.
+    expect(await rows(env, "SELECT id FROM searches")).toHaveLength(3);
+  });
+
+  it("past the stale bound (24h) the row is not served: a fresh scan runs in the request", async () => {
     const up = stubUpstream();
     const env = makeEnv();
     await search(env);
-    vi.setSystemTime(new Date(NOW.getTime() + 6 * 3_600_000 + 1000));
+    vi.setSystemTime(new Date(NOW.getTime() + 24 * 3_600_000));
     const { data } = await search(env);
     expect(data.meta.fromCache).toBe(false);
+    expect(data.meta.stale).toBeUndefined();
     expect(up.tpCalls()).toHaveLength(6);
-    expect(up.fxCalls()).toHaveLength(1); // same UTC day: rates come from D1
+  });
+
+  it("a burst of stale hits starts one rescan only (the per-key lock), and later ones say they are not revalidating", async () => {
+    stubUpstream();
+    const env = makeEnv();
+    await search(env);
+    vi.setSystemTime(new Date(NOW.getTime() + 7 * 3_600_000));
+    // The rescan fails, so the row stays stale: the next hits must not rescan again inside the lock window.
+    const failing = stubUpstream({ tp: () => new Response("upstream down", { status: 502 }) });
+    const a = await search(env);
+    const b = await search(env);
+    expect(a.data.meta.stale?.revalidating).toBe(true);
+    expect(b.data.meta.stale?.revalidating).toBe(false);
+    expect(b.data.meta.stale?.messageHe).not.toContain("חפשו שוב");
+    expect(b.data.meta.fromCache).toBe(true);
+    expect(failing.tpCalls().length).toBeGreaterThan(0);
+    const afterBurst = failing.tpCalls().length;
+    const c = await search(env);
+    expect(c.data.meta.stale?.revalidating).toBe(false);
+    expect(failing.tpCalls()).toHaveLength(afterBurst);
+    const [health] = await rows<{ consecutive_failures: number }>(env, "SELECT consecutive_failures FROM source_health WHERE source = 'travelpayouts'");
+    expect(health?.consecutive_failures).toBe(1); // the failed rescan is recorded, once
+    // After the lock window the next stale hit may try again.
+    vi.setSystemTime(new Date(NOW.getTime() + 7 * 3_600_000 + 2 * 600_000 + 1000));
+    const d = await search(env);
+    expect(d.data.meta.stale?.revalidating).toBe(true);
+  });
+
+  it("a stale hit with the global scan budget spent answers stale and does not rescan", async () => {
+    stubUpstream();
+    const env = makeEnv();
+    await search(env);
+    vi.setSystemTime(new Date(NOW.getTime() + 7 * 3_600_000));
+    const nowSec = Math.floor(Date.now() / 1000);
+    const windowStart = Math.floor(nowSec / GLOBAL_SCAN_WINDOW_SECONDS) * GLOBAL_SCAN_WINDOW_SECONDS;
+    await env.DB.prepare("INSERT INTO rate_limits (key, window_start, count) VALUES ('global:scan', ?, ?)").bind(windowStart, GLOBAL_SCAN_LIMIT + 5).run();
+    const up = stubUpstream();
+    const { data } = await search(env);
+    expect(data.meta.fromCache).toBe(true);
+    expect(data.meta.stale?.revalidating).toBe(false);
+    expect(up.tpCalls()).toHaveLength(0);
+  });
+
+  it("an old EMPTY scan is never served stale", async () => {
+    stubUpstream({ tp: () => json({ success: true, data: [], currency: "eur" }) });
+    const env = makeEnv();
+    await search(env);
+    vi.setSystemTime(new Date(NOW.getTime() + 7 * 3_600_000));
+    const up = stubUpstream({ tp: () => json({ success: true, data: [], currency: "eur" }) });
+    const { data } = await search(env);
+    expect(data.meta.fromCache).toBe(false);
+    expect(data.meta.stale).toBeUndefined();
+    expect(up.tpCalls().length).toBeGreaterThan(0);
+  });
+
+  it("a variant search in the same 6h bin does not rewrite unchanged fares to the price history", async () => {
+    stubUpstream();
+    const env = makeEnv();
+    await search(env);
+    const before = (await rows(env, "SELECT id FROM prices")).length;
+    expect(before).toBeGreaterThan(0);
+    vi.setSystemTime(new Date(NOW.getTime() + 60_000));
+    const variant = await search(env, { ...BODY, stayMax: 8 }); // another search key over the same fares
+    expect(variant.data.meta.fromCache).toBe(false);
+    expect((await rows(env, "SELECT id FROM prices")).length).toBe(before);
+    // The next bin writes them again: one observation per bin is what deal detection counts.
+    vi.setSystemTime(new Date("2026-10-01T12:00:00.000Z"));
+    await search(env, { ...BODY, stayMax: 9 });
+    expect((await rows(env, "SELECT id FROM prices")).length).toBe(2 * before);
   });
 
   it("a different bag choice on cached data re-ranks without any outbound call", async () => {
@@ -706,9 +806,10 @@ describe("source failures", () => {
     stubUpstream();
     const env = makeEnv();
     await search(env); // fills the price history at NOW
-    vi.setSystemTime(new Date(NOW.getTime() + 7 * 3_600_000)); // cache expired, stored fares still recent
+    vi.setSystemTime(new Date(NOW.getTime() + 7 * 3_600_000)); // stored fares still recent
     stubUpstream({ tp: () => new Response("upstream down: UPSTREAM-INTERNALS", { status: 502 }) });
-    const { res, data } = await search(env);
+    // A search with no cache row at all (another stay range over the same fares): a stale row would be served instead.
+    const { res, data } = await search(env, { ...BODY, stayMax: 8 });
     expect(res.status).toBe(200);
     expect(data.cards.length).toBeGreaterThan(0);
     expect(data.meta.fromCache).toBe(false);

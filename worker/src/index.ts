@@ -220,6 +220,8 @@ async function handleSearch(request: Request, env: Env, ctx: ExecutionContext): 
         waitUntil: (p) => ctx.waitUntil(p),
         scanBudget: () => scanBudgetLeft(repo, now),
         quoteSources: quoteSources(env, repo, fetchFn, now),
+        // A cache row past its TTL (up to 24h) answers at once, marked meta.stale, and is rescanned in the background.
+        staleWhileRevalidate: true,
       },
       parsed.req,
     );

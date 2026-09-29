@@ -114,7 +114,24 @@ export interface SearchResponse {
     sources: SourceStatus[];
     candidatePairs: number;
     generatedAt: string;
+    /**
+     * ADDITIVE, present ONLY when the answer came from a cache row older than the cache TTL (stale-while-revalidate): the
+     * fares are from an older scan. Absent on every other answer, fresh scans and in-TTL cache hits alike.
+     */
+    stale?: StaleInfo;
   };
+}
+
+/** How old a stale-while-revalidate answer is, and whether a background refresh was started for it. */
+export interface StaleInfo {
+  /** When the scan behind this answer ran (the cache row's time), canonical UTC ISO. */
+  cachedAt: string;
+  /** Age of that scan in hours, one decimal. */
+  ageHours: number;
+  /** True only when this request started a background rescan; the next identical search then gets the fresh fares. */
+  revalidating: boolean;
+  /** User-facing Hebrew notice saying the results are older (and, when revalidating, to search again shortly). */
+  messageHe: string;
 }
 
 export interface OneWayFare {
@@ -160,8 +177,13 @@ export interface Repo {
   getCachedOffers(searchKey: string, maxAgeHours: number, now: Date): Promise<CachedOffers | null>;
   /** `extra` is ADDITIVE (fix pass): one-way fares + scan notes stored beside the offers. */
   putCachedOffers(searchKey: string, offers: Offer[], now: Date, extra?: { oneWayPairs: OneWayPair[]; notes: string[]; quotes?: Offer[] }): Promise<void>;
-  /** Append to the shared price history (SPEC §12 `prices`). */
-  savePrices(offers: Offer[]): Promise<void>;
+  /**
+   * Append to the shared price history (SPEC §12 `prices`). ADDITIVE `opts.skipUnchangedSince` (canonical UTC ISO): a
+   * travelpayouts row is NOT written when the newest stored row of the same fare (route, dates, source, structure) is at
+   * or after that time and has the same amount and currency (a repeat look inside one deal-detection time bin). Other
+   * sources are always written. Without opts every row is written, as before.
+   */
+  savePrices(offers: Offer[], opts?: { skipUnchangedSince?: string }): Promise<void>;
   /** Recent offers already in the shared DB (e.g. written by the background monitor). */
   loadRecentOffers(
     origin: string,

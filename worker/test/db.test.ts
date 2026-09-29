@@ -1049,3 +1049,94 @@ describe("search cache: live quotes beside the fares", () => {
     expect(await repo.getCachedOffers("k", 6, NOW)).toEqual({ offers, createdAt: NOW.toISOString(), oneWayPairs: [], notes: [] });
   });
 });
+
+describe("savePrices: skipUnchangedSince (price-history write dedup)", () => {
+  const BIN = "2026-11-01T12:00:00.000Z"; // start of NOW's 6h bin
+  const at = (min: number) => new Date(Date.parse(BIN) + min * 60_000).toISOString();
+  const prices = async (db: D1Database) =>
+    (await db.prepare("SELECT price_amount, checked_at, source FROM prices ORDER BY id").all<{ price_amount: number; checked_at: string; source: string }>()).results;
+
+  it("skips a travelpayouts fare whose newest row since `since` has the same amount and currency", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    await repo.savePrices([mkOffer({ checkedAt: at(1) })], { skipUnchangedSince: BIN });
+    await repo.savePrices([mkOffer({ checkedAt: at(30) })], { skipUnchangedSince: BIN });
+    expect(await prices(db)).toEqual([{ price_amount: 164, checked_at: at(1), source: "travelpayouts" }]);
+  });
+
+  it("compares with the NEWEST row only: 100 -> 120 -> 100 writes all three", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    for (const [amount, min] of [[100, 1], [120, 2], [100, 3]] as const) {
+      await repo.savePrices([mkOffer({ priceAmount: amount, checkedAt: at(min) })], { skipUnchangedSince: BIN });
+    }
+    expect((await prices(db)).map((r) => r.price_amount)).toEqual([100, 120, 100]);
+  });
+
+  it("writes when the currency differs, when the stored row is older than `since`, and without opts", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    await repo.savePrices([mkOffer({ checkedAt: "2026-11-01T11:59:59.000Z" })]); // previous bin
+    await repo.savePrices([mkOffer({ checkedAt: at(1) })], { skipUnchangedSince: BIN }); // written: nothing in this bin yet
+    await repo.savePrices([mkOffer({ priceCurrency: "EUR", checkedAt: at(2) })], { skipUnchangedSince: BIN }); // other currency
+    await repo.savePrices([mkOffer({ priceCurrency: "EUR", checkedAt: at(3) })]); // no opts: always written
+    expect(await prices(db)).toHaveLength(4);
+  });
+
+  it("skips whole deal buckets only: one changed fare (or a non-travelpayouts row) writes its whole bucket", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    // Three buckets: TLV-BCN roundtrip Nov (two date pairs), TLV-ATH roundtrip Nov, TLV-BCN split Nov.
+    const first: Partial<Offer>[] = [{}, { departDate: "2026-11-11", returnDate: "2026-11-16" }, { destination: "ATH" }, { ticketStructure: "split" }];
+    await repo.savePrices(first.map((v) => mkOffer({ ...v, checkedAt: at(1) })), { skipUnchangedSince: BIN });
+    expect(await prices(db)).toHaveLength(4);
+    // Repeat: BCN roundtrip has one changed fare -> both of its rows are written; ATH and split are unchanged -> skipped.
+    const second: Partial<Offer>[] = [{}, { departDate: "2026-11-11", returnDate: "2026-11-16", priceAmount: 150 }, { destination: "ATH" }, { ticketStructure: "split" }];
+    await repo.savePrices(second.map((v) => mkOffer({ ...v, checkedAt: at(5) })), { skipUnchangedSince: BIN });
+    const afterSecond = await db.prepare("SELECT destination, ticket_structure, price_amount FROM prices WHERE checked_at = ? ORDER BY id").bind(at(5)).all();
+    expect(afterSecond.results).toEqual([
+      { destination: "BCN", ticket_structure: "roundtrip", price_amount: 164 },
+      { destination: "BCN", ticket_structure: "roundtrip", price_amount: 150 },
+    ]);
+    // A google_flights row in an otherwise unchanged bucket is always written, and takes its bucket with it.
+    await repo.savePrices([mkOffer({ destination: "ATH", checkedAt: at(9) }), mkOffer({ destination: "ATH", source: "google_flights", checkedAt: at(9) })], { skipUnchangedSince: BIN });
+    const third = await db.prepare("SELECT source FROM prices WHERE checked_at = ? ORDER BY id").bind(at(9)).all<{ source: string }>();
+    expect(third.results.map((r) => r.source)).toEqual(["travelpayouts", "google_flights"]);
+  });
+
+  it("a failing dedup read writes everything (history is never lost)", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    await repo.savePrices([mkOffer({ checkedAt: at(1) })], { skipUnchangedSince: BIN });
+    const realPrepare = db.prepare.bind(db);
+    const spy = vi.spyOn(db, "prepare").mockImplementation((sql: string) => {
+      if (sql.startsWith("SELECT origin, destination, depart_date")) throw new Error("D1 read failed");
+      return realPrepare(sql);
+    });
+    await repo.savePrices([mkOffer({ checkedAt: at(2) })], { skipUnchangedSince: BIN });
+    spy.mockRestore();
+    expect(await prices(db)).toHaveLength(2);
+  });
+
+  it("an unparseable `since` disables the dedup", async () => {
+    const db = createTestD1();
+    const repo = createRepo(db);
+    await repo.savePrices([mkOffer({ checkedAt: at(1) })], { skipUnchangedSince: BIN });
+    await repo.savePrices([mkOffer({ checkedAt: at(2) })], { skipUnchangedSince: "not a date" });
+    expect(await prices(db)).toHaveLength(2);
+  });
+
+  it("the dedup read uses idx_prices_recent (bounded to the route's rows since `since`)", () => {
+    const raw = new DatabaseSync(":memory:");
+    const dir = join(dirname(fileURLToPath(import.meta.url)), "..", "migrations");
+    for (const f of readdirSync(dir).filter((f) => f.endsWith(".sql")).sort()) raw.exec(readFileSync(join(dir, f), "utf8"));
+    const plan = raw
+      .prepare(
+        "EXPLAIN QUERY PLAN SELECT origin FROM prices INDEXED BY idx_prices_recent " +
+          "WHERE origin = ? AND destination IN (?, ?) AND checked_at >= ? AND source = ? ORDER BY checked_at ASC, id ASC",
+      )
+      .all("TLV", "BCN", "GRO", BIN, "travelpayouts")
+      .map((r) => String((r as { detail: string }).detail));
+    expect(plan.join(" | ")).toMatch(/SEARCH prices USING INDEX idx_prices_recent \(origin=\? AND destination=\? AND checked_at>\?\)/);
+  });
+});
