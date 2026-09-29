@@ -206,22 +206,17 @@ Layered, so that one source failing or being withdrawn never breaks search; the 
 | 4 | Merge and deploy | **Left to the owner.** | Merging to `main` redeploys the production Worker through Workers Builds, and Cloudflare was kept with the owner. | — |
 | 5 | Next source to test | **Ignav's 1,000 free requests** for TLV coverage, and Travelpayouts `special-offers` for TLV, once the token is available to test with. Ask the vendor about caching and display rights before relying on Ignav. | Cheapest, lowest-commitment tests of the two open questions (coverage, offers from TLV). | Yes |
 
-## 14. Owner rule: nothing that costs money (2026-09-29)
+## 14. Owner rule: nothing may cost money, free allowances only up to the allowance (2026-09-29)
 
-The owner ruled that **no paid source, paid tier or paid quota is to be added**, now or later, without the owner asking for it explicitly. This overrides the "paid fallback" and "paid wrapper" options in §2, §5, §11 and §12 and the extra-adapter plan (SerpApi, FlightAPI.io, Duffel, Bright Data, Apify), which are dropped. A multi-source layer that was being built for Ignav, Wego and SearchApi was stopped before any file was written.
+The owner ruled that **no source, tier or quota may ever cost money**. A vendor's **free allowance is allowed, but only up to that allowance**, never beyond it. Paid-only options are dropped: Duffel (charged per search), FlightAPI.io beyond its 20 trial credits, Bright Data and Apify beyond their free credits, and every paid plan of any vendor.
 
-What stays inside the rule (free, no card, no quota that can turn into a bill):
+How the code must enforce it (built into the multi-source layer, PR pending):
+- every extra source has a hard cap **below** its documented free allowance (at most 80% where the allowance is clear, at most 50 requests where it is not), per month for monthly allowances and per lifetime for one-off or unknown ones;
+- the counter is incremented **before** the vendor call, so a timeout or retry cannot undercount, and there are no retries;
+- if the counter cannot be read or written, the source is **not called** (fail closed);
+- the retention job never deletes quota rows;
+- keys are optional; no key means no calls. Accounts are created on the free plan and **no payment card is ever added**, which is what makes the cap the second line of defence and the missing card the first.
 
-| Source | Use | Note |
-|---|---|---|
-| Travelpayouts / Aviasales Data API | Core prices | Free; the token is free |
-| `fast-flights` (open source) | Best-effort detail enrichment in the Actions monitor | Free; fragile; Google terms risk stays the owner's call |
-| Bank of Israel FX, Frankfurter, open.er-api.com | ILS conversion | Free; open.er-api.com needs an attribution link |
-| data.gov.il `flydata` | Ben Gurion flight status | Free; ETM not confirmed |
-| OurAirports, Wikidata, GeoNames | Airports and Hebrew names | Free (public domain / CC0 / CC-BY) |
-| Own price history (hourly snapshots) | Deal and error-fare detection | Free; uses D1 free-tier writes only |
-| Public deal feeds read by hand or RSS (Fly4Free, Secret Flying, Secret Flights) | Deal signals | Free; terms to confirm; link out only |
+Sources with a free allowance that may be used within these rules (allowances as documented by the vendors, unverified against the live services): Ignav (1,000 requests), SearchApi (100), SerpApi (250 per month), Wego (affiliate API; quota not stated, so a conservative cap). Sources that are simply free: Travelpayouts Data API, `fast-flights`, Bank of Israel FX, Frankfurter, open.er-api.com (attribution required), data.gov.il `flydata`, OurAirports, Wikidata, GeoNames, our own price history, and public deal feeds (link out only).
 
-Sources with a free allowance (Ignav 1,000 requests, SearchApi 100, SerpApi 250 a month) are **not** used either: the owner's rule is "nothing with money", and a free allowance can become a bill.
-
-Guard rails that follow: no payment details are entered anywhere, no source is called without the owner having created its key, and the Worker's Cloudflare usage stays inside the free plan (already designed for, see runbook §8).
+The Google-terms risk of the scraping-based sources (SearchApi, SerpApi, `fast-flights`) is unchanged and stays the owner's call: the adapters are off unless the owner creates a key.
