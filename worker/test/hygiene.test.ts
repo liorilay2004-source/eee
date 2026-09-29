@@ -37,6 +37,23 @@ describe("secrets stay out of git", () => {
     expect(names).toEqual(expect.arrayContaining(["TRAVELPAYOUTS_TOKEN", "TRAVELPAYOUTS_MARKER", "RATE_LIMIT_SALT"]));
   });
 
+  it("lists the four OPTIONAL live-source secrets in .dev.vars.example (empty) and in the wrangler.toml secrets comment", () => {
+    const optional = ["IGNAV_API_KEY", "WEGO_API_TOKEN", "SEARCHAPI_KEY", "SERPAPI_KEY"];
+    const example = readFileSync(join(worker, ".dev.vars.example"), "utf8");
+    const toml = readFileSync(join(worker, "wrangler.toml"), "utf8");
+    for (const name of optional) {
+      expect(example, name).toMatch(new RegExp(`^${name}=$`, "m"));
+      expect(toml, name).toContain(name);
+    }
+    expect(example).toMatch(/NEVER add a payment card/);
+    expect(toml).toMatch(/NEVER with a payment card/);
+  });
+
+  it("declares the four optional live-source secrets as optional in the Env type", () => {
+    const types = readFileSync(join(worker, "src", "types.ts"), "utf8");
+    for (const name of ["IGNAV_API_KEY", "WEGO_API_TOKEN", "SEARCHAPI_KEY", "SERPAPI_KEY"]) expect(types, name).toMatch(new RegExp(`\\b${name}\\?: string`));
+  });
+
   it("wrangler.toml holds no secret values and schedules the retention job", () => {
     const toml = readFileSync(join(worker, "wrangler.toml"), "utf8");
     expect(toml).toMatch(/^\[triggers\]\s*\ncrons = \[".+"\]/m);

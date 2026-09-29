@@ -10,7 +10,7 @@
  */
 
 export type TicketStructure = "roundtrip" | "split";
-export type SourceName = "travelpayouts" | "google_flights";
+export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi";
 export type Cabin = "economy" | "premium-economy" | "business" | "first";
 export type RecKind = "cheapest" | "best_value" | "my_times";
 
@@ -175,6 +175,12 @@ export interface Repo {
   getLatestFxRates(): Promise<FxRates | null>;
   checkRateLimit(key: string, limit: number, windowSeconds: number, now: Date): Promise<{ allowed: boolean; remaining: number; retryAfterSec: number }>;
   recordSourceHealth(source: SourceName, ok: boolean, error: string | null, now: Date): Promise<void>;
+  /**
+   * ADDITIVE: reserves ONE request of a vendor's free allowance (table source_quota). True only when this call
+   * raised the counter and the new value is <= cap; false when the cap is reached AND on any error (fail closed).
+   * `period` is "lifetime" or a UTC month like "2026-09" (see quotaPeriodKey in quotes.ts).
+   */
+  reserveQuota(source: SourceName, period: string, cap: number, now: Date): Promise<boolean>;
 }
 
 export interface Env {
@@ -184,4 +190,9 @@ export interface Env {
   ALLOWED_ORIGIN?: string; // CORS allow-origin for the Pages frontend
   /** Secret salt for hashing client addresses in rate limiting; without it a value derived from the Travelpayouts token is used (see ratelimit.ts). */
   RATE_LIMIT_SALT?: string;
+  /** Optional live fare sources (quotes.ts): no key = not configured = never called, never counted. */
+  IGNAV_API_KEY?: string;
+  WEGO_API_TOKEN?: string;
+  SEARCHAPI_KEY?: string;
+  SERPAPI_KEY?: string;
 }

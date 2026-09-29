@@ -11,7 +11,12 @@
 import { createRepo, pruneHistory } from "./db";
 import { getFxRates } from "./fx";
 import { defaultResolver, PipelineError, runSearch, sha256Hex } from "./pipeline";
+import type { FareQuoteSource } from "./quotes";
 import { clientIdentity, createMemoryLimiter, limiterSalt } from "./ratelimit";
+import { createIgnavSource } from "./sources/ignav";
+import { createSearchApiSource } from "./sources/searchapi";
+import { createSerpApiSource } from "./sources/serpapi";
+import { createWegoSource } from "./sources/wego";
 import { createTravelpayoutsClient, marketForCountry } from "./travelpayouts";
 import type { Env } from "./types";
 import { GLOBAL_SCAN_LIMIT, GLOBAL_SCAN_WINDOW_SECONDS, MAX_BODY_BYTES, parseSearchBody, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_SECONDS } from "./validate";
@@ -122,6 +127,29 @@ async function scanBudgetLeft(repo: ReturnType<typeof createRepo>, now: Date): P
   }
 }
 
+/** A secret only counts when it is a non-blank string: anything else (unset, empty, a stray number var) leaves the source out. */
+const secret = (value: unknown): string | undefined => (typeof value === "string" && value.trim() !== "" ? value : undefined);
+
+/**
+ * The optional live fare sources (quotes.ts), built once per search and only for the keys that are set: a source without a
+ * key is not constructed, so it is never called, never counted and not listed in meta.sources. Only this request path uses
+ * them: the scheduled job never does. The hard request caps live in the adapters and are counted in D1 (migration 0004).
+ */
+function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: typeof fetch, now: Date): FareQuoteSource[] {
+  const marker = env.TRAVELPAYOUTS_MARKER;
+  const shared = { repo, now, fetchFn };
+  const ignav = secret(env.IGNAV_API_KEY);
+  const wego = secret(env.WEGO_API_TOKEN);
+  const searchApi = secret(env.SEARCHAPI_KEY);
+  const serpApi = secret(env.SERPAPI_KEY);
+  return [
+    ignav ? createIgnavSource({ ...shared, apiKey: ignav, marker }) : null,
+    wego ? createWegoSource({ ...shared, apiKey: wego }) : null,
+    searchApi ? createSearchApiSource({ ...shared, apiKey: searchApi, marker }) : null,
+    serpApi ? createSerpApiSource({ ...shared, apiKey: serpApi, marker }) : null,
+  ].filter((s): s is FareQuoteSource => s !== null && s.configured);
+}
+
 async function handleSearch(request: Request, env: Env, ctx: ExecutionContext): Promise<ApiResult> {
   const now = new Date();
   const repo = createRepo(env.DB);
@@ -184,6 +212,7 @@ async function handleSearch(request: Request, env: Env, ctx: ExecutionContext): 
         resolver: defaultResolver,
         waitUntil: (p) => ctx.waitUntil(p),
         scanBudget: () => scanBudgetLeft(repo, now),
+        quoteSources: quoteSources(env, repo, fetchFn, now),
       },
       parsed.req,
     );

@@ -14,6 +14,8 @@ const CACHE_RETENTION_MS = 7 * DAY_MS; // search_cache rows older than this are 
 const ERROR_MAX_LEN = 300;
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+/** The only period keys a quota row may have: a one-off allowance, or a UTC month (see quotaPeriodKey in quotes.ts). */
+const QUOTA_PERIOD = /^(lifetime|\d{4}-(0[1-9]|1[0-2]))$/;
 const CURRENCY = /^[A-Za-z]{3}$/;
 
 type Bind = string | number | null;
@@ -77,7 +79,7 @@ const INSERT_PRICE =
   "ticket_structure, airlines_json, legs_json, includes_json, deeplink, verify_link, checked_at) " +
   "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-const SOURCES: readonly string[] = ["travelpayouts", "google_flights"];
+const SOURCES: readonly string[] = ["travelpayouts", "google_flights", "ignav", "wego", "searchapi", "serpapi"];
 const STRUCTURES: readonly string[] = ["roundtrip", "split"];
 
 function serializeLeg(leg: Leg | undefined): Leg {
@@ -433,6 +435,29 @@ export function createRepo(db: D1Database): Repo {
       };
     },
 
+    async reserveQuota(source, period, cap, now) {
+      // Fail closed: anything but a confirmed increment (missing table, D1 error, odd result) means "do not call".
+      try {
+        if (!Number.isSafeInteger(cap) || cap < 1 || !QUOTA_PERIOD.test(period)) return false;
+        // One atomic statement, no read-modify-write. A missing row is inserted with used = 1 (only when cap >= 1: the
+        // SELECT ... WHERE guards the insert path, which the DO UPDATE ... WHERE below cannot). An existing row is
+        // raised only while used < cap, otherwise nothing changes and RETURNING yields no row. The SELECT needs its own
+        // WHERE so SQLite does not read ON CONFLICT as a join clause. The cap comes from code, never from D1 or env.
+        const res = await db
+          .prepare(
+            "INSERT INTO source_quota (source, period, used, updated_at) SELECT ?, ?, 1, ? WHERE ? >= 1 " +
+              "ON CONFLICT(source, period) DO UPDATE SET used = used + 1, updated_at = excluded.updated_at WHERE used < ? " +
+              "RETURNING used",
+          )
+          .bind(source, period, now.toISOString(), cap, cap)
+          .all<{ used: number }>();
+        const used = res.results.length === 1 ? res.results[0]?.used : undefined;
+        return typeof used === "number" && Number.isInteger(used) && used >= 1 && used <= cap;
+      } catch {
+        return false;
+      }
+    },
+
     async recordSourceHealth(source, ok, error, now) {
       const at = now.toISOString();
       if (ok) {
@@ -471,6 +496,8 @@ export type PruneResult = Record<"prices" | "searches" | "search_cache" | "rate_
  * per-request path must not pay for full-table deletes. Everything removed is already unreachable by the API.
  */
 export async function pruneHistory(db: D1Database, now: Date): Promise<PruneResult> {
+  // source_quota is deliberately NOT pruned (and PruneResult has no entry for it): a deleted counter hands back the
+  // vendor's free allowance, i.e. the next call could be a paid one. The table holds a few tiny rows per year.
   const ms = now.getTime();
   const priceCutoff = new Date(ms - PRICES_GRACE_DAYS * DAY_MS).toISOString().slice(0, 10);
   const searchCutoff = new Date(ms - SEARCHES_RETENTION_DAYS * DAY_MS).toISOString();
