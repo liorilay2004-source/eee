@@ -195,3 +195,13 @@ Layered, so that one source failing or being withdrawn never breaks search; the 
 **"Best value" ranking** stays in the engine: price, bag fee, stops, duration and departure hours, with unknown data never winning (spec §5.3). More sources only widen the candidate pool; the ranking rules do not change.
 
 **Decisions for the owner:** (a) whether to use scraping-based wrappers at all (Google terms, the SerpApi litigation); (b) whether to approach Secret Flights and Transavia; (c) whether to start collecting price snapshots on a schedule now, which is what makes layer 4 possible (a Worker cron or the Actions monitor, sized to the D1 free-tier write limit).
+
+## 13. Decisions taken (owner delegated them on 2026-09-29: "you decide")
+
+| # | Question | Decision | Why | Reversible |
+|---|---|---|---|---|
+| 1 | Use scraping-based sources (fast-flights, SearchApi, SerpApi, Apify)? | **Not in the public product for now.** `fast-flights` stays an internal, best-effort enrichment in the Actions monitor; no paid Google-derived wrapper is wired in. | Google's terms prohibit automated access, and Google's suit against SerpApi is unresolved (§5). The core (Travelpayouts) does not need it, and it can be added later behind the layer 2/3 interface. | Yes: one adapter per source |
+| 2 | Contact Secret Flights and Transavia? | **Not sent.** Outreach speaks for the owner, so it stays the owner's: the contacts are in §10 and §11 (flywith@secretflights.co.il; the Transavia partner form). | An outward-facing message under the owner's name is not mine to send unasked. | — |
+| 3 | Start collecting price snapshots? | **Yes: built** as an hourly Worker cron over a 24-route watchlist (PR "Worker: hourly price snapshots"). It changes nothing until that PR is merged and deployed. | Layer 4 (deal detection) needs 4–8 weeks of our own history, so the clock should start as early as possible. Cost is about 4,500 D1 row writes a day. | Yes: remove the cron entry |
+| 4 | Merge and deploy | **Left to the owner.** | Merging to `main` redeploys the production Worker through Workers Builds, and Cloudflare was kept with the owner. | — |
+| 5 | Next source to test | **Ignav's 1,000 free requests** for TLV coverage, and Travelpayouts `special-offers` for TLV, once the token is available to test with. Ask the vendor about caching and display rights before relying on Ignav. | Cheapest, lowest-commitment tests of the two open questions (coverage, offers from TLV). | Yes |
