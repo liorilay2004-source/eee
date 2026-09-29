@@ -44,6 +44,13 @@ export interface Offer {
   returnDeeplink?: string | null;
   verifyLink: string | null;
   checkedAt: string;
+  /**
+   * ADDITIVE: when the SOURCE says it saw this fare (Travelpayouts `found_at`), canonical UTC ISO. Absent/null = the source
+   * did not say (every Travelpayouts v3 row today). Never filled with our own scan time: that is `checkedAt`.
+   */
+  fareFoundAt?: string | null;
+  /** ADDITIVE: when the SOURCE says the fare expires (Travelpayouts `expires_at`). An expired fare is never ranked. */
+  fareExpiresAt?: string | null;
   // Filled by the pipeline (SPEC §7 step 7):
   extrasAmountIls: number;
   totalIls: number | null;
@@ -77,7 +84,7 @@ export interface Card {
 
 export interface FxRates {
   date: string; // YYYY-MM-DD the rates were fetched for
-  source: string; // "bank_of_israel" | "open.er-api.com"
+  source: string; // "bank_of_israel" | "open.er-api.com" | "ecb", with ":stale" when served from an older day
   ratesToIls: Record<string, number>; // 1 unit of CURRENCY = N ILS; always includes ILS: 1
 }
 
@@ -99,6 +106,27 @@ export interface PriceContext {
   lowestAmount: number | null;
 }
 
+/**
+ * ADDITIVE (WEB_APP_SPEC §7.8 Δ21): why a source did not answer, as a machine code. `error` keeps its developer text.
+ *   no_token      the source has no API token configured, so it was not asked
+ *   scan_budget   the global upstream budget (GLOBAL_SCAN_LIMIT) is spent, so it was not asked
+ *   upstream_down it was asked and at least one request failed (network, HTTP error, auth or quota at the vendor)
+ */
+export type SourceUnavailableReason = "no_token" | "scan_budget" | "upstream_down";
+
+/** ADDITIVE: how much of the planned Travelpayouts scan was made (the request cap can cut a long window short). */
+export interface SourceCoverage {
+  /** Upstream requests the scan planned for this search. */
+  plannedRequests: number;
+  /** Planned requests not made because of the per-search request cap. 0 = the scan covered everything it planned. */
+  skippedRequests: number;
+  /**
+   * Planned requests not made because an earlier request failed with 401/403/429 and the scan stopped (the source then also
+   * reports ok: false and reason "upstream_down"). planned - skipped - aborted = requests actually attempted.
+   */
+  abortedRequests: number;
+}
+
 export interface SourceStatus {
   name: SourceName;
   enabled: boolean;
@@ -106,11 +134,58 @@ export interface SourceStatus {
   calls: number;
   offers: number;
   error: string | null;
+  /**
+   * ADDITIVE (travelpayouts entry only): true when the scan behind these results skipped part of its planned requests, so
+   * some dates or airport pairs were not searched. Also true on a cache hit of such a scan. Replaces parsing `error`.
+   */
+  truncated?: boolean;
+  /** ADDITIVE (travelpayouts entry only): the scan's request counts, or null when not known (no scan, or a cache hit of a complete scan). */
+  coverage?: SourceCoverage | null;
+  /** ADDITIVE (travelpayouts entry only): why the source did not answer, or null when it did (see SourceUnavailableReason). */
+  reason?: SourceUnavailableReason | null;
 }
+
+/**
+ * ADDITIVE: how the fare's age is known. "live" = our own scrape of the live site at checkedAt; "source" = vendor timestamp;
+ * "bounded" = a documented vendor cache, only an upper bound (fareAgeMaxMinutes) is known; "unknown" = not stated.
+ */
+export type FareAgeBasis = "live" | "source" | "bounded" | "unknown";
+/** ADDITIVE: fresh < 24h, aging < 72h, stale >= 72h or vendor-expired; "unknown" when the fare's age is not known. */
+export type Freshness = "fresh" | "aging" | "stale" | "unknown";
+/** ADDITIVE: which sentence CardView.ageLabelHe is. */
+export type AgeLabelKey = "fare_found_ago" | "fare_found_within" | "quote_unknown_age" | "cached_fare_unknown_age" | "fare_expired";
 
 export interface CardView extends Card {
   priceContext: PriceContext | null;
+  /** Hours since OUR check of the fare (checkedAt). For a cached source this is NOT the fare's age: see fareAgeHours. */
   ageHours: number;
+  /** ADDITIVE (freshness.ts): when the fare itself was seen; null = unknown. */
+  fareFoundAt: string | null;
+  /** ADDITIVE: hours (one decimal) since fareFoundAt; null = unknown. */
+  fareAgeHours: number | null;
+  /** ADDITIVE: whole minutes since fareFoundAt; null = unknown. */
+  fareAgeMinutes: number | null;
+  /** ADDITIVE: upper bound on the fare's age in minutes (= fareAgeMinutes when known; the documented bound for "bounded"); null = unknown. */
+  fareAgeMaxMinutes: number | null;
+  /** ADDITIVE: whole minutes since our own check (checkedAt). */
+  scanAgeMinutes: number;
+  fareAgeBasis: FareAgeBasis;
+  freshness: Freshness;
+  /** ADDITIVE: which sentence ageLabelHe is (AgeLabelKey). */
+  ageLabelKey: AgeLabelKey;
+  /** ADDITIVE: ready Hebrew sentence for the age line (never implies a live check for a cached fare). */
+  ageLabelHe: string;
+}
+
+/**
+ * ADDITIVE (WEB_APP_SPEC §7.2 `meta.recommendations`, bag-cost part only): drives the 💰/⚖️ gating notes (§5.3).
+ * `excludedForUnknownBagFee` = offers left out of 💰 because a bag was requested and their bag fee is unknown, counted only
+ * when their lower-bound total is below the shown 💰 total (0 when no offer has a known bag cost and the lower bound is shown).
+ * Not yet emitted: bestValue `insufficient_data` and the `myTimes` member.
+ */
+export interface RecommendationsMeta {
+  cheapest: { status: "shown" | "no_offers"; excludedForUnknownBagFee: number };
+  bestValue: { status: "shown" | "merged" | "bag_cost_unknown" | "no_offers" };
 }
 
 export interface SearchResponse {
@@ -132,6 +207,8 @@ export interface SearchResponse {
      * Absent when nothing was flagged.
      */
     priceGuard?: { suspicious: number; excluded: number };
+    /** ADDITIVE: bag-cost pool gating of the 💰/⚖️ cards (see RecommendationsMeta). */
+    recommendations: RecommendationsMeta;
   };
 }
 
@@ -141,6 +218,9 @@ export interface OneWayFare {
   priceCurrency: string;
   leg: Leg;
   deeplink: string | null;
+  /** ADDITIVE: source-stated `found_at` / `expires_at` (canonical UTC ISO); absent = not stated. */
+  foundAt?: string | null;
+  expiresAt?: string | null;
 }
 
 /** Travelpayouts / Aviasales Data API client (SPEC §6: the core engine). Prices are per ONE adult. */
@@ -149,6 +229,11 @@ export interface TravelpayoutsClient {
   callCount(): number;
   roundTrips(origin: string, destination: string, windowStart: string, windowEnd: string): Promise<Offer[]>;
   oneWays(origin: string, destination: string, windowStart: string, windowEnd: string): Promise<OneWayFare[]>;
+  /**
+   * ADDITIVE (optional so existing test doubles still type-check): one request for one (departure month, return month)
+   * pair, both "YYYY-MM". Used by the cheapest-dates calendar (src/calendar.ts). Prices are per ONE adult.
+   */
+  monthRoundTrips?(origin: string, destination: string, departMonth: string, returnMonth: string): Promise<{ offers: Offer[]; truncated: boolean }>;
 }
 
 export interface CachedOffers {

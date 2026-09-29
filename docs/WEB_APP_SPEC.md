@@ -370,7 +370,18 @@ interface CardView {
   priceContext: { currency: string; weekAgoAmount: number | null; lowestAmount: number | null;
                   weekAgoIls: number | null; lowestIls: number | null   // NEW — converted by the API at today's rate
                 } | null;
-  ageHours: number;
+  ageHours: number;                  // age of OUR check (checkedAt), NOT of the fare — see the fare* fields
+  // ADDED (worker/src/freshness.ts) — the fare's own age, only when known (never our scan time in disguise):
+  fareFoundAt: string | null;        //   when the fare was seen: vendor `found_at` (Travelpayouts v3 sends none today) or, for the Google Flights monitor only, checkedAt; else null
+  fareAgeHours: number | null;       //   null = unknown
+  fareAgeMinutes: number | null;     //   null = unknown
+  fareAgeMaxMinutes: number | null;  //   upper bound: = fareAgeMinutes when known; SerpApi ("bounded") = scan age + its documented 1h cache
+  scanAgeMinutes: number;            //   minutes since our own check
+  fareAgeBasis: "live" | "source" | "bounded" | "unknown";   // Ignav / Wego / SearchApi promise no freshness → "unknown"
+  freshness: "fresh" | "aging" | "stale" | "unknown";   // <24h / <72h / >=72h or source-expired; "unknown" = cached fare, age not stated
+  ageLabelKey: "fare_found_ago" | "fare_found_within" | "quote_unknown_age" | "cached_fare_unknown_age" | "fare_expired";
+  ageLabelHe: string;                //   ready sentence, e.g. "המחיר נמצא לפני 5 דקות" or "מחיר שמור ממאגר מחירים, נשלף לפני 5 דקות. מתי נמצא המחיר עצמו לא ידוע, וייתכן שהשתנה."
+                                     //   A fare whose source-stated `expires_at` has passed is never ranked nor written to the price history.
   flags: string[];                   // NEW — §5.4 codes
   links: {                           // NEW — the client never reads offer.deeplink directly
     book: string;                    //   always non-null (SPEC G5); for splits: the outbound one-way ticket
@@ -451,7 +462,7 @@ Autocomplete (Hebrew-aware). `200 { "results": PlaceView[] }` (`PlaceView` is de
 Liveness + D1 reachability for ops; not used by the UI. Body `{ "status": "ok", "db": "ok" }`; when D1 is unreachable `503 { "status": "degraded", "db": "error" }`. It runs `SELECT 1` only, so it does **not** prove the migrations ran. `GET` only (`HEAD` → 405).
 
 ### 7.5 Errors
-Envelope: `{ "error": { "code": string, "message": string, "fields"?: Record<string, FieldErrorCode>, "retryAfterSec"?: number } }`. `message` is for developers; the UI maps **codes** to Hebrew copy (`code` selects the state; `fields` values select per-field text through the `err.*` map in Appendix A). `FieldErrorCode` is a stable machine code — PROVISIONAL set: `required`, `invalid_format`, `out_of_range`, `place_not_found`, `same_place`, `start_after_end`, `past_date`, `window_too_long`, `stay_range_invalid`, `stay_too_long`, `too_many_pairs`, `too_many_passengers`, `infants_exceed_adults`, `hours_invalid`, `not_supported` (e.g. cabin) — finalised in W0(b). **As built today** `fields` values are English sentences (e.g. `"must be an integer"`), so the machine codes are a W0(b) Worker change (§7.8 Δ2) and the UI must not string-match them. When the destination is empty the top-level `code` is `destination_required` even if other fields are also invalid, and `fields` still lists all of them, so the UI renders every entry of `fields`, not only the one the code names. No stack traces, upstream bodies or tokens are ever returned.
+Envelope: `{ "error": { "code": string, "message": string, "reason"?: "no_token" | "scan_budget" | "upstream_down", "fields"?: Record<string, string>, "fieldCodes"?: Record<string, FieldErrorCode>, "retryAfterSec"?: number } }`. `message` is for developers; the UI maps **codes** to Hebrew copy (`code` selects the state; `fields` values select per-field text through the `err.*` map in Appendix A). `FieldErrorCode` is a stable machine code — PROVISIONAL set: `required`, `invalid_format`, `out_of_range`, `place_not_found`, `same_place`, `start_after_end`, `past_date`, `window_too_long`, `stay_range_invalid`, `stay_too_long`, `too_many_pairs`, `too_many_passengers`, `infants_exceed_adults`, `hours_invalid`, `not_supported` (e.g. cabin) — finalised in W0(b). **As built today** `fields` values are English sentences (e.g. `"must be an integer"`) and stay so; the machine codes arrive ADDITIVELY as `error.fieldCodes: Record<string, FieldErrorCode>`, with exactly the keys of `fields` (the request's field names, or `body` for a non-object body). The UI reads `fieldCodes` and must not string-match `fields` (§7.8 Δ2). A 503 `source_unavailable` also carries `error.reason`: `no_token` (the fare source has no token), `scan_budget` (the global upstream budget is spent) or `upstream_down` (the source was asked and failed); `error.retryAfterSec` plus a `Retry-After` header are sent on a 503 only when the wait is known (today: `scan_budget`), never guessed. When the destination is empty the top-level `code` is `destination_required` even if other fields are also invalid, and `fields` still lists all of them, so the UI renders every entry of `fields`, not only the one the code names. No stack traces, upstream bodies or tokens are ever returned.
 
 | HTTP | `code` | Meaning | UI state |
 |---|---|---|---|
@@ -509,7 +520,7 @@ A read-only comparison of §7 with the merged Phase 1 Worker (`worker/`, run loc
 | Δ | Area | This spec (target) | Worker as built | Disposition |
 |---|---|---|---|---|
 | 1 | Validation error code | one code for invalid input | `invalid_request` (also `destination_required`, `invalid_json`, `payload_too_large`, `unsupported_media_type`) | Spec (§7.5, AC-S7, AC-API7) |
-| 2 | `fields` values | machine codes (`FieldErrorCode`) | English sentences, some parameterised | **Worker** (W0(b)) |
+| 2 | `fields` values | machine codes (`FieldErrorCode`) | English sentences, some parameterised; the codes now ship ADDITIVELY as `error.fieldCodes` (same keys as `fields`), while `fields` stays English | **Worker** (done additively as `fieldCodes`) |
 | 3 | `destination_required` precedence | inline error on destination | wins over other errors; `fields` lists all | Spec (§7.5): render every entry |
 | 4 | Airports response key | `matches` | `results` | Spec (§7.3) |
 | 5 | Airport match shape | `code` = city or airport | `code` = city code; `airportCode`, `airportNameEn/He` for airports; names are the city's | Spec (§7.2 `PlaceView`): submit `airportCode ?? code` |
@@ -528,7 +539,7 @@ A read-only comparison of §7 with the merged Phase 1 Worker (`worker/`, run loc
 | 18 | Best Value pool gating (§5.3) | unknown stops / duration excluded | all priced offers ranked; unknown = zero penalty | **Worker** (gap 12) |
 | 19 | Bag-cost pool rule (§5.3) | unknown fee excluded and counted | unknown fee = 0 plus tag `bag_fee_unknown`; can win 💰 | **Worker** (gap 16) |
 | 20 | Hour-window split variants | ⚖️ identical with and without hours | variants compete for `best_value` | **Worker** (gap 14) |
-| 21 | Truncation notice | `meta.noticeCodes` | text in `sources[0].error` while `ok` stays true | **Worker** |
+| 21 | Truncation notice | `meta.noticeCodes` | text in `sources[0].error` while `ok` stays true; ADDITIVE on the `travelpayouts` entry: `truncated: boolean`, `coverage: { plannedRequests, skippedRequests, abortedRequests } \| null` (null on a cache hit of a complete scan) and `reason: "no_token" \| "scan_budget" \| "upstream_down" \| null`, so the UI never parses `error` | **Worker** (structured fields done; `noticeCodes` open) |
 | 22 | `sources[].checkedAt` | present | absent | **Worker** |
 | 23 | `sources[]` entries | one per source used | always two; `google_flights` is `{ enabled: offers > 0, ok: offers > 0, calls: 0 }`, so `enabled: false` only means "no monitor rows" | Spec: the UI derives **Partial** from the `travelpayouts` entry until the Phase 3 monitor exists |
 | 24 | `validPairs`, `pairsWithOffers` | present | only `candidatePairs` = min(5, distinct priced pairs); helpers exist | **Worker** |
