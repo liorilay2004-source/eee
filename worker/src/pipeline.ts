@@ -20,7 +20,7 @@ import * as airportData from "./airports/resolve";
 import type { Resolver } from "./airports/types";
 import { applyExtrasAndFx, paxCount, round2 } from "./extras";
 import { toIls } from "./money";
-import { departHour, recommend } from "./scoring";
+import { departHour, recommend, recommendationsMeta } from "./scoring";
 import { SCORING } from "./scoring.config";
 import {
   coverKey,
@@ -53,7 +53,9 @@ import type {
   SearchRequest,
   SearchResponse,
   SourceName,
+  SourceCoverage,
   SourceStatus,
+  SourceUnavailableReason,
   TravelpayoutsClient,
 } from "./types";
 
@@ -82,11 +84,39 @@ export const FALLBACK_MAX_AGE_HOURS = 24;
 /** Failures the caller can act on; index.ts maps both to HTTP 503. */
 export class PipelineError extends Error {
   readonly code: "source_unavailable" | "fx_unavailable";
-  constructor(code: "source_unavailable" | "fx_unavailable", message: string) {
+  /** ADDITIVE: why the fare source is unavailable (source_unavailable only). */
+  readonly reason?: SourceUnavailableReason;
+  /** ADDITIVE: seconds until a retry can succeed, only when that is actually known (the global scan budget's window). */
+  readonly retryAfterSec?: number;
+  constructor(
+    code: "source_unavailable" | "fx_unavailable",
+    message: string,
+    extra: { reason?: SourceUnavailableReason; retryAfterSec?: number } = {},
+  ) {
     super(message);
     this.name = "PipelineError";
     this.code = code;
+    if (extra.reason !== undefined) this.reason = extra.reason;
+    if (extra.retryAfterSec !== undefined) this.retryAfterSec = extra.retryAfterSec;
   }
+}
+
+/** What the global budget check answers: a plain boolean (older callers, tests) or the limiter's verdict with its wait. */
+export type ScanBudgetVerdict = boolean | { allowed: boolean; retryAfterSec?: number };
+
+/** A usable Retry-After value: a positive whole number of seconds, or undefined when the wait is not known. */
+function knownWait(v: unknown): number | undefined {
+  return typeof v === "number" && Number.isFinite(v) && v >= 1 ? Math.min(Math.ceil(v), 86_400) : undefined;
+}
+
+/** Reads back the truncation note this module writes (see scanNotes); a cache row keeps only the notes, not the counts. */
+export function coverageFromNotes(notes: readonly string[] | undefined): SourceCoverage | null {
+  for (const n of notes ?? []) {
+    const m = /^truncated: (\d+) of (\d+) planned requests skipped/.exec(typeof n === "string" ? n : "");
+    // Only a complete scan (no failed request) is cached, so a cached scan never stopped on a fatal error.
+    if (m) return { skippedRequests: Number(m[1]), plannedRequests: Number(m[2]), abortedRequests: 0 };
+  }
+  return null;
 }
 
 export interface SearchDeps {
@@ -102,7 +132,7 @@ export interface SearchDeps {
    * Asked before every fresh Travelpayouts scan (never on a cache hit): false = the global upstream budget is spent,
    * so no scan is made and the search is answered from stored fares only, like a source outage.
    */
-  scanBudget?: () => Promise<boolean>;
+  scanBudget?: () => Promise<ScanBudgetVerdict>;
   /** Optional live fare sources (quotes.ts). Asked on complete fresh scans only, and only those with a key. */
   quoteSources?: FareQuoteSource[];
 }
@@ -318,6 +348,8 @@ interface ScanResult {
   rejected: string[];
   plannedRequests: number;
   skippedRequests: number;
+  /** Planned requests not made because an earlier request failed fatally (401/403/429): the scan stopped. */
+  abortedRequests: number;
 }
 
 /**
@@ -347,12 +379,15 @@ async function scanTravelpayouts(tp: TravelpayoutsClient, req: SearchRequest, pa
     steps.push({ kind: "rt", pair, cost: rtCost }, { kind: "ow", pair, cost: owCost });
   }
 
-  const result: ScanResult = { roundTrips: [], oneWayPairs: [], successes: 0, failures: [], rejected: [], plannedRequests: 0, skippedRequests: 0 };
+  const result: ScanResult = { roundTrips: [], oneWayPairs: [], successes: 0, failures: [], rejected: [], plannedRequests: 0, skippedRequests: 0, abortedRequests: 0 };
   let spent = 0;
   let stopped = false;
   for (const step of steps) {
     result.plannedRequests += step.cost;
-    if (stopped) continue;
+    if (stopped) {
+      result.abortedRequests += step.cost;
+      continue;
+    }
     if (spent + step.cost > MAX_TP_REQUESTS) {
       result.skippedRequests += step.cost;
       continue;
@@ -577,7 +612,18 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   const pax = paxCount(req);
   const pairs = airportPairs(resolver, req);
 
-  const tpStatus: SourceStatus = { name: "travelpayouts", enabled: tp.configured, ok: false, calls: 0, offers: 0, error: null };
+  const tpStatus: SourceStatus = {
+    name: "travelpayouts",
+    enabled: tp.configured,
+    ok: false,
+    calls: 0,
+    offers: 0,
+    error: null,
+    truncated: false,
+    coverage: null,
+    reason: null,
+  };
+  let budgetWait: number | undefined; // seconds until the global scan budget frees up, when it was the reason
   let fx: FxRates;
   let rts: Offer[] = []; // RAW round trips for the whole party: from the cache or the scan below
   let oneWayPairs: OneWayPair[] = []; // RAW one-way fares, per adult
@@ -603,14 +649,21 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
     splitsCheckedAt = hit.createdAt; // the fares are as old as the scan that found them
     tpStatus.ok = true;
     tpStatus.error = hit.notes && hit.notes.length > 0 ? hit.notes.join("; ") : null;
+    tpStatus.coverage = coverageFromNotes(hit.notes);
+    tpStatus.truncated = (tpStatus.coverage?.skippedRequests ?? 0) > 0;
     carriedQuotes = sanitizeOffers(hit.quotes, QUOTE_SOURCE_NAMES).filter((o) => o.ticketStructure === "roundtrip" && ageHours(o.checkedAt, now) <= QUOTE_MAX_AGE_HOURS);
   } else {
     // FX loads while the scan runs; the scan itself does not need it, only split building and ranking do.
     const fxLoad = settle(resolveFx(deps));
+    const budget: ScanBudgetVerdict = !tp.configured || !deps.scanBudget ? true : await deps.scanBudget();
+    const budgetOk = typeof budget === "boolean" ? budget : budget.allowed === true;
     if (!tp.configured) {
       tpStatus.error = "Travelpayouts is not configured";
-    } else if (deps.scanBudget && !(await deps.scanBudget())) {
+      tpStatus.reason = "no_token";
+    } else if (!budgetOk) {
       tpStatus.error = "Travelpayouts: too many searches right now";
+      tpStatus.reason = "scan_budget";
+      budgetWait = typeof budget === "boolean" ? undefined : knownWait(budget.retryAfterSec);
     } else {
       const callsBefore = tp.callCount();
       scan = await scanTravelpayouts(tp, req, pairs);
@@ -624,6 +677,9 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
       rts = scan.roundTrips.filter((o) => pairOk(req, o.departDate, o.returnDate)).map((o) => scaledCopy(o, pax));
       oneWayPairs = scan.oneWayPairs.map(({ pair, outs, backs }) => ({ origin: pair.origin, destination: pair.dest, outs, backs }));
       tpStatus.ok = scan.failures.length === 0 && scan.successes > 0; // like Python: any failed request = not ok
+      if (scan.failures.length > 0) tpStatus.reason = "upstream_down";
+      tpStatus.coverage = { plannedRequests: scan.plannedRequests, skippedRequests: scan.skippedRequests, abortedRequests: scan.abortedRequests };
+      tpStatus.truncated = scan.skippedRequests > 0;
       if (scan.skippedRequests > 0) {
         scanNotes = [`truncated: ${scan.skippedRequests} of ${scan.plannedRequests} planned requests skipped (limit ${MAX_TP_REQUESTS})`];
       }
@@ -690,7 +746,10 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
 
   if (live.length + fromDb.length === 0 && tpUnavailable) {
     await write(persist(wholeJob()));
-    throw new PipelineError("source_unavailable", "No fare source is available right now");
+    throw new PipelineError("source_unavailable", "No fare source is available right now", {
+      reason: tpStatus.reason ?? "upstream_down",
+      ...(tpStatus.reason === "scan_budget" && budgetWait !== undefined ? { retryAfterSec: budgetWait } : {}),
+    });
   }
 
   // Steps 7-8: extras + FX on copies (`live` stays raw for the cache), then rank.
@@ -784,6 +843,7 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
       sources: [tpStatus, gfStatus, ...quoters.map((s) => quoteStatus(s, quoteStats.get(s.name), fromDb.filter((o) => o.source === s.name).length))],
       candidatePairs: Math.min(SCORING.topNCandidates, pairsWithPrice.size),
       generatedAt: now.toISOString(),
+      recommendations: recommendationsMeta(ranking, req, cards),
     },
   };
 }
