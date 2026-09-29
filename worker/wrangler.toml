@@ -1,0 +1,17 @@
+name = "eee-api"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+# Created in the owner's Cloudflare account on 2026-09-29 (not a secret: it only identifies the database).
+[[d1_databases]]
+binding = "DB"
+database_name = "eee-db"
+database_id = "fe66df0f-f5ea-48af-8ccb-ea4e99c17145"
+migrations_dir = "migrations"
+
+# Daily retention (prices of past trips, old search log, dead rate-limit and cache rows).
+[triggers]
+crons = ["17 3 * * *"]
+
+# Secrets (never in this file): `wrangler secret put TRAVELPAYOUTS_TOKEN`, `TRAVELPAYOUTS_MARKER`, `RATE_LIMIT_SALT`.
+# Local runs read them from worker/.dev.vars (see .dev.vars.example).
