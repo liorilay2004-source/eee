@@ -44,6 +44,13 @@ export interface Offer {
   returnDeeplink?: string | null;
   verifyLink: string | null;
   checkedAt: string;
+  /**
+   * ADDITIVE: when the SOURCE says it saw this fare (Travelpayouts `found_at`), canonical UTC ISO. Absent/null = the source
+   * did not say (every Travelpayouts v3 row today). Never filled with our own scan time: that is `checkedAt`.
+   */
+  fareFoundAt?: string | null;
+  /** ADDITIVE: when the SOURCE says the fare expires (Travelpayouts `expires_at`). An expired fare is never ranked. */
+  fareExpiresAt?: string | null;
   // Filled by the pipeline (SPEC §7 step 7):
   extrasAmountIls: number;
   totalIls: number | null;
@@ -97,9 +104,31 @@ export interface SourceStatus {
   error: string | null;
 }
 
+/** ADDITIVE: how the fare's age is known. "live" = seen by a live search at checkedAt; "source" = vendor timestamp; "unknown" = cached, no timestamp. */
+export type FareAgeBasis = "live" | "source" | "unknown";
+/** ADDITIVE: fresh < 24h, aging < 72h, stale >= 72h or vendor-expired; "unknown" when the fare's age is not known. */
+export type Freshness = "fresh" | "aging" | "stale" | "unknown";
+/** ADDITIVE: which sentence CardView.ageLabelHe is. */
+export type AgeLabelKey = "fare_found_ago" | "cached_fare_unknown_age" | "fare_expired";
+
 export interface CardView extends Card {
   priceContext: PriceContext | null;
+  /** Hours since OUR check of the fare (checkedAt). For a cached source this is NOT the fare's age: see fareAgeHours. */
   ageHours: number;
+  /** ADDITIVE (freshness.ts): when the fare itself was seen; null = unknown. */
+  fareFoundAt: string | null;
+  /** ADDITIVE: hours (one decimal) since fareFoundAt; null = unknown. */
+  fareAgeHours: number | null;
+  /** ADDITIVE: whole minutes since fareFoundAt; null = unknown. */
+  fareAgeMinutes: number | null;
+  /** ADDITIVE: whole minutes since our own check (checkedAt). */
+  scanAgeMinutes: number;
+  fareAgeBasis: FareAgeBasis;
+  freshness: Freshness;
+  /** ADDITIVE: "fare_found_ago" | "cached_fare_unknown_age" | "fare_expired". */
+  ageLabelKey: AgeLabelKey;
+  /** ADDITIVE: ready Hebrew sentence for the age line (never implies a live check for a cached fare). */
+  ageLabelHe: string;
 }
 
 export interface SearchResponse {
@@ -123,6 +152,9 @@ export interface OneWayFare {
   priceCurrency: string;
   leg: Leg;
   deeplink: string | null;
+  /** ADDITIVE: source-stated `found_at` / `expires_at` (canonical UTC ISO); absent = not stated. */
+  foundAt?: string | null;
+  expiresAt?: string | null;
 }
 
 /** Travelpayouts / Aviasales Data API client (SPEC §6: the core engine). Prices are per ONE adult. */

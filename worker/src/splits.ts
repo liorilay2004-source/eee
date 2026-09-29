@@ -3,6 +3,7 @@
  * Ports SearchRequest.valid_pairs / pair_ok and pipeline.build_splits from the Python engine.
  */
 import { legBagFeeIls, round2 } from "./extras";
+import { earlierOf, olderOf } from "./freshness";
 import { toIls } from "./money";
 import { hasTimePrefs, inWindow } from "./scoring";
 import { BAG_FEES, type BagFeeTable } from "./scoring.config";
@@ -111,6 +112,12 @@ function cheapestByDay(
  * The result depends on the request's filters and bag choice, so it is built per request from the raw one-way
  * fares and never cached itself (the cache keeps the fares, see pipeline.ts).
  */
+function splitTimes(out: OneWayFare, back: OneWayFare): { fareFoundAt?: string; fareExpiresAt?: string } {
+  const found = olderOf(out.foundAt, back.foundAt);
+  const expires = earlierOf(out.expiresAt, back.expiresAt);
+  return { ...(found ? { fareFoundAt: found } : {}), ...(expires ? { fareExpiresAt: expires } : {}) };
+}
+
 export function buildSplits(
   origin: string,
   dest: string,
@@ -180,6 +187,8 @@ export function buildSplits(
         returnDeeplink: back.deeplink,
         verifyLink: null,
         checkedAt,
+        // The pair is only as known as its least-known leg, and expires with the first leg that does.
+        ...splitTimes(out, back),
         extrasAmountIls: 0,
         totalIls: null,
         tags: [],
