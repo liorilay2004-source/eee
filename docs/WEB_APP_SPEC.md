@@ -1,6 +1,6 @@
 # WEB_APP_SPEC — Web UI & Public API (SPEC Phase 2 + API contract)
 
-> Status: **Draft v0.3 for owner review** · Date: 2026-09-29 · v0.3 incorporates two independent read-only review rounds of earlier drafts (34 + 49 confirmed findings; see §14).
+> Status: **Draft v0.4 for owner review** · Date: 2026-09-29 · v0.4 incorporates three independent read-only review rounds of earlier drafts (34 + 49 + 20 confirmed findings; see §14).
 > Extends [`SPEC.md`](SPEC.md). **`SPEC.md` wins on any conflict.** Where this document interprets or extends `SPEC.md`, it says so in §12 ("Clarifications that need owner approval") — nothing there is treated as decided until approved.
 > Language: English, per `SPEC.md` ("code, comments and this spec are in English"). The product UI is **Hebrew only, RTL**; Hebrew UI copy appears as quoted data (Appendix A).
 > Scope of this document: specification and delivery plan only. **No code is changed and nothing is deployed by this document.**
@@ -168,7 +168,7 @@ Carry-on / trolley (SPEC §5) and cabin class are **not offered in v1** (D5, C11
 
 ### 4.5 Dates and nights
 Semantics: every (depart, return) pair with `windowStart ≤ depart`, `return ≤ windowEnd`, `stayMin ≤ nights ≤ stayMax` is a **candidate** (SPEC §7, layer 1). Only pairs for which a source holds a fare produce offers — the wide scan reads the source's known fares, it does not verify every pair live — so the UI never claims that all pairs were checked (§5.1 item 4). Helper text: "נחפש מחירים בטווח התאריכים ובמספר הלילות שבחרתם".
-- Native `<input type="date">` in v1 (best RTL/mobile accessibility, zero dependencies). Display and copy use `DD/MM` (SPEC §14); the year is shown when the window crosses a year boundary. A custom range calendar is deferred (D12).
+- Native `<input type="date">` in v1 (best RTL/mobile accessibility, zero dependencies). **The native control shows the date in the browser/OS locale format (often MM/DD/YYYY on en-US devices) and cannot satisfy SPEC §14's `DD/MM` by itself**, so an **app-rendered echo** beside each date field shows the chosen date as `DD/MM` plus the weekday, wrapped in `<bdi>` (e.g. "10/11 · יום ג׳"); results and every other place use `DD/MM` (the year is shown when the window crosses a year boundary). A custom range calendar is deferred (D12).
 - Dates are dates, not instants: no timezone conversion anywhere in the client.
 
 ### 4.6 Passengers and baggage
@@ -180,7 +180,7 @@ Semantics: every (depart, return) pair with `windowStart ≤ depart`, `return �
 - Two optional controls (outbound departure, return departure). Presets: "בוקר 06–12", "צהריים 12–17", "ערב 17–23", "לילה 23–06" (wrap-around, supported by the engine), plus custom start/end selects (0–24).
 - A custom window must have start ≠ end. The whole day is 0–24 and still enables 🎯, which then excludes offers whose departure hour is unknown.
 - Leaving both empty = no restriction and **hides** the 🎯 card (SPEC §8).
-- The **max stops** select (§4.3 row 11) is **disabled until at least one hour window is chosen**, with the visible helper "עצירות משפיעות רק יחד עם שעות מועדפות" (`aria-disabled="true"` + `aria-describedby`, so the helper stays reachable). Clearing both hour windows **resets max stops to "any"**; when a URL or saved search carries `st` without any hour window, `st` is ignored (with an inline notice) and dropped from the URL and storage. SPEC §8 applies max stops only to 🎯, which exists only when hours are set; an enabled control with no visible effect would violate P1/P4. (D4 offers a hard-filter alternative that removes this restriction.)
+- The **max stops** select (§4.3 row 11) is **disabled until at least one hour window is chosen**: native `disabled`, with the visible helper "עצירות משפיעות רק יחד עם שעות מועדפות" linked to the preferences group by `aria-describedby` (the helper is plain visible text, so a disabled control does not hide the explanation). Clearing both hour windows **resets max stops to "any"**; when a URL or saved search carries `st` without any hour window, `st` is ignored (with an inline notice) and dropped from the URL and storage. SPEC §8 applies max stops only to 🎯, which exists only when hours are set; an enabled control with no visible effect would violate P1/P4. (D4 offers a hard-filter alternative that removes this restriction.)
 - Only departure hours are constrained (that is what the engine models); arrival hours are not offered.
 
 ### 4.8 URL state and persistence
@@ -195,7 +195,7 @@ Semantics: every (depart, return) pair with `windowStart ≤ depart`, `return �
 1. **Summary bar:** "תל אביב ⇄ ברצלונה · 10/11–25/11 · 5–7 לילות · מבוגר 1" + "עריכה". City names come from the API's `meta.resolved` (NEW) so a mis-resolved place is visible.
 2. **Notices** (only when applicable): partial-source banner, truncated-search banner (`meta.noticeCodes`), "why isn't there a ‘matches my times’ card" note (§5.3).
 3. **Up to three cards** (§5.2). A card can carry several tags when the same offer wins several categories (SPEC §8 display rule).
-4. **"פרטי החיפוש"** disclosure: sources used and their status, FX rate date/source, "נמצאו מחירים ל‑X מתוך Y צירופי תאריכים" (`meta.pairsWithOffers` of `meta.validPairs`), "נבדק לפני X" per source (`sources[].checkedAt`, NEW), and any truncation notice.
+4. **"פרטי החיפוש"** disclosure: sources used and their status, FX rate date/source, "נמצאו מחירים ל‑X מתוך Y צירופי תאריכים" (`meta.pairsWithOffers` of `meta.validPairs`), "נבדק לפני X" per source (`sources[].checkedAt`, NEW; omitted when null), and any truncation notice.
 5. Footer disclaimers: "המחיר הסופי מוצג באתר ההזמנה. ייתכנו עמלות המרת מטבע בכרטיס האשראי." (SPEC §8) and the affiliate disclosure link.
 
 ### 5.2 Recommendation card — content
@@ -222,11 +222,11 @@ Definitions over the offer set after extras/FX. *Priced* = `totalIls != null`. *
 
 | Card | Shown when | Otherwise |
 |---|---|---|
-| 💰 Cheapest | ≥ 1 priced offer. **When a checked bag is requested** the ranking pool is the offers whose bag cost is fully known (table fee or source-reported inclusion) — an offer with `bag_fee_unknown` would otherwise get a zero fee and look cheaper than it is. If no offer qualifies, the cheapest offer is shown with "לפחות" and the warning. | no offers → Empty (S4). Offers left out for an unknown bag fee are counted in `meta.recommendations.cheapest.excludedForUnknownBagFee` and disclosed: "{n} הצעות זולות יותר לא נכללו בדירוג כי עלות המזוודה שלהן לא ידועה". |
-| ⚖️ Best Value | Ranked **only within the pool of offers whose outbound leg has known stops and known duration** (and, when a bag is requested, a known bag cost) — the engine scores an unknown outbound leg and an unknown departure time as **zero penalty**, which would otherwise make incomplete offers look better; an unknown return leg uses the engine's fallback to the outbound leg and is then flagged. The "fastest option" reference for the duration penalty is computed over **all priced offers**, exactly as `recommend()` does; only the candidates are restricted to the pool. The pool **excludes hour-window split variants** (composed only when the user set hours), so ⚖️ is identical with and without time preferences (AC-R18). Winner = lowest `(score, totalIls)` in the pool. If it is the same offer as Cheapest, it is **merged** (one card, two tags). | Pool empty → the ⚖️ tag is **not shown**; note: "אין מספיק נתונים על עצירות וזמני טיסה כדי לדרג תמורה." Fallback used → shown with flag `inbound_estimated_from_outbound`. Unknown departure times (night penalty not assessable) keep their `*_time_unknown` flags on the card. |
-| 🎯 Matches My Times | The user set at least one hour window (SPEC §8) **and** ≥ 1 priced offer has a *known* departure hour inside every constrained direction (and known stops ≤ `maxStops` when set). The engine already treats unknown hours/stops as non-matching. `checkedOffers` = priced offers evaluated; `unverifiableOffers` = those with an unknown departure hour in a constrained direction, or unknown stops when `maxStops` is set. | Not requested → hidden, no note (the UI cannot send `maxStops` without an hour window, §4.7; if a client does, the API ignores it and reports `not_requested`). Requested but no match → hidden, with a note: if `unverifiableOffers > 0`, "לא הצלחנו לאמת שעות ל‑N הצעות"; otherwise "לא מצאנו הצעה בשעות שביקשת". |
+| 💰 Cheapest | ≥ 1 priced offer, ranked in the **base pool**: all priced offers except hour-window split variants (they compete only for 🎯, and can never be cheaper than the unrestricted split). **When a checked bag is requested** the pool is further restricted to offers whose bag cost is fully known (table fee or source-reported inclusion) — an offer with `bag_fee_unknown` would otherwise get a zero fee and look cheaper than it is. If no offer qualifies, the cheapest base offer is shown with "לפחות" and the warning. | no offers → Empty (S4). `meta.recommendations.cheapest.excludedForUnknownBagFee` = the number of excluded offers whose lower-bound total (fare only, no fee) is **below** the shown 💰 total (0 when the fallback applies); when > 0 it is disclosed: "{n} הצעות נוספות עשויות להיות זולות יותר, אך עלות המזוודה שלהן לא ידועה". |
+| ⚖️ Best Value | Ranked **only within the pool** of offers that are (a) in the base pool (no hour-window split variants), (b) have known stops and known duration on the outbound leg, and (c) when a bag is requested, have a known bag cost — the engine scores an unknown outbound leg and an unknown departure time as **zero penalty**, which would otherwise make incomplete offers look better; an unknown return leg uses the engine's fallback to the outbound leg and is then flagged. The "fastest option" reference for the duration penalty is computed over the **base pool**, so ⚖️ does **not** move when the user only adds time preferences (AC-R18); this deliberately differs from `recommend()` (whose reference includes the variants), for ⚖️ only. Winner = lowest `(score, totalIls)` in the pool. If it is the same offer as Cheapest, it is **merged** (one card, two tags). | Pool empty → the ⚖️ tag is **not shown**, with the reason: `bag_cost_unknown` (a bag is requested and removing offers with an unknown bag cost leaves nothing — checked first) → "לא ניתן לדרג תמורה כי עלות המזוודה לא ידועה"; otherwise `insufficient_data` (stops/duration unknown) → "אין מספיק נתונים על עצירות וזמני טיסה כדי לדרג תמורה." Fallback used → shown with flag `inbound_estimated_from_outbound`. Unknown departure times (night penalty not assessable) keep their `*_time_unknown` flags on the card. |
+| 🎯 Matches My Times | The user set at least one hour window (SPEC §8) **and** ≥ 1 priced offer has a *known* departure hour inside every constrained direction (and known stops ≤ `maxStops` when set). The engine already treats unknown hours/stops as non-matching. When a bag is requested only offers with a known bag cost are eligible; if no matching offer has one, the cheapest matching offer is shown with "לפחות" and the warning. `checkedOffers` = priced offers evaluated; `unverifiableOffers` = those with an unknown departure hour in a constrained direction, or unknown stops when `maxStops` is set. | Not requested → hidden, no note (the UI cannot send `maxStops` without an hour window, §4.7; if a client does, the API ignores it and reports `not_requested`). Requested but no match → hidden, with a note: if `unverifiableOffers > 0`, "לא הצלחנו לאמת שעות ל‑N הצעות"; otherwise "לא מצאנו הצעה בשעות שביקשת". |
 
-The API states which case applies (`meta.recommendations`, NEW, §7.2) so the client never has to re-derive gating, and the numbers in the note are exact. `cards` and `kinds` in the response are **post-gating**: the API drops gated kinds and any card left without kinds, and reports the reason only in `meta.recommendations`. The ungated engine `recommend()` (parity-tested Python↔TS) remains the reference for 💰 and 🎯; ⚖️ is computed by the gate layer over the pool defined above, using the shared scoring functions (C2).
+The API states which case applies (`meta.recommendations`, NEW, §7.2) so the client never has to re-derive gating, and the numbers in the note are exact. `cards` and `kinds` in the response are **post-gating**: the API drops gated kinds and any card left without kinds, and reports the reason only in `meta.recommendations`. The gate layer computes **all three** picks from the pools defined in the rows above, using the shared scoring functions (C2). The ungated engine `recommend()` (parity-tested Python↔TS) is the reference only when no bag is requested and no hour-window variants are in play; parity fixtures for the bag and hours cases test the gate layer's pools.
 
 ### 5.4 Data-quality model
 Each card carries `flags` (NEW): a list of stable codes computed by the API from the offer (single source of truth; the client only renders).
@@ -286,8 +286,8 @@ Rules: severity is conveyed by **icon + text + style**, never color alone. Notic
 | **Unavailable** | 503 `source_unavailable`, or `cards.length = 0` with no source `ok` | "לא הצלחנו לבדוק מחירים כרגע. נסו שוב בעוד כמה דקות." | `role="alert"` | retry |
 | **Rate limited** | 429 `rate_limited`; wait = `error.retryAfterSec` (also the `Retry-After` header) | "ביצעתם הרבה חיפושים. אפשר לנסות שוב בעוד N שניות" with a countdown; submit disabled meanwhile | countdown announced sparingly (start + end) | wait |
 | **Server-invalid** | 400 `validation_failed` | per-field Hebrew text from the `error.fields` **codes** via the `err.*` map (§7.5), plus the error summary | as Client-invalid | fix |
-| **Payload/other 4xx/5xx** | 413/415/500 | generic "משהו השתבש" + retry | `role="alert"` | retry |
-| **Offline** | `navigator.onLine === false` / fetch network error | "אין חיבור לאינטרנט" (form stays usable) | `role="alert"` | retry when online |
+| **Payload/other 4xx/5xx** | 413/415/500, or a fetch rejection while `navigator.onLine !== false` (e.g. DNS, CORS, a blocked request) | generic "משהו השתבש" + retry | `role="alert"` | retry |
+| **Offline** | a fetch rejection while `navigator.onLine === false` | "אין חיבור לאינטרנט" (form stays usable) | `role="alert"` | retry when online |
 
 **Empty vs Unavailable rule (P1):** "no results" is only claimed when a source actually answered and returned nothing. If sources failed, the UI says it could not check — never "no flights".
 
@@ -330,7 +330,7 @@ interface SearchResponse {
     fromCache: boolean;              // cache TTL = config cache_ttl_hours (6h): a hit makes zero external calls
     fxSource: string;                // "bank_of_israel" | "open.er-api.com" | "…:stale"
     fxDate: string;
-    sources: SourceStatus[];         // { name, enabled, ok, calls, offers, error, checkedAt (NEW) }
+    sources: SourceStatus[];         // { name, enabled, ok, calls, offers, error, checkedAt: string | null (NEW) } — checkedAt = when the fares read from that source were fetched (a cache hit reports the cache row's creation time); null when the source is disabled or returned nothing
     candidatePairs: number;          // the narrowed Top-N pairs (≤ 5), NOT the number of pairs checked
     validPairs: number;              // NEW — date pairs allowed by window and stay range
     pairsWithOffers: number;         // NEW — distinct pairs with ≥ 1 offer
@@ -340,8 +340,8 @@ interface SearchResponse {
       destination: PlaceView;
     };
     recommendations: {               // NEW — drives gating notes (§5.3)
-      cheapest:  { status: "shown" | "no_offers"; excludedForUnknownBagFee: number };   // NEW count
-      bestValue: { status: "shown" | "merged" | "insufficient_data" | "no_offers" };
+      cheapest:  { status: "shown" | "no_offers"; excludedForUnknownBagFee: number };   // NEW — semantics in §5.3
+      bestValue: { status: "shown" | "merged" | "insufficient_data" | "bag_cost_unknown" | "no_offers" };
       myTimes:   { status: "shown" | "merged" | "not_requested" | "no_verified_match" | "no_offers";
                    checkedOffers: number; unverifiableOffers: number };
     };
@@ -491,7 +491,7 @@ Gaps between the current engine/Worker and this UI spec (each needs an owner dec
 | 11 | Cabin is not applied by the live source | a cabin selector would mislabel economy prices | cabin excluded from v1; API accepts only `economy` (C11, D5) |
 | 12 | Best Value scores an unknown outbound leg and unknown departure time as **zero penalty** (an unknown return leg is estimated from the outbound leg) | offers with missing data can win ⚖️ | pool gating in the API gate layer (§5.3) |
 | 13 | SPEC §6 says live search does no split-ticket check | split cards in v1 need live composition from one-way fares | C12 / D3 |
-| 14 | With live splits (C12) the hour-window split variants join the offer list when hours are set | ⚖️ could change when the user only adds time preferences | ⚖️ pool excludes hour-window variants; AC-R18 |
+| 14 | With live splits (C12) the hour-window split variants join the offer list when hours are set, and `Offer` carries no marker that identifies them (the split builder also drops a variant identical to the base split) | ⚖️ (its "fastest" reference and pool) and 💰 could change when the user only adds time preferences | the split builder returns base and hour-window variants as separate sets (or tags variants); 💰 and ⚖️ use the base pool; AC-R18 |
 | 15 | Booking links do not encode the requested party (Travelpayouts row links are for 1 adult; `aviasales_search_link` takes one passenger number) | the booking site can show a different price than the card | API composes party-aware links (§5.6); verify the link format in W0(a) |
 | 16 | With a bag requested, an unknown fee adds 0 to the total | such offers look cheaper than they are | bag-cost pool rule in §5.3; `excludedForUnknownBagFee` |
 
@@ -566,7 +566,7 @@ Sizes are relative (S/M/L), not calendar promises. Nothing here deploys anything
 | Stream | Scope | Depends on | Exit criteria | Size |
 |---|---|---|---|---|
 | **W0(a) — Phase 0 proof (SPEC §15 gate)** | Owner adds `TRAVELPAYOUTS_TOKEN`/marker; run the coverage test for TLV/ETM sample routes; compare recommendations against a manual Google Flights check (SPEC §15); confirm the affiliate marker, the booking-link domains for the allow-list and the Aviasales party-size link format (§5.6) | owner token | D1 gate passed | S (blocked on owner) |
-| **W0(b) — API contract** | Phase 1 Worker reviewed and merged; NEW contract members implemented (`meta.apiVersion`, `flags`, `links` incl. `bookReturn` and party-aware links, `meta.resolved` with the single `PlaceView`, `meta.recommendations` incl. `excludedForUnknownBagFee`, `meta.validPairs/pairsWithOffers`, `sources[].checkedAt`, `priceContext` ILS fields, `noticeCodes`, optional `airlineNames`, `error.retryAfterSec`, field error codes, `Access-Control-Expose-Headers`); Best Value pool gating and the bag-cost pool rule; cache stores recomputable inputs and `nearbyAirports` is in the key (C13); `cabin` restricted to `economy`; `RATE_LIMIT_SALT` required | Phase 1 | contract fixtures published; SPEC §16 API-level criteria and AC-API*, AC-SEC6 pass locally | M |
+| **W0(b) — API contract** | Phase 1 Worker reviewed and merged; NEW contract members implemented (`meta.apiVersion`, `flags`, `links` incl. `bookReturn` and party-aware links, `meta.resolved` with the single `PlaceView`, `meta.recommendations` incl. `excludedForUnknownBagFee`, `meta.validPairs/pairsWithOffers`, `sources[].checkedAt`, `priceContext` ILS fields, `noticeCodes`, optional `airlineNames`, `error.retryAfterSec`, field error codes, `Access-Control-Expose-Headers`); Best Value pool gating, the bag-cost pool rule for 💰/⚖️/🎯 and the base pool (the split builder returns hour-window variants separately); cache stores recomputable inputs and `nearbyAirports` is in the key (C13); `cabin` restricted to `economy`; `RATE_LIMIT_SALT` required | Phase 1 | contract fixtures published; SPEC §16 API-level criteria and AC-API*, AC-SEC6 pass locally | M |
 | **W0(c) — Operations** | Data-retention job; **source-failure alert** (SPEC §14: owner emailed after 3 consecutive failures) via a Worker cron trigger reading `source_health` | W0(b); W0(d) (or a local-Worker test of the jobs); email provider (SPEC §17) | retention job and alert verified (AC-SEC7); alert test fires | S–M |
 | **W0(d) — Staging** | Staging Worker + D1 with `ALLOWED_ORIGIN` — **requires the owner's approval to create/deploy (D15, SPEC §18)** and starts only after the Phase 0 gate (README: no Cloudflare deployment before the proof); until then a local Worker + local D1 + fixtures | D15; W0(a) passed; W0(b) merged | `/api/search` returns real results for the agreed sample routes | S |
 | **W1 — Foundations** | Scaffold `web/` (Vite/React/TS/Tailwind RTL), design tokens, `copy/he.ts`, formatters (money/date/bidi) with unit tests, API client + error mapping, CI (typecheck, lint, tests, build), noindex | W0(a) passed (SPEC §15) + W0(b) contract types | CI green; formatter tests cover §5.5 rules | S |
@@ -619,18 +619,19 @@ Legend: F = form, R = results, S = states, A = accessibility, M = mobile/PWA, P 
 - **AC-F5** Given a valid search, then the URL contains the search parameters and reloading the URL restores the form and re-runs the search.
 - **AC-F6** Given the autocomplete request fails, then I can still search by typing a 3-letter IATA code.
 - **AC-F7** Given no hour windows are set, then the 🎯 explainer is not shown and the request omits `outHours/retHours`.
-- **AC-F8** Given no hour window is set, then the max-stops select is `aria-disabled` with its helper text; given an hour window is set, it is enabled; clearing both hour windows resets it to "any"; a URL or saved search with `st` but no hour window has `st` ignored and dropped.
+- **AC-F8** Given no hour window is set, then the max-stops select is `disabled` and its helper text is visible; given an hour window is set, it is enabled; clearing both hour windows resets it to "any"; a URL or saved search with `st` but no hour window has `st` ignored and dropped.
 - **AC-F9** Given the form, then no cabin or carry-on control exists and every request carries `cabin: "economy"`.
 - **AC-F10** Given a custom hour window with start = end, then submit is blocked with an inline error; the whole-day window 0–24 is accepted and still enables 🎯.
+- **AC-F11** Given a browser locale of en-US, when I pick 10 November, then the echo beside the field reads "10/11 · יום ג׳" (matching the value), never "11/10".
 
 **Results & gating**
 - **AC-R1** Given results, then at most three cards are shown and identical offers appear once with multiple tags (SPEC §8).
 - **AC-R2** Given no preferred hours, then the 🎯 card is hidden with no note (SPEC §16).
 - **AC-R3** Given preferred hours and `myTimes.status = no_verified_match`: with `unverifiableOffers > 0` the note says times could not be verified for N offers; with `unverifiableOffers = 0` the note says no offer was found in the requested hours; in both cases no 🎯 card is shown.
-- **AC-R4** Given no offer has known stops **and** known duration on its outbound leg (`bestValue.status = insufficient_data`), then the ⚖️ tag is not shown and the note appears; given a cheaper offer with unknown stops and a costlier offer with known stops, then the cheaper one MUST NOT win ⚖️ merely because unknowns score zero penalty.
+- **AC-R4** Given no offer has known stops **and** known duration on its outbound leg (`bestValue.status = insufficient_data`), then the ⚖️ tag is not shown and the stops/times note appears; given a cheaper offer with unknown stops and a costlier offer with known stops, then the cheaper one MUST NOT win ⚖️ merely because unknowns score zero penalty; given a bag is requested and every offer has an unknown bag cost (`bestValue.status = bag_cost_unknown`), then the ⚖️ tag is not shown and the bag note appears instead of the stops/times note.
 - **AC-R5** Given a USD price, then it is shown `≈ ₪X ($Y)`; given an ILS price with no extras, `₪X`; with extras `≈ ₪X (₪Y + מזוודות ₪Z)`; a `price_converted_ils` split is shown with "≈" and no original currency. Amounts are rounded up to whole units (engine `report.py`; SPEC §4.2 defines the format).
 - **AC-R6** Given no bag selected and a source that reports an included bag, then the offer is tagged 🎁 and its price has no bag fee added (SPEC §4.1, §16); given no source reports inclusion, no 🎁 appears (§2 item 10).
-- **AC-R7** Given a bag selected and an offer with an unknown fee (`bag_fee_unknown`), then that offer is **not** ranked as if the fee were zero: it is excluded from the 💰/⚖️ pool and counted in `excludedForUnknownBagFee` (disclosed); if no offer has a known bag cost, the cheapest is shown with "לפחות" and the warning; no fee is invented.
+- **AC-R7** Given a bag selected and an offer with an unknown fee (`bag_fee_unknown`), then that offer is **not** ranked as if the fee were zero: it is excluded from the 💰, ⚖️ and 🎯 pools; `excludedForUnknownBagFee` counts only excluded offers whose lower-bound total is below the shown 💰 total and is disclosed only when > 0; if no offer (or no matching offer for 🎯) has a known bag cost, the cheapest (matching) offer is shown with "לפחות" and the warning; no fee is invented.
 - **AC-R8** Given passengers > 1 and a Travelpayouts offer, then `price_estimated_pax` is rendered on the card.
 - **AC-R9** Given an unknown departure time, then the card says the time will appear on the booking site; no time is displayed.
 - **AC-R10** Given a split ticket cheaper than every round trip (and C12 approved), then the Cheapest card shows "חסכת ₪X לעומת הלוך-חזור", the warning block, and two booking CTAs (SPEC §16).
@@ -641,7 +642,7 @@ Legend: F = form, R = results, S = states, A = accessibility, M = mobile/PWA, P 
 - **AC-R15** Given `stops == null` on a leg, then the card reads "עצירות: לא ידוע" and never "ישירה"; given `durationMin == null` or empty `airlines`, then the corresponding label appears instead of a blank or a default.
 - **AC-R16** Given a Google-sourced offer with a requested bag and `includes.checkedBag`, then `bag_inclusion_unverified` is rendered; given `extrasAmountIls > 0`, then `bag_fee_estimated` is rendered.
 - **AC-R17** Given `checkedBag = true`, then totals and ranking use fare + `extrasAmountIls` and the card total includes the fee: a low-cost fare whose fare + fee exceeds a full-service fare with the bag included does not rank cheaper (SPEC §16).
-- **AC-R18** Given the same request with and without hour windows, then the ⚖️ result is identical (hour-window split variants are excluded from its pool).
+- **AC-R18** Given the same request with and without hour windows, then the ⚖️ and 💰 results are identical (hour-window split variants are excluded from their pools **and** from the ⚖️ "fastest" reference). Fixture: a candidate with an unknown return duration plus a faster in-window one-way leg must not change the ⚖️ winner when hours are added.
 
 **States**
 - **AC-S1** Loading shows the phased messages at 0/3/10 s, is cancelable, and times out at 25 s with retry.
@@ -651,7 +652,7 @@ Legend: F = form, R = results, S = states, A = accessibility, M = mobile/PWA, P 
 - **AC-S5** Given offline, then the form (from the precached shell, query string ignored) remains usable and the Offline message appears on submit.
 - **AC-S6** Given the API is served from cache, then each card shows its age and the disclaimer; given `ageHours ≥ 12`, `stale_price` is shown.
 - **AC-S7** Given 400 `validation_failed` with `fields`, then each field shows its Hebrew message from the `err.*` map, the error summary appears, and focus moves to the summary.
-- **AC-S8** Given 413/415/500 or a network error, then the generic error state with retry is shown (`state.generic`).
+- **AC-S8** Given 413/415/500, or a fetch rejection while the browser reports it is online, then the generic error state with retry is shown (`state.generic`); given a fetch rejection while `navigator.onLine === false`, the Offline state is shown instead (AC-S5).
 - **AC-S9** Given no response within 25 s, then the timeout state (`state.timeout`) is shown with retry and edit.
 
 **Accessibility**
@@ -673,6 +674,7 @@ Legend: F = form, R = results, S = states, A = accessibility, M = mobile/PWA, P 
 - **AC-SEC5** The privacy, terms, affiliate-disclosure and accessibility pages exist and are linked from the footer and near the CTA.
 - **AC-SEC6** `RATE_LIMIT_SALT` is required: without it the Worker refuses `/api/search` and `/api/health` fails; D1 contains no raw IP, and `rate_limits` keys are salted hashes.
 - **AC-SEC7** The retention job deletes `rate_limits` older than 1 day, `searches` older than 90 days and `search_cache` older than 6 h (D11).
+- **AC-SEC8** Every static response carries `X-Robots-Tag: noindex, nofollow`, `Referrer-Policy`, `X-Content-Type-Options: nosniff` and `Permissions-Policy`, and the page has the robots meta, until the recorded launch step removes the indexing flags (D8).
 
 **API contract**
 - **AC-API1** Every fixture and every staging response validates against the contract (types + JSON Schema) including NEW members.
@@ -682,7 +684,9 @@ Legend: F = form, R = results, S = states, A = accessibility, M = mobile/PWA, P 
 - **AC-API5** Given a cached search, then a later search that differs only in bag or max stops is re-ranked without new external calls; a search that differs in hours or `nearbyAirports` returns exactly what a fresh search would (the cache key includes `nearbyAirports` and the cache stores recomputable inputs, C13) — verified by a test comparing the cached re-rank against a fresh run.
 - **AC-API6** `meta.validPairs` equals the number of pairs allowed by window and stay range (30 for the §7.2 example) and `meta.pairsWithOffers ≤ validPairs`; `candidatePairs ≤ 5`.
 - **AC-API7** Given `cabin` other than `economy`, then the API answers `400 validation_failed` with `fields.cabin`.
-- **AC-API8** Every entry of `meta.sources` carries `checkedAt`, and the results disclosure shows it per source.
+- **AC-API8** Every entry of `meta.sources` carries `checkedAt` (`string | null`): the fetch time of the fares actually read from that source (the cache row's creation time on a cache hit), `null` only when the source is disabled or returned nothing; the results disclosure shows "נבדק לפני X" per source and omits the line when it is null.
+- **AC-API9** Every API response (including 4xx/5xx and OPTIONS) carries `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`; `Access-Control-Allow-Origin` equals `ALLOWED_ORIGIN` only for that exact origin, is never `*`, and credentials are never allowed; with `ALLOWED_ORIGIN` unset no CORS headers are sent.
+- **AC-API10** The 31st search within 10 minutes from one client returns 429 with `Retry-After` and `error.retryAfterSec`, and `Access-Control-Expose-Headers` lists `Retry-After`.
 
 ### 11.2 Test strategy
 | Layer | Tooling | Covers |
@@ -693,7 +697,7 @@ Legend: F = form, R = results, S = states, A = accessibility, M = mobile/PWA, P 
 | End-to-end | Playwright (Chromium, WebKit, Firefox; mobile emulation) with recorded API fixtures for **every state in §6** | AC-F*, AC-R*, AC-S* |
 | Accessibility | axe via Playwright; manual VoiceOver/TalkBack checklist | AC-A* |
 | Performance | Lighthouse CI budgets; manual real-device run | AC-P1, AC-M2 |
-| Security | header/CSP assertions, dependency audit, network-log assertion | AC-SEC* |
+| Security | header/CSP/robots/CORS assertions (static host and API), dependency audit, network-log assertion | AC-SEC*, AC-API9, AC-API10 |
 
 ---
 
@@ -725,7 +729,7 @@ Other documents: `README.md` "Known limitations" (Phase 0) are the source of §2
 
 ### 12.2 Clarifications that extend or interpret `SPEC.md` (need owner approval)
 - **C1 — Max stops scope.** SPEC §5 lists max stops as a filter ("no restriction if unset") but §8 applies it only to 🎯. This document follows §8 and groups hours + max stops under "preferences that affect only the 🎯 recommendation" (D4).
-- **C2 — "Enough data" gating.** SPEC §8 hides 🎯 only when no hours were set. This document adds evidence-based gating for ⚖️ and 🎯 (§5.3), including a **pool rule** for ⚖️ because the engine scores an unknown outbound leg and unknown departure time as zero penalty, and a **bag-cost pool rule** for 💰/⚖️ when a bag is requested.
+- **C2 — "Enough data" gating.** SPEC §8 hides 🎯 only when no hours were set. This document adds evidence-based gating for ⚖️ and 🎯 (§5.3), including a **pool rule** for ⚖️ because the engine scores an unknown outbound leg and unknown departure time as zero penalty, a **bag-cost pool rule** for 💰, ⚖️ and 🎯 when a bag is requested, and the exclusion of hour-window split variants from the 💰/⚖️ pools.
 - **C3 — Price context currency.** SPEC §8 shows the line in ₪; §4.2 requires original-currency comparison. Resolved as: compare in original currency, display converted at today's rate (§5.5).
 - **C4 — Split tickets need two links and a warning** (SPEC §16 requires the savings message but not the second link; G5 requires a working link per result).
 - **C5 — Minimum legal pages before public exposure** rather than only in Phase 4, because affiliate links exist from the first release.
@@ -780,16 +784,17 @@ Other documents: `README.md` "Known limitations" (Phase 0) are the source of §2
 
 ## 14. Change log
 
+- **v0.4 (2026-09-29)** — after review round 3 (22 findings examined, 20 confirmed): the ⚖️ "fastest" reference and pool are independent of hour-window split variants; the bag-cost pool now applies consistently to 💰, ⚖️ and 🎯 and the closing gating paragraph no longer contradicts it; `bag_cost_unknown` status and note; `excludedForUnknownBagFee` counts only offers that could be cheaper, with matching copy; network errors map to Offline or generic by `navigator.onLine`; `checkedAt` defined as `string | null`; DD/MM echo beside native date fields; native `disabled` for the max-stops select; ACs added for robots/header/CORS/rate-limit enforcement; Hebrew plural forms use one/two/other.
 - **v0.3 (2026-09-29)** — after review round 2 (55 findings examined, 49 confirmed): loading copy no longer claims every pair is checked; one trigger for the passenger-estimate note; W0(d) staging gated on the Phase 0 proof and dependencies of W0(c)/W4 fixed; one `PlaceView` (nullable `nameHe`, `airports`); `myTimes.insufficient_data` removed and the 🎯 statuses defined; `sources[].checkedAt`; max-stops reset/restore rules; **bag-cost pool rule** (unknown fee no longer ranks as zero); ⚖️ independent of hour-window split variants, fastest-reference defined; party-aware booking links; `price_converted_ils`; hour window start ≠ end; error `fields` as machine codes, `retryAfterSec` and exposed `Retry-After`; service-worker routing and offline ACs; `RATE_LIMIT_SALT` required; lab/field performance budgets; `X-Robots-Tag` instead of a robots.txt disallow; Hebrew number-agreement forms and missing copy keys; README figures corrected.
 - **v0.2 (2026-09-29)** — after an independent review (3 reviewers, a skeptic per finding; 34 of the 42 examined findings confirmed): UI work gated on the Phase 0 proof (W1 no longer starts early); the fallback for poor coverage no longer assumes a monitor that does not exist yet (D1); public launch stays at the end of Phase 4 unless decided otherwise (D17); cabin removed from v1 (C11); Best Value pool gating for unknown data (§5.3); max-stops control disabled until hours are set; price-context ILS fields; `validPairs` / `pairsWithOffers`; split links composed for every source; cache-key and recompute requirement (C13); live split composition made explicit (C12); source-failure alert scheduled (W0(c)); staging approval decision (D15); SPEC §17 items carried into §13; README/code attribution of limitations corrected; wrong cross-references fixed.
 - **v0.1 (2026-09-29)** — first draft.
-- Round 1 examined at most 14 findings per reviewer (30 lowest-severity ones were not examined); round 2 examined at most 20 per reviewer (8 lowest-severity ones were not examined). The next round re-checks the v0.3 edits.
+- Round 1 examined at most 14 findings per reviewer (30 lowest-severity ones were not examined); round 2 examined at most 20 per reviewer (8 lowest-severity ones were not examined); round 3 (high/medium only) examined all 22 findings raised. Rounds 1–2 unexamined items are low severity and were not re-run.
 
 ---
 
 ## Appendix A — Hebrew copy deck (initial; final wording is the owner's)
 
-**Number agreement:** every string with `{n}` needs one/two/many forms (use `Intl.PluralRules('he')` categories). The forms are written out for the keys that will realistically show 1 and 2 (`card.age.hours`, `state.rate`, `form.combos`); the same rule applies to `note.times.unverified`, `note.bag.excluded` and every other `{n}` key, and is unit-tested for n = 1, 2, 11. The flag texts in §5.4 are part of the copy deck.
+**Number agreement:** every string with `{n}` needs a singular form for 1, a dual form for 2 and a general form for everything else (`Intl.PluralRules('he')` selects `one`, `two` or `other`; render `other` with the ordinary plural wording, e.g. "{n} שעות"). The forms are written out for the keys that will realistically show 1 and 2 (`card.age.hours`, `state.rate`, `form.combos`, `note.bag.excluded`); the same rule applies to `note.times.unverified` and every other `{n}` key, and is unit-tested for n = 0, 1, 2, 3, 11. The flag texts in §5.4 are part of the copy deck.
 
 
 | Key | Hebrew |
@@ -802,7 +807,7 @@ Other documents: `README.md` "Known limitations" (Phase 0) are the source of §2
 | form.stay.label | כמה לילות? |
 | form.stay.min / max | מינימום / מקסימום |
 | form.stay.helper | נחפש מחירים בטווח התאריכים ובמספר הלילות שבחרתם |
-| form.combos | בטווח הזה יש צירוף תאריכים אפשרי אחד / שני צירופי תאריכים אפשריים / {n} צירופי תאריכים אפשריים (one / two / many) |
+| form.combos | בטווח הזה יש צירוף תאריכים אפשרי אחד / שני צירופי תאריכים אפשריים / {n} צירופי תאריכים אפשריים (one / two / other) |
 | form.adults / children / infants | מבוגרים / ילדים (2–11) / תינוקות (מתחת לגיל 2) |
 | form.bag | מזוודה 23 ק״ג לכל נוסע |
 | form.bag.helper | לא סימנת? לא נוסיף עלות מזוודה למחיר. אם המקור מדווח שהמחיר כולל מזוודה, נסמן 🎁. |
@@ -819,7 +824,7 @@ Other documents: `README.md` "Known limitations" (Phase 0) are the source of §2
 | card.book.out / ret | הזמנת הלוך / הזמנת חזור |
 | card.affiliate | קישור שותפים — ייתכן שנקבל עמלה ללא עלות נוספת עבורך |
 | card.age.now | נבדק עכשיו |
-| card.age.hours | נבדק לפני שעה / נבדק לפני שעתיים / נבדק לפני {n} שעות (one / two / many) |
+| card.age.hours | נבדק לפני שעה / נבדק לפני שעתיים / נבדק לפני {n} שעות (one / two / other) |
 | card.savings | חסכת ₪{n} לעומת הלוך-חזור |
 | card.context | לפני שבוע: ₪{a} \| הכי נמוך שראינו: ₪{b} |
 | card.time.unknown | שעת המראה: תופיע באתר ההזמנה |
@@ -827,6 +832,7 @@ Other documents: `README.md` "Known limitations" (Phase 0) are the source of §2
 | card.stops.direct / one / many | ישירה / עצירה אחת / {n} עצירות |
 | card.atleast | לפחות |
 | note.value.insufficient | אין מספיק נתונים על עצירות וזמני טיסה כדי לדרג תמורה. |
+| note.value.bag | לא ניתן לדרג תמורה כי עלות המזוודה לא ידועה |
 | note.times.none | לא מצאנו הצעה בשעות שביקשת. |
 | note.times.unverified | לא הצלחנו לאמת שעות ל‑{n} הצעות. |
 | footer.disclaimer | המחיר הסופי מוצג באתר ההזמנה. ייתכנו עמלות המרת מטבע בכרטיס האשראי. |
@@ -836,7 +842,7 @@ Other documents: `README.md` "Known limitations" (Phase 0) are the source of §2
 | state.empty.title | לא נמצאו מחירים לטווח הזה |
 | state.empty.tips | הרחיבו את טווח התאריכים · הוסיפו לילות · כללו שדות תעופה קרובים · נסו יעד אחר |
 | state.unavailable | לא הצלחנו לבדוק מחירים כרגע. נסו שוב בעוד כמה דקות. |
-| state.rate | ביצעתם הרבה חיפושים. אפשר לנסות שוב בעוד שנייה / שתי שניות / {n} שניות. (one / two / many) |
+| state.rate | ביצעתם הרבה חיפושים. אפשר לנסות שוב בעוד שנייה / שתי שניות / {n} שניות. (one / two / other) |
 | state.partial | אחד ממקורות המחירים לא זמין כרגע; ייתכנו הצעות זולות יותר שלא הוצגו. |
 | state.truncated | החיפוש נחתך לפני שנבדקו כל הצירופים — צמצמו את הטווח לתוצאות מלאות יותר |
 | tag.cheapest.truncated | 💰 הכי זול מבין מה שנבדק |
@@ -868,5 +874,5 @@ Other documents: `README.md` "Known limitations" (Phase 0) are the source of §2
 | card.split.warning | שני כרטיסים נפרדים: מזמינים בנפרד, כללי כבודה ושינויים חלים על כל כרטיס לחוד, ואין הגנה אם אחד מהם משתנה או מתבטל. |
 | card.details.toggle | פרטים על הנתונים |
 | search.details | פרטי החיפוש |
-| note.bag.excluded | {n} הצעות זולות יותר לא נכללו בדירוג כי עלות המזוודה שלהן לא ידועה |
+| note.bag.excluded | הצעה אחת נוספת עשויה להיות זולה יותר, אך עלות המזוודה שלה לא ידועה / {n} הצעות נוספות עשויות להיות זולות יותר, אך עלות המזוודה שלהן לא ידועה (one / other) |
 | link.disclosure | קישור שותפים — למידע נוסף |
