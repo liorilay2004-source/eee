@@ -346,7 +346,8 @@ describe("watched city routes resolve to the airports the scan stores", () => {
     }
     expect(routeAirports("TLV", "LON", NOW).destinations).toEqual(expect.arrayContaining(["LHR", "LGW"]));
     expect(routeAirports("TLV", "LON", NOW).destinations).not.toContain("LON");
-    expect(routeAirports("ETM", "ATH", NOW).origins).toEqual(expect.arrayContaining(["ETM", "VDA"]));
+    // Since the route hints (#15) the scan skips Ovda (VDA, no scheduled service) when Ramon remains, so reports follow it.
+    expect(routeAirports("ETM", "ATH", NOW).origins).toEqual(["ETM"]);
   });
 
   it("TLV-LON end to end: runSnapshot stores airport rows, refreshDealReport finds the LHR deal and judges LGW", async () => {
@@ -381,11 +382,11 @@ describe("watched city routes resolve to the airports the scan stores", () => {
     expect(body.routes.find((x) => x.destination === "LON")?.status).toBe("deals");
   });
 
-  it("ETM-ATH reads Ramon (ETM) and Ovda (VDA) rows alike", async () => {
+  it("ETM-ATH reads the airports the scan stores (Ramon), not a skipped sibling (Ovda)", async () => {
     const db = createTestD1();
-    await seedPair(db, "2026-11-10", "2026-11-15", 600, "VDA", "ATH");
+    await seedPair(db, "2026-11-10", "2026-11-15", 600, "ETM", "ATH");
     const r = await computeRouteReport(db, "ETM", "ATH", NOW);
-    expect(r.deals[0]).toMatchObject({ origin: "VDA", destination: "ATH", verdict: "deal" });
+    expect(r.deals[0]).toMatchObject({ origin: "ETM", destination: "ATH", verdict: "deal" });
   });
 });
 
