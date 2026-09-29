@@ -5,14 +5,15 @@
  *   GET  /api/explore   cheapest destinations from TLV/ETM in a month or window (rate limited, src/explore.ts)
  *   GET  /api/health    D1 liveness
  *
- * Every response is JSON, `Cache-Control: no-store`, `nosniff`. Errors are { error: { code, message, fields? } }
+ * Every response is JSON, `Cache-Control: no-store`, `nosniff`. Errors are
+ * { error: { code, message, reason?, fields?, fieldCodes?, retryAfterSec? } } (all but code and message are additive)
  * and never carry stack traces, upstream response bodies or secrets. CORS is opt-in for exactly one origin
  * (env.ALLOWED_ORIGIN) and is never a wildcard.
  */
 import { createRepo, pruneHistory } from "./db";
 import { EXPLORE_RATE_LIMIT_MAX, EXPLORE_RATE_LIMIT_WINDOW_SECONDS, ExploreError, parseExploreParams, runExplore } from "./explore";
 import { getFxRates } from "./fx";
-import { defaultResolver, PipelineError, runSearch, sha256Hex } from "./pipeline";
+import { defaultResolver, PipelineError, runSearch, sha256Hex, type ScanBudgetVerdict } from "./pipeline";
 import { withDailyShare, type FareQuoteSource } from "./quotes";
 import { clientIdentity, createMemoryLimiter, limiterSalt } from "./ratelimit";
 import { createIgnavSource } from "./sources/ignav";
@@ -50,10 +51,25 @@ const errorResult = (
   status: number,
   code: string,
   message: string,
-  extra: { fields?: Record<string, string>; retryAfterSec?: number; headers?: Record<string, string> } = {},
+  extra: {
+    reason?: string;
+    fields?: Record<string, string>;
+    fieldCodes?: Record<string, string>;
+    retryAfterSec?: number;
+    headers?: Record<string, string>;
+  } = {},
 ): ApiResult => ({
   status,
-  body: { error: { code, message, ...(extra.fields ? { fields: extra.fields } : {}), ...(extra.retryAfterSec !== undefined ? { retryAfterSec: extra.retryAfterSec } : {}) } },
+  body: {
+    error: {
+      code,
+      message,
+      ...(extra.reason !== undefined ? { reason: extra.reason } : {}),
+      ...(extra.fields ? { fields: extra.fields } : {}),
+      ...(extra.fieldCodes ? { fieldCodes: extra.fieldCodes } : {}),
+      ...(extra.retryAfterSec !== undefined ? { retryAfterSec: extra.retryAfterSec } : {}),
+    },
+  },
   headers: extra.headers,
 });
 
@@ -125,10 +141,14 @@ const isJsonContentType = (request: Request): boolean =>
 
 // --- handlers -------------------------------------------------------------------------------------------
 
-/** Global cap on fresh scans (see GLOBAL_SCAN_LIMIT). Storage trouble never blocks: the per-client limit still applies. */
-async function scanBudgetLeft(repo: ReturnType<typeof createRepo>, now: Date): Promise<boolean> {
+/**
+ * Global cap on fresh scans (see GLOBAL_SCAN_LIMIT), with the limiter's wait when it says no (surfaced as retryAfterSec on a
+ * 503). Storage trouble never blocks: the per-client limit still applies.
+ */
+async function scanBudgetLeft(repo: ReturnType<typeof createRepo>, now: Date): Promise<ScanBudgetVerdict> {
   try {
-    return (await repo.checkRateLimit("global:scan", GLOBAL_SCAN_LIMIT, GLOBAL_SCAN_WINDOW_SECONDS, now)).allowed;
+    const verdict = await repo.checkRateLimit("global:scan", GLOBAL_SCAN_LIMIT, GLOBAL_SCAN_WINDOW_SECONDS, now);
+    return { allowed: verdict.allowed, retryAfterSec: verdict.retryAfterSec };
   } catch {
     return true;
   }
@@ -201,7 +221,7 @@ async function handleSearch(request: Request, env: Env, ctx: ExecutionContext): 
   const parsed = parseSearchBody(body, { resolver: defaultResolver, now });
   if (!parsed.ok) {
     const message = parsed.code === "destination_required" ? "A destination is required" : "The search request is invalid";
-    return errorResult(400, parsed.code, message, { fields: parsed.fields });
+    return errorResult(400, parsed.code, message, { fields: parsed.fields, fieldCodes: parsed.fieldCodes });
   }
 
   // Per-request wiring. The wrapper resolves globalThis.fetch at call time (workerd rejects a detached fetch).
@@ -228,7 +248,14 @@ async function handleSearch(request: Request, env: Env, ctx: ExecutionContext): 
     );
     return { status: 200, body: result };
   } catch (err) {
-    if (err instanceof PipelineError) return errorResult(503, err.code, err.message);
+    if (err instanceof PipelineError) {
+      // Retry-After (already exposed to the one CORS origin) only when the wait is actually known: never a guess.
+      return errorResult(503, err.code, err.message, {
+        reason: err.reason,
+        retryAfterSec: err.retryAfterSec,
+        headers: err.retryAfterSec !== undefined ? { "Retry-After": String(err.retryAfterSec) } : undefined,
+      });
+    }
     throw err;
   }
 }
