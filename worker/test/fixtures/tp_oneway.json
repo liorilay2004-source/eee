@@ -1,0 +1,12 @@
+{
+  "success": true,
+  "currency": "usd",
+  "data": [
+    {"origin": "TLV", "destination": "BCN", "origin_airport": "TLV", "destination_airport": "BCN",
+     "price": 79, "airline": "W6", "departure_at": "2026-11-12T06:15:00+02:00",
+     "transfers": 0, "duration": 290, "duration_to": 290, "link": "/search/TLV1211BCN1?t=ow1"},
+    {"origin": "BCN", "destination": "TLV", "origin_airport": "BCN", "destination_airport": "TLV",
+     "price": 85, "airline": "VY", "departure_at": "2026-11-18T12:10:00+01:00",
+     "transfers": 0, "duration": 270, "duration_to": 270, "link": "/search/BCN1811TLV1?t=ow2"}
+  ]
+}

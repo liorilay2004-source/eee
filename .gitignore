@@ -13,3 +13,8 @@ build/
 out/
 *.log
 .DS_Store
+# Wrangler local secrets and test output (must never be committed)
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.vitest/

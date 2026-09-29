@@ -1,0 +1,139 @@
+[
+  {
+    "cityIata": "TLV", "cityEn": "Tel Aviv", "cityHe": "תל אביב", "countryCode": "IL", "popularity": 100,
+    "airports": [{ "iata": "TLV", "nameEn": "Ben Gurion Airport" }],
+    "nearby": [],
+    "aliasesHe": ["ת\"א", "תל אביב יפו"],
+    "aliasesEn": ["Tel-Aviv Yafo"]
+  },
+  {
+    "cityIata": "ETM", "cityEn": "Eilat", "cityHe": "אילת", "countryCode": "IL", "popularity": 60,
+    "airports": [{ "iata": "ETM", "nameEn": "Ramon Airport" }],
+    "nearby": ["AQJ"]
+  },
+  {
+    "cityIata": "LON", "cityEn": "London", "cityHe": "לונדון", "countryCode": "GB", "popularity": 95,
+    "airports": [
+      { "iata": "LHR", "nameEn": "Heathrow Airport" },
+      { "iata": "LGW", "nameEn": "Gatwick Airport" },
+      { "iata": "STN", "nameEn": "Stansted Airport" },
+      { "iata": "LTN", "nameEn": "Luton Airport" },
+      { "iata": "LCY", "nameEn": "London City Airport" }
+    ],
+    "nearby": ["SEN", "LHR"],
+    "aliasesHe": ["לונדן"],
+    "aliasesEn": ["Londres"]
+  },
+  {
+    "cityIata": "NYC", "cityEn": "New York", "cityHe": "ניו יורק", "countryCode": "US", "popularity": 98,
+    "airports": [
+      { "iata": "JFK", "nameEn": "John F. Kennedy International Airport" },
+      { "iata": "LGA", "nameEn": "LaGuardia Airport" },
+      { "iata": "EWR", "nameEn": "Newark Liberty International Airport" }
+    ],
+    "nearby": ["HPN", "ISP"],
+    "aliasesHe": ["ניו יורק סיטי"],
+    "aliasesEn": ["New York City", "Big Apple"]
+  },
+  {
+    "cityIata": "PAR", "cityEn": "Paris", "cityHe": "פריז", "countryCode": "FR", "popularity": 96,
+    "airports": [
+      { "iata": "CDG", "nameEn": "Charles de Gaulle Airport" },
+      { "iata": "ORY", "nameEn": "Orly Airport" }
+    ],
+    "nearby": ["BVA"]
+  },
+  {
+    "cityIata": "PRX", "cityEn": "Paris", "cityHe": "", "countryCode": "US", "popularity": 8,
+    "airports": [{ "iata": "PRX", "nameEn": "Cox Field" }],
+    "nearby": []
+  },
+  {
+    "cityIata": "BCN", "cityEn": "Barcelona", "cityHe": "ברצלונה", "countryCode": "ES", "popularity": 90,
+    "airports": [{ "iata": "BCN", "nameEn": "Barcelona-El Prat Airport" }],
+    "nearby": ["GRO", "REU"],
+    "aliasesHe": ["בארסלונה"]
+  },
+  {
+    "cityIata": "GRO", "cityEn": "Girona", "cityHe": "גירונה", "countryCode": "ES", "popularity": 40,
+    "airports": [{ "iata": "GRO", "nameEn": "Girona-Costa Brava Airport" }],
+    "nearby": ["BCN"]
+  },
+  {
+    "cityIata": "REU", "cityEn": "Reus", "cityHe": "רייוס", "countryCode": "ES", "popularity": 25,
+    "airports": [{ "iata": "REU", "nameEn": "Reus Airport" }],
+    "nearby": ["BCN"]
+  },
+  {
+    "cityIata": "GVA", "cityEn": "Geneva", "cityHe": "ג'נבה", "countryCode": "CH", "popularity": 70,
+    "airports": [{ "iata": "GVA", "nameEn": "Geneva Airport" }],
+    "nearby": [],
+    "aliasesHe": ["ז'נבה"]
+  },
+  {
+    "cityIata": "AMS", "cityEn": "Amsterdam", "cityHe": "אמסטרדם", "countryCode": "NL", "popularity": 92,
+    "airports": [{ "iata": "AMS", "nameEn": "Schiphol Airport" }],
+    "nearby": []
+  },
+  {
+    "cityIata": "LWO", "cityEn": "Lviv", "cityHe": "לבוב", "countryCode": "UA", "popularity": 35,
+    "airports": [{ "iata": "LWO", "nameEn": "Danylo Halytskyi International Airport" }],
+    "nearby": []
+  },
+  {
+    "cityIata": "BER", "cityEn": "Berlin", "cityHe": "ברלין", "countryCode": "DE", "popularity": 85,
+    "airports": [{ "iata": "BER", "nameEn": "Berlin Brandenburg Airport" }],
+    "nearby": []
+  },
+  {
+    "cityIata": "BGO", "cityEn": "Bergen", "cityHe": "ברגן", "countryCode": "NO", "popularity": 45,
+    "airports": [{ "iata": "BGO", "nameEn": "Flesland Airport" }],
+    "nearby": []
+  },
+  {
+    "cityIata": "BRN", "cityEn": "Bern", "cityHe": "ברן", "countryCode": "CH", "popularity": 30,
+    "airports": [{ "iata": "BRN", "nameEn": "Bern Airport" }],
+    "nearby": []
+  },
+  {
+    "cityIata": "PBE", "cityEn": "Puerto Berrio", "cityHe": "", "countryCode": "CO", "popularity": 5,
+    "airports": [{ "iata": "PBE", "nameEn": "Puerto Berrio Airport" }],
+    "nearby": []
+  },
+  {
+    "cityIata": "KIM", "cityEn": "Kimberley", "cityHe": "", "countryCode": "ZA", "popularity": 20,
+    "airports": [{ "iata": "KIM", "nameEn": "Kimberley Airport" }],
+    "nearby": []
+  },
+  {
+    "cityIata": "THV", "cityEn": "York", "cityHe": "", "countryCode": "US", "popularity": 5,
+    "airports": [{ "iata": "THV", "nameEn": "York Airport" }],
+    "nearby": []
+  },
+  {
+    "cityIata": "YQV", "cityEn": "Yorkton", "cityHe": "", "countryCode": "CA", "popularity": 20,
+    "airports": [{ "iata": "YQV", "nameEn": "Yorkton Municipal Airport" }],
+    "nearby": []
+  },
+  {
+    "cityIata": "SAN", "cityEn": "San Diego", "cityHe": "סן דייגו", "countryCode": "US", "popularity": 60,
+    "airports": [{ "iata": "SAN", "nameEn": "San Diego International Airport" }],
+    "nearby": []
+  },
+  {
+    "cityIata": "SFO", "cityEn": "San Francisco", "cityHe": "סן פרנסיסקו", "countryCode": "US", "popularity": 88,
+    "airports": [{ "iata": "SFO", "nameEn": "San Francisco International Airport" }],
+    "nearby": ["OAK", "SJC"]
+  },
+  {
+    "cityIata": "SCL", "cityEn": "Santiago", "cityHe": "סנטיאגו", "countryCode": "CL", "popularity": 70,
+    "airports": [{ "iata": "SCL", "nameEn": "Arturo Merino Benitez Airport" }],
+    "nearby": []
+  },
+  {
+    "cityIata": "CPH", "cityEn": "Copenhagen", "cityHe": "קופנהגן", "countryCode": "DK", "popularity": 75,
+    "airports": [{ "iata": "CPH", "nameEn": "Kastrup Airport" }],
+    "nearby": [],
+    "aliasesEn": ["København"]
+  }
+]

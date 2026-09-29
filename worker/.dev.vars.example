@@ -1,0 +1,6 @@
+# Copy to .dev.vars for `wrangler dev` (that file is git-ignored). NEVER commit real values.
+# In the cloud set them with `wrangler secret put <NAME>`.
+TRAVELPAYOUTS_TOKEN=
+TRAVELPAYOUTS_MARKER=
+# Random string, at least 32 characters: salts the hash of client addresses in rate limiting.
+RATE_LIMIT_SALT=

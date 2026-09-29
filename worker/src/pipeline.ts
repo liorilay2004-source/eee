@@ -1,0 +1,721 @@
+/**
+ * Live search pipeline (SPEC §7) for the Worker. Port of engine/tpe/pipeline.run_search minus the fast-flights
+ * deep search, which is background-only (SPEC §6): its offers arrive through the shared DB (step 6).
+ *
+ *  1 expand airports   2 cache check   3 wide scan (Travelpayouts)   4 narrow   6 merge with recent DB offers
+ *  7 extras + FX       8 recommend     9 persist
+ *
+ * Money rules (SPEC §4.2): offers keep their ORIGINAL amount + currency everywhere; ILS is derived per request.
+ * The cache holds RAW data (no extras, no ILS): the round trips plus the one-way fares. Split tickets are NOT
+ * cached, they are rebuilt on every request from those fares, because which legs get combined depends on the
+ * request's hour windows, max stops and bag choice. So a different bag choice, hour window or max-stops setting
+ * re-ranks cached data without touching any external service, exactly as a fresh scan would.
+ *
+ * Passenger convention: `Offer.priceAmount` is the total for the whole party (like Python), and the shared
+ * `prices` history stores PER-PASSENGER amounts so searches with different party sizes stay comparable.
+ */
+import * as airportData from "./airports/resolve";
+import type { Resolver } from "./airports/types";
+import { applyExtrasAndFx, paxCount, round2 } from "./extras";
+import { toIls } from "./money";
+import { departHour, recommend } from "./scoring";
+import { SCORING } from "./scoring.config";
+import { buildSplits, dayNumber, pairOk } from "./splits";
+import { monthsBetween, TravelpayoutsError, withPartySize, type Party } from "./travelpayouts";
+import type {
+  CachedOffers,
+  CardView,
+  FxRates,
+  Leg,
+  Offer,
+  OneWayFare,
+  OneWayPair,
+  PriceContext,
+  Repo,
+  SearchRequest,
+  SearchResponse,
+  SourceName,
+  SourceStatus,
+  TravelpayoutsClient,
+} from "./types";
+
+// --- limits ---------------------------------------------------------------------------------------------
+
+/** Free Workers allow ~50 subrequests per invocation: leave room for FX, D1 and the rest. */
+export const MAX_TP_REQUESTS = 30;
+/** Airport pairs considered (origin airports x destination airports), primary pair first. */
+export const MAX_AIRPORT_PAIRS = 24;
+/** D1 rows are limited to ~2 MB: the cache row keeps at most this many round trips... */
+export const MAX_CACHED_OFFERS = 1200;
+/** ...and this many one-way fares (about 300 bytes each; measured, both caps together come to about 1 MB). */
+export const MAX_CACHED_ONEWAYS = 1000;
+/**
+ * Price-history rows written per fresh search. Every row costs three D1 row writes (the table and two indexes)
+ * against a free budget of 100k a day, so the history keeps the cheapest fares only.
+ */
+export const MAX_PERSISTED_PRICES = 60;
+/** A cached scan that found nothing is trusted for a shorter time: fares may appear, and it may be a fluke. */
+export const EMPTY_RESULT_TTL_HOURS = 1;
+/** Enrichment rows from the background monitor run every 6h; anything older than two runs is stale. */
+export const RECENT_ENRICHMENT_MAX_AGE_HOURS = 12;
+/** When Travelpayouts is down, older stored fares are better than nothing (the card shows their age). */
+export const FALLBACK_MAX_AGE_HOURS = 24;
+
+/** Failures the caller can act on; index.ts maps both to HTTP 503. */
+export class PipelineError extends Error {
+  readonly code: "source_unavailable" | "fx_unavailable";
+  constructor(code: "source_unavailable" | "fx_unavailable", message: string) {
+    super(message);
+    this.name = "PipelineError";
+    this.code = code;
+  }
+}
+
+export interface SearchDeps {
+  repo: Repo;
+  tp: TravelpayoutsClient;
+  /** Rates, or a loader (production: getFxRates over D1 + Bank of Israel). */
+  fx: FxRates | (() => Promise<FxRates>);
+  now: Date;
+  resolver?: Resolver;
+  /** ctx.waitUntil: persistence runs after the response is ready. Without it runSearch awaits the writes. */
+  waitUntil?: (work: Promise<unknown>) => void;
+  /**
+   * Asked before every fresh Travelpayouts scan (never on a cache hit): false = the global upstream budget is spent,
+   * so no scan is made and the search is answered from stored fares only, like a source outage.
+   */
+  scanBudget?: () => Promise<boolean>;
+}
+
+export const defaultResolver: Resolver = {
+  resolveLocation: airportData.resolveLocation,
+  resolvePlace: airportData.resolvePlace,
+  airportsForCode: airportData.airportsForCode,
+  nearbyAirports: airportData.nearbyAirports,
+  countryOfAirport: airportData.countryOfAirport,
+  cityNameHe: airportData.cityNameHe,
+  cityNameEn: airportData.cityNameEn,
+};
+
+// --- small helpers --------------------------------------------------------------------------------------
+
+export async function sha256Hex(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Stable key of everything that changes WHICH fares exist. Extras, hour windows and max stops are excluded on
+ * purpose: they only affect ranking, which is re-applied on every request over the raw cached offers.
+ */
+export function computeSearchKey(req: SearchRequest): Promise<string> {
+  // Keys in alphabetical order: the canonical form does not depend on how the caller built the object.
+  return sha256Hex(
+    JSON.stringify({
+      adults: req.adults,
+      cabin: req.cabin,
+      children: req.children,
+      destination: req.destination.toUpperCase(),
+      infants: req.infants,
+      nearbyAirports: req.nearbyAirports,
+      origin: req.origin.toUpperCase(),
+      stayMax: req.stayMax,
+      stayMin: req.stayMin,
+      windowEnd: req.windowEnd,
+      windowStart: req.windowStart,
+    }),
+  );
+}
+
+/** Storage trouble must degrade the search, never fail it. */
+async function attempt<T>(fn: () => Promise<T>): Promise<T | null> {
+  try {
+    return await fn();
+  } catch {
+    return null;
+  }
+}
+
+type Settled<T> = { ok: true; value: T } | { ok: false };
+const settle = <T>(p: Promise<T>): Promise<Settled<T>> => p.then((value) => ({ ok: true as const, value }), () => ({ ok: false as const }));
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+const cloneLeg = (l: Leg): Leg => ({ ...l, airlines: [...l.airlines] });
+
+function cloneOffer(o: Offer): Offer {
+  return { ...o, outbound: cloneLeg(o.outbound), inbound: cloneLeg(o.inbound), includes: { ...o.includes }, tags: [...o.tags] };
+}
+
+/** Base fare in ILS for ordering only (no extras); Infinity when the currency has no rate. */
+function baseIls(fx: FxRates, o: Offer): number {
+  try {
+    const v = toIls(fx, o.priceAmount, o.priceCurrency);
+    return Number.isFinite(v) ? v : Infinity;
+  } catch {
+    return Infinity;
+  }
+}
+
+/** Copy with the price multiplied to the whole party; derived fields reset so the copy is RAW. */
+function scaledCopy(o: Offer, factor: number): Offer {
+  return {
+    ...cloneOffer(o),
+    priceAmount: round2(o.priceAmount * factor),
+    extrasAmountIls: 0,
+    totalIls: null,
+    tags: [],
+  };
+}
+
+// --- cache payload validation ---------------------------------------------------------------------------
+
+const SOURCE_NAMES: readonly string[] = ["travelpayouts", "google_flights"];
+const STRUCTURES: readonly string[] = ["roundtrip", "split"];
+const strOrNull = (v: unknown): string | null => (typeof v === "string" ? v : null);
+const intOrNull = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+
+function parseLeg(v: unknown): Leg | null {
+  if (!isRecord(v)) return null;
+  return {
+    departTime: strOrNull(v.departTime),
+    arriveTime: strOrNull(v.arriveTime),
+    stops: intOrNull(v.stops),
+    durationMin: intOrNull(v.durationMin),
+    airlines: Array.isArray(v.airlines) ? v.airlines.filter((a): a is string => typeof a === "string") : [],
+  };
+}
+
+/**
+ * The cache is JSON written by an earlier version of this code: rebuild every offer from known fields and drop
+ * anything malformed, so a bad row can never crash ranking. Derived fields are reset (the cache is RAW).
+ */
+export function sanitizeOffers(raw: unknown): Offer[] {
+  if (!Array.isArray(raw)) return [];
+  const out: Offer[] = [];
+  for (const v of raw as unknown[]) {
+    if (!isRecord(v)) continue;
+    const outbound = parseLeg(v.outbound);
+    const inbound = parseLeg(v.inbound);
+    const amount = v.priceAmount;
+    if (!outbound || !inbound) continue;
+    if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0) continue;
+    if (typeof v.origin !== "string" || typeof v.destination !== "string") continue;
+    if (typeof v.departDate !== "string" || typeof v.returnDate !== "string") continue;
+    if (typeof v.priceCurrency !== "string" || v.priceCurrency === "") continue;
+    if (typeof v.source !== "string" || !SOURCE_NAMES.includes(v.source)) continue;
+    if (typeof v.ticketStructure !== "string" || !STRUCTURES.includes(v.ticketStructure)) continue;
+    if (typeof v.checkedAt !== "string" || !Number.isFinite(Date.parse(v.checkedAt))) continue;
+    const includes = isRecord(v.includes) && typeof v.includes.checkedBag === "boolean" ? { checkedBag: v.includes.checkedBag } : {};
+    const returnDeeplink = strOrNull(v.returnDeeplink);
+    out.push({
+      origin: v.origin,
+      destination: v.destination,
+      departDate: v.departDate,
+      returnDate: v.returnDate,
+      priceAmount: amount,
+      priceCurrency: v.priceCurrency,
+      source: v.source as SourceName,
+      ticketStructure: v.ticketStructure as Offer["ticketStructure"],
+      outbound,
+      inbound,
+      includes,
+      deeplink: strOrNull(v.deeplink),
+      ...(returnDeeplink !== null ? { returnDeeplink } : {}),
+      verifyLink: strOrNull(v.verifyLink),
+      checkedAt: v.checkedAt,
+      extrasAmountIls: 0,
+      totalIls: null,
+      tags: [],
+    });
+  }
+  return out;
+}
+
+function parseFare(v: unknown): OneWayFare | null {
+  if (!isRecord(v)) return null;
+  const leg = parseLeg(v.leg);
+  const amount = v.priceAmount;
+  if (!leg || typeof v.date !== "string" || dayNumber(v.date) === null) return null;
+  if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0) return null;
+  if (typeof v.priceCurrency !== "string" || v.priceCurrency === "") return null;
+  return { date: v.date, priceAmount: amount, priceCurrency: v.priceCurrency, leg, deeplink: strOrNull(v.deeplink) };
+}
+
+/** Same defensive rebuild as sanitizeOffers, for the one-way fares kept in the cache row. */
+export function sanitizeOneWayPairs(raw: unknown): OneWayPair[] {
+  if (!Array.isArray(raw)) return [];
+  const out: OneWayPair[] = [];
+  for (const v of raw as unknown[]) {
+    if (!isRecord(v) || typeof v.origin !== "string" || typeof v.destination !== "string") continue;
+    const fares = (list: unknown): OneWayFare[] =>
+      Array.isArray(list) ? (list as unknown[]).map(parseFare).filter((f): f is OneWayFare => f !== null) : [];
+    out.push({ origin: v.origin, destination: v.destination, outs: fares(v.outs), backs: fares(v.backs) });
+  }
+  return out;
+}
+
+// --- step 1: airports -----------------------------------------------------------------------------------
+
+interface Pair {
+  origin: string;
+  dest: string;
+}
+
+/** City code -> its airports (primary first); with `nearby`, neighbouring airports follow. */
+function airportsOf(resolver: Resolver, code: string, nearby: boolean): string[] {
+  const base = resolver.airportsForCode(code);
+  const list = base.length > 0 ? [...base] : [code.toUpperCase()];
+  if (nearby) {
+    for (const n of resolver.nearbyAirports(code)) {
+      const expanded = resolver.airportsForCode(n);
+      for (const a of expanded.length > 0 ? expanded : [n]) if (!list.includes(a)) list.push(a);
+    }
+  }
+  return list;
+}
+
+/** All origin x destination airport pairs, the primary pair first, then by distance from it. */
+export function airportPairs(resolver: Resolver, req: SearchRequest): Pair[] {
+  const origins = airportsOf(resolver, req.origin, req.nearbyAirports);
+  const dests = airportsOf(resolver, req.destination, req.nearbyAirports);
+  const ranked: Array<{ pair: Pair; rank: number; i: number }> = [];
+  origins.forEach((origin, i) => dests.forEach((dest, j) => ranked.push({ pair: { origin, dest }, rank: i + j, i })));
+  ranked.sort((a, b) => a.rank - b.rank || a.i - b.i);
+  return ranked.slice(0, MAX_AIRPORT_PAIRS).map((r) => r.pair);
+}
+
+// --- step 3: Travelpayouts wide scan --------------------------------------------------------------------
+
+interface ScanResult {
+  roundTrips: Offer[]; // per adult, unfiltered
+  oneWayPairs: Array<{ pair: Pair; outs: OneWayFare[]; backs: OneWayFare[] }>;
+  successes: number;
+  failures: string[];
+  plannedRequests: number;
+  skippedRequests: number;
+}
+
+/**
+ * Error text that is safe to show: only the part before the first ":" (the client puts upstream bodies and
+ * network details after it), and nothing at all from foreign errors.
+ */
+export function describeError(e: unknown): string {
+  if (e instanceof TravelpayoutsError) return `Travelpayouts: ${(e.message.split(":")[0] ?? "error").trim().slice(0, 80)}`;
+  return "Travelpayouts: unexpected error";
+}
+
+/** Auth or quota problems repeat on every call: stop instead of burning the rest of the budget. */
+const isFatal = (e: unknown): boolean => e instanceof TravelpayoutsError && (e.status === 401 || e.status === 403 || e.status === 429);
+
+/**
+ * Plan: round trips for the primary airport pair, then its one-ways (split tickets), then the same for the
+ * remaining pairs (same-city and nearby airports) in distance order. A step that does not fit the request
+ * budget is skipped and reported; the primary pair always fits (5 months: 15 + 10 requests).
+ */
+async function scanTravelpayouts(tp: TravelpayoutsClient, req: SearchRequest, pairs: Pair[]): Promise<ScanResult> {
+  const months = monthsBetween(req.windowStart, req.windowEnd).length;
+  const rtCost = (months * (months + 1)) / 2; // one call per (departure month, return month >= departure month)
+  const owCost = 2 * months; // one call per month, both directions
+
+  const steps: Array<{ kind: "rt" | "ow"; pair: Pair; cost: number }> = [];
+  for (const pair of pairs) {
+    steps.push({ kind: "rt", pair, cost: rtCost }, { kind: "ow", pair, cost: owCost });
+  }
+
+  const result: ScanResult = { roundTrips: [], oneWayPairs: [], successes: 0, failures: [], plannedRequests: 0, skippedRequests: 0 };
+  let spent = 0;
+  let stopped = false;
+  for (const step of steps) {
+    result.plannedRequests += step.cost;
+    if (stopped) continue;
+    if (spent + step.cost > MAX_TP_REQUESTS) {
+      result.skippedRequests += step.cost;
+      continue;
+    }
+    spent += step.cost;
+    try {
+      if (step.kind === "rt") {
+        result.roundTrips.push(...(await tp.roundTrips(step.pair.origin, step.pair.dest, req.windowStart, req.windowEnd)));
+      } else {
+        const outs = await tp.oneWays(step.pair.origin, step.pair.dest, req.windowStart, req.windowEnd);
+        const backs = await tp.oneWays(step.pair.dest, step.pair.origin, req.windowStart, req.windowEnd);
+        result.oneWayPairs.push({ pair: step.pair, outs, backs });
+      }
+      result.successes += 1;
+    } catch (e) {
+      const text = describeError(e);
+      if (!result.failures.includes(text)) result.failures.push(text);
+      if (isFatal(e)) stopped = true;
+    }
+  }
+  return result;
+}
+
+// --- steps 6-9 helpers ----------------------------------------------------------------------------------
+
+/** Newest snapshot per concrete flight: history rows repeat the same fare over time. */
+function latestPerFlight(offers: Offer[]): Offer[] {
+  const best = new Map<string, Offer>();
+  for (const o of offers) {
+    const key = JSON.stringify([o.origin, o.destination, o.departDate, o.returnDate, o.source, o.ticketStructure, o.outbound.departTime, o.inbound.departTime]);
+    const cur = best.get(key);
+    if (!cur || Date.parse(o.checkedAt) > Date.parse(cur.checkedAt)) best.set(key, o);
+  }
+  return [...best.values()];
+}
+
+/**
+ * Shrinks `items` to at most `max` for the cache row without deciding the ranking in advance. A plain "keep the
+ * cheapest N" would throw away exactly the fares the 🎯 card and Best Value look for (an evening flight, a
+ * nonstop), because those are rarely the cheapest overall. Instead the items are grouped into "cells" of the
+ * same shape and only the cheapest of each cell is kept, with cells getting coarser until the result fits.
+ * `levels` go from the finest cell key to the coarsest; if even that does not fit, the cheapest survivors win.
+ * The input order of the kept items is preserved (ties in ranking resolve to the earliest one).
+ */
+function capByCells<T>(items: T[], max: number, cost: (t: T) => number, levels: Array<(t: T) => string>): T[] {
+  if (items.length <= max) return items;
+  let survivors: T[] = items;
+  for (const cellOf of levels) {
+    const best = new Map<string, { t: T; c: number }>();
+    for (const t of items) {
+      const key = cellOf(t);
+      const c = cost(t);
+      const cur = best.get(key);
+      if (!cur || c < cur.c) best.set(key, { t, c });
+    }
+    survivors = [...best.values()].map((v) => v.t);
+    if (survivors.length <= max) break;
+  }
+  if (survivors.length > max) {
+    survivors = survivors
+      .map((t) => ({ t, c: cost(t) }))
+      .sort((a, b) => a.c - b.c)
+      .slice(0, max)
+      .map((x) => x.t);
+  }
+  const keep = new Set(survivors);
+  return items.filter((t) => keep.has(t));
+}
+
+const hourOf = (leg: Leg): number => {
+  const h = departHour(leg);
+  return h === null ? -1 : h;
+};
+const stopsClass = (leg: Leg, cap: number): number => (leg.stops === null ? -1 : Math.min(leg.stops, cap));
+
+/** Round trips and splits: finest cell = same date pair, structure, both departure times, stops and carriers. */
+function capOffers(offers: Offer[], fx: FxRates, max: number): Offer[] {
+  const pair = (o: Offer) => [o.origin, o.destination, o.departDate, o.returnDate, o.source, o.ticketStructure].join("|");
+  const levels: Array<(o: Offer) => string> = [
+    (o) => `${pair(o)}|${o.outbound.departTime}|${o.inbound.departTime}|${o.outbound.stops}|${o.inbound.stops}|${o.outbound.airlines[0] ?? ""}|${o.inbound.airlines[0] ?? ""}`,
+    (o) => `${pair(o)}|${Math.floor(hourOf(o.outbound) / 3)}|${Math.floor(hourOf(o.inbound) / 3)}|${stopsClass(o.outbound, 2)}|${stopsClass(o.inbound, 2)}`,
+    (o) => `${pair(o)}|${Math.floor(hourOf(o.outbound) / 6)}|${Math.floor(hourOf(o.inbound) / 6)}|${stopsClass(o.outbound, 1)}|${stopsClass(o.inbound, 1)}`,
+    pair,
+  ];
+  return capByCells(offers, max, (o) => baseIls(fx, o), levels);
+}
+
+/** One-way fares of every pair and direction, cut the same way (the direction and pair are part of every cell). */
+function capOneWayPairs(pairs: OneWayPair[], fx: FxRates, max: number): OneWayPair[] {
+  interface Item {
+    p: number;
+    dir: "outs" | "backs";
+    fare: OneWayFare;
+  }
+  const items: Item[] = pairs.flatMap((pr, p) => [
+    ...pr.outs.map((fare): Item => ({ p, dir: "outs", fare })),
+    ...pr.backs.map((fare): Item => ({ p, dir: "backs", fare })),
+  ]);
+  if (items.length <= max) return pairs;
+  const day = (i: Item) => `${i.p}|${i.dir}|${i.fare.date}`;
+  const levels: Array<(i: Item) => string> = [
+    (i) => `${day(i)}|${i.fare.leg.departTime}|${i.fare.leg.stops}|${i.fare.leg.airlines[0] ?? ""}`,
+    (i) => `${day(i)}|${Math.floor(hourOf(i.fare.leg) / 3)}|${stopsClass(i.fare.leg, 2)}`,
+    (i) => `${day(i)}|${Math.floor(hourOf(i.fare.leg) / 6)}|${stopsClass(i.fare.leg, 1)}`,
+    day,
+  ];
+  const cost = (i: Item): number => {
+    try {
+      const v = toIls(fx, i.fare.priceAmount, i.fare.priceCurrency);
+      return Number.isFinite(v) ? v : Infinity;
+    } catch {
+      return Infinity;
+    }
+  };
+  const kept = new Set(capByCells(items, max, cost, levels));
+  const out: OneWayPair[] = pairs.map((pr) => ({ origin: pr.origin, destination: pr.destination, outs: [], backs: [] }));
+  for (const i of items) if (kept.has(i)) out[i.p]?.[i.dir].push(i.fare);
+  return out;
+}
+
+/** Price-history rows for a fresh scan: the cheapest fare per (pair, source, structure), per passenger. */
+function historyRows(live: Offer[], fx: FxRates, pax: number): Offer[] {
+  const best = new Map<string, { o: Offer; ils: number }>();
+  for (const o of live) {
+    const key = [o.origin, o.destination, o.departDate, o.returnDate, o.source, o.ticketStructure].join("|");
+    const ils = baseIls(fx, o);
+    const cur = best.get(key);
+    if (!cur || ils < cur.ils) best.set(key, { o, ils });
+  }
+  return [...best.values()]
+    .sort((a, b) => a.ils - b.ils)
+    .slice(0, MAX_PERSISTED_PRICES)
+    .map(({ o }) => scaledCopy(o, 1 / pax));
+}
+
+function ageHours(checkedAt: string, now: Date): number {
+  const ms = Date.parse(checkedAt);
+  if (!Number.isFinite(ms)) return 0;
+  return Math.max(0, Math.round(((now.getTime() - ms) / 3_600_000) * 10) / 10);
+}
+
+async function contextFor(repo: Repo, o: Offer, pax: number, now: Date): Promise<PriceContext | null> {
+  const ctx = await attempt(() => repo.priceContext(o.origin, o.destination, o.departDate, o.returnDate, now));
+  if (!ctx) return null;
+  // History is per passenger; the card shows the whole party's price, so the context must match it.
+  const scale = (v: number | null): number | null => (v === null ? null : round2(v * pax));
+  return { currency: ctx.currency, weekAgoAmount: scale(ctx.weekAgoAmount), lowestAmount: scale(ctx.lowestAmount) };
+}
+
+async function loadRecent(
+  repo: Repo,
+  pairs: Pair[],
+  req: SearchRequest,
+  sources: SourceName[] | undefined,
+  maxAgeHours: number,
+  now: Date,
+): Promise<Offer[]> {
+  const rows = await Promise.all(
+    pairs.map(async (p) => (await attempt(() => repo.loadRecentOffers(p.origin, p.dest, req.windowStart, req.windowEnd, maxAgeHours, now, sources))) ?? []),
+  );
+  return rows.flat().filter((o) => pairOk(req, o.departDate, o.returnDate));
+}
+
+async function resolveFx(deps: SearchDeps): Promise<FxRates> {
+  return typeof deps.fx === "function" ? deps.fx() : deps.fx;
+}
+
+/** Rates or a typed failure: without any FX rate nothing can be compared in ILS. */
+async function loadFxOrFail(deps: SearchDeps): Promise<FxRates> {
+  const r = await settle(resolveFx(deps));
+  if (!r.ok) throw new PipelineError("fx_unavailable", "Exchange rates are unavailable");
+  return r.value;
+}
+
+/**
+ * A cache hit must make zero external calls (SPEC §16): prefer rates already stored in D1, even from
+ * yesterday when the UTC day just rolled over, and only then fall back to the loader.
+ */
+async function fxForCacheHit(deps: SearchDeps): Promise<FxRates> {
+  if (typeof deps.fx !== "function") return deps.fx;
+  const today = deps.now.toISOString().slice(0, 10);
+  const stored = await attempt(async () => (await deps.repo.getFxRates(today)) ?? (await deps.repo.getLatestFxRates()));
+  return stored ?? loadFxOrFail(deps);
+}
+
+/** True for a cache row written by a scan that succeeded but found nothing, while it is still young enough to trust. */
+function isFreshEmptyScan(hit: CachedOffers, now: Date): boolean {
+  const created = Date.parse(hit.createdAt);
+  if (!Number.isFinite(created) || now.getTime() - created >= EMPTY_RESULT_TTL_HOURS * 3_600_000) return false;
+  if (!Array.isArray(hit.offers) || hit.offers.length > 0 || !Array.isArray(hit.oneWayPairs)) return false;
+  return hit.oneWayPairs.every((p) => isRecord(p) && !(Array.isArray(p.outs) && p.outs.length > 0) && !(Array.isArray(p.backs) && p.backs.length > 0));
+}
+
+/**
+ * The API's own links search for ONE adult while the card's price is for the whole party: point the links at
+ * the party. Links that are not Aviasales search links are left alone.
+ */
+function linkParty(o: Offer, party: Party): void {
+  try {
+    o.deeplink = withPartySize(o.deeplink, party);
+    if (o.returnDeeplink) o.returnDeeplink = withPartySize(o.returnDeeplink, party);
+  } catch {
+    // An impossible party (validation rules it out) keeps the original links rather than failing the search.
+  }
+}
+
+// --- the pipeline ---------------------------------------------------------------------------------------
+
+export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<SearchResponse> {
+  const { repo, tp, now } = deps;
+  const resolver = deps.resolver ?? defaultResolver;
+  const searchKey = await computeSearchKey(req);
+  const pax = paxCount(req);
+  const pairs = airportPairs(resolver, req);
+
+  const tpStatus: SourceStatus = { name: "travelpayouts", enabled: tp.configured, ok: false, calls: 0, offers: 0, error: null };
+  let fx: FxRates;
+  let rts: Offer[] = []; // RAW round trips for the whole party: from the cache or the scan below
+  let oneWayPairs: OneWayPair[] = []; // RAW one-way fares, per adult
+  let splitsCheckedAt = now.toISOString();
+  let scan: ScanResult | null = null;
+  let scanNotes: string[] = []; // what a later cache hit must still tell the caller about this scan
+
+  // Step 2: cache check. A row that holds fares is a hit, and so is a scan that found nothing (for a shorter time:
+  // repeating a no-result search must not repeat up to 30 upstream calls). A damaged row is a miss.
+  const hit = await attempt(() => repo.getCachedOffers(searchKey, SCORING.cacheTtlHours, now));
+  const cachedRts = hit ? sanitizeOffers(hit.offers) : [];
+  const cachedPairs = hit?.oneWayPairs ? sanitizeOneWayPairs(hit.oneWayPairs) : null;
+  const cachedFares = cachedPairs ? cachedPairs.reduce((n, p) => n + p.outs.length + p.backs.length, 0) : 0;
+  const fromCache = hit !== null && (cachedRts.length + cachedFares > 0 || isFreshEmptyScan(hit, now));
+
+  if (fromCache && hit) {
+    fx = await fxForCacheHit(deps);
+    rts = cachedRts;
+    oneWayPairs = cachedPairs ?? [];
+    splitsCheckedAt = hit.createdAt; // the fares are as old as the scan that found them
+    tpStatus.ok = true;
+    tpStatus.error = hit.notes && hit.notes.length > 0 ? hit.notes.join("; ") : null;
+  } else {
+    // FX loads while the scan runs; the scan itself does not need it, only split building and ranking do.
+    const fxLoad = settle(resolveFx(deps));
+    if (!tp.configured) {
+      tpStatus.error = "Travelpayouts is not configured";
+    } else if (deps.scanBudget && !(await deps.scanBudget())) {
+      tpStatus.error = "Travelpayouts: too many searches right now";
+    } else {
+      const callsBefore = tp.callCount();
+      scan = await scanTravelpayouts(tp, req, pairs);
+      tpStatus.calls = tp.callCount() - callsBefore;
+    }
+    const fxResult = await fxLoad;
+    if (!fxResult.ok) throw new PipelineError("fx_unavailable", "Exchange rates are unavailable");
+    fx = fxResult.value;
+
+    if (scan) {
+      rts = scan.roundTrips.filter((o) => pairOk(req, o.departDate, o.returnDate)).map((o) => scaledCopy(o, pax));
+      oneWayPairs = scan.oneWayPairs.map(({ pair, outs, backs }) => ({ origin: pair.origin, destination: pair.dest, outs, backs }));
+      tpStatus.ok = scan.failures.length === 0 && scan.successes > 0; // like Python: any failed request = not ok
+      if (scan.skippedRequests > 0) {
+        scanNotes = [`truncated: ${scan.skippedRequests} of ${scan.plannedRequests} planned requests skipped (limit ${MAX_TP_REQUESTS})`];
+      }
+      const notes = [...scan.failures, ...scanNotes];
+      tpStatus.error = notes.length > 0 ? notes.join("; ") : null;
+    }
+  }
+
+  // Split tickets are built per request, from the raw one-way fares, so the request's own hour windows, max stops
+  // and bag choice decide which legs get combined: a cache hit answers exactly like a fresh scan would.
+  const splits = oneWayPairs.flatMap((p) =>
+    buildSplits(p.origin, p.destination, req, p.outs, p.backs, "travelpayouts", fx, pax, splitsCheckedAt),
+  );
+  // Ranking sees everything the scan found. Only what is cached is cut down (capOffers), never what is ranked.
+  const live = [...rts, ...splits];
+  tpStatus.offers = live.length;
+
+  // Step 6: merge with recent offers already in the shared DB. With a healthy Travelpayouts result only the
+  // background monitor's google_flights rows are added (our own saved fares would just duplicate `live`); when
+  // Travelpayouts is unavailable every recent stored fare is a fallback.
+  const tpUnavailable = !fromCache && (scan === null || (scan.failures.length > 0 && live.length === 0));
+  const stored = await loadRecent(
+    repo,
+    pairs,
+    req,
+    tpUnavailable ? undefined : ["google_flights"],
+    tpUnavailable ? FALLBACK_MAX_AGE_HOURS : RECENT_ENRICHMENT_MAX_AGE_HOURS,
+    now,
+  );
+  const fromDb = latestPerFlight(stored).map((o) => scaledCopy(o, pax)); // stored fares are per passenger
+  const gfOffers = fromDb.filter((o) => o.source === "google_flights").length;
+  const gfStatus: SourceStatus = { name: "google_flights", enabled: gfOffers > 0, ok: gfOffers > 0, calls: 0, offers: gfOffers, error: null };
+
+  // Step 9 (part): what to write. Only fresh scan results feed the history, never rows read back from the DB.
+  const persistJob = () =>
+    persist({
+      repo,
+      req,
+      searchKey,
+      now,
+      fx,
+      pax,
+      fresh: fromCache ? [] : live,
+      // A scan that succeeded but found nothing is cached too (as an empty row).
+      cache:
+        !fromCache && scan !== null && scan.failures.length === 0 && scan.successes > 0
+          ? {
+              offers: capOffers(rts, fx, MAX_CACHED_OFFERS),
+              oneWayPairs: capOneWayPairs(oneWayPairs, fx, MAX_CACHED_ONEWAYS),
+              notes: scanNotes,
+            }
+          : null,
+      health: scan === null ? null : { ok: scan.failures.length === 0 && scan.successes > 0, error: scan.failures.join("; ") || null },
+    });
+  const finish = (): Promise<void> => {
+    const job = persistJob();
+    if (deps.waitUntil) {
+      deps.waitUntil(job);
+      return Promise.resolve();
+    }
+    return job;
+  };
+
+  if (live.length + fromDb.length === 0 && tpUnavailable) {
+    await finish();
+    throw new PipelineError("source_unavailable", "No fare source is available right now");
+  }
+
+  // Steps 7-8: extras + FX on copies (`live` stays raw for the cache), then rank.
+  const working = [...live.map(cloneOffer), ...fromDb];
+  const party: Party = { adults: req.adults, children: req.children, infants: req.infants };
+  for (const o of working) linkParty(o, party);
+  applyExtrasAndFx(working, req, fx);
+  const cards = recommend(working, req);
+
+  // Step 4 bookkeeping: how many date pairs are candidates for the deep search (top N cheapest pairs).
+  const pairsWithPrice = new Set<string>();
+  for (const o of working) if (o.totalIls !== null) pairsWithPrice.add(`${o.departDate}|${o.returnDate}`);
+
+  const views: CardView[] = await Promise.all(
+    cards.map(async (card) => ({
+      ...card,
+      priceContext: await contextFor(repo, card.offer, pax, now),
+      ageHours: ageHours(card.offer.checkedAt, now),
+    })),
+  );
+
+  await finish();
+
+  return {
+    cards: views,
+    meta: {
+      searchKey,
+      fromCache,
+      fxSource: fx.source,
+      fxDate: fx.date,
+      sources: [tpStatus, gfStatus],
+      candidatePairs: Math.min(SCORING.topNCandidates, pairsWithPrice.size),
+      generatedAt: now.toISOString(),
+    },
+  };
+}
+
+// --- step 9: persist ------------------------------------------------------------------------------------
+
+interface PersistJob {
+  repo: Repo;
+  req: SearchRequest;
+  searchKey: string;
+  now: Date;
+  fx: FxRates;
+  pax: number;
+  fresh: Offer[];
+  /** What to keep for the next identical search, or null when this scan must not be reused. */
+  cache: { offers: Offer[]; oneWayPairs: OneWayPair[]; notes: string[] } | null;
+  health: { ok: boolean; error: string | null } | null;
+}
+
+/** Best effort and never rejects: a storage hiccup must not turn a good answer into an error. */
+async function persist(job: PersistJob): Promise<void> {
+  const { repo, now } = job;
+  const work: Array<Promise<unknown>> = [attempt(() => repo.saveSearch(job.req, job.searchKey, now))];
+  if (job.fresh.length > 0) work.push(attempt(() => repo.savePrices(historyRows(job.fresh, job.fx, job.pax))));
+  if (job.cache) {
+    const { offers, oneWayPairs, notes } = job.cache;
+    work.push(attempt(() => repo.putCachedOffers(job.searchKey, offers, now, { oneWayPairs, notes })));
+  }
+  if (job.health) work.push(attempt(() => repo.recordSourceHealth("travelpayouts", job.health!.ok, job.health!.error, now)));
+  await Promise.all(work);
+}
