@@ -50,6 +50,27 @@
      "currency": "USD"
     },
     "note": "Israir lite fare"
+   },
+   "W4": {
+    "checked_bag": {
+     "amount": 45,
+     "currency": "EUR"
+    },
+    "note": "Wizz Air Malta (same placeholder as W6), varies by route/date"
+   },
+   "W9": {
+    "checked_bag": {
+     "amount": 45,
+     "currency": "EUR"
+    },
+    "note": "Wizz Air UK (same placeholder as W6), varies by route/date"
+   },
+   "EC": {
+    "checked_bag": {
+     "amount": 35,
+     "currency": "EUR"
+    },
+    "note": "easyJet Europe (same placeholder as U2), varies by route/date"
    }
   }
  },
