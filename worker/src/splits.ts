@@ -126,14 +126,27 @@ export function buildSplits(
   const bagFeeOf = (leg: Leg): number => (req.checkedBag ? (legBagFeeIls(leg, fx, bagFees) ?? 0) : 0);
   const stopsOk = (leg: Leg): boolean => req.maxStops == null || (leg.stops != null && leg.stops <= req.maxStops);
 
+  const outOk = (l: Leg): boolean => inWindow(l, req.outHours) && stopsOk(l);
+  const backOk = (l: Leg): boolean => inWindow(l, req.retHours) && stopsOk(l);
   const variants: Array<[Map<string, OneWayFare>, Map<string, OneWayFare>]> = [
     [cheapestByDay(outs, null, fx, bagFeeOf), cheapestByDay(backs, null, fx, bagFeeOf)],
   ];
   if (hasTimePrefs(req)) {
-    variants.push([
-      cheapestByDay(outs, (l) => inWindow(l, req.outHours) && stopsOk(l), fx, bagFeeOf),
-      cheapestByDay(backs, (l) => inWindow(l, req.retHours) && stopsOk(l), fx, bagFeeOf),
-    ]);
+    variants.push([cheapestByDay(outs, outOk, fx, bagFeeOf), cheapestByDay(backs, backOk, fx, bagFeeOf)]);
+  }
+  if (req.checkedBag) {
+    // An unknown fee counts as 0 above, so a leg of a carrier without a known fee can take the day, and the ranker then keeps
+    // that split out of 💰/⚖️/🎯 (bag-cost pool rule, scoring.bagCostPool). Also combine the cheapest legs whose fee IS known,
+    // so a fully priced split still competes. Same pairs, so at most one more offer per pair and variant; the history keeps
+    // one row per pair anyway (historyRows).
+    const feeKnown = (l: Leg): boolean => legBagFeeIls(l, fx, bagFees) !== null;
+    variants.push([cheapestByDay(outs, feeKnown, fx, bagFeeOf), cheapestByDay(backs, feeKnown, fx, bagFeeOf)]);
+    if (hasTimePrefs(req)) {
+      variants.push([
+        cheapestByDay(outs, (l) => feeKnown(l) && outOk(l), fx, bagFeeOf),
+        cheapestByDay(backs, (l) => feeKnown(l) && backOk(l), fx, bagFeeOf),
+      ]);
+    }
   }
 
   const pairs = validPairs(req);

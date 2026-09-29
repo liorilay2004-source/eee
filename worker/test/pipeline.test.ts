@@ -264,6 +264,37 @@ describe("bag extras (SPEC §4.1, §16)", () => {
     expect(res.cards[0]?.offer.extrasAmountIls).toBe(0);
   });
 
+  it("bag-cost pool rule end to end: a cheaper unknown-fee fare loses 💰 and is counted in meta.recommendations", async () => {
+    const zz = offer(50, { outbound: leg({ airlines: ["ZZ"] }), inbound: leg({ airlines: ["ZZ"] }) }); // 150 ILS, fee unknown
+    const { deps } = setup({ tp: mockTp({ rt: rtFor([zz, lowcost()]) }) });
+    const res = await runSearch(deps, req({ checkedBag: true }));
+    expect(kindsOf(res.cards)).toEqual(["cheapest", "best_value"]);
+    expect(cardOf(res.cards, "cheapest")?.offer).toMatchObject({ totalIls: 615, tags: [] });
+    expect(res.meta.recommendations).toEqual({ cheapest: { status: "shown", excludedForUnknownBagFee: 1 }, bestValue: { status: "merged" } });
+
+    // Same fares without a bag: the ZZ fare is simply the cheapest again, nothing excluded (and a cache hit).
+    const noBag = await runSearch(deps, req());
+    expect(noBag.meta.fromCache).toBe(true);
+    expect(cardOf(noBag.cards, "cheapest")?.offer.priceAmount).toBe(50);
+    expect(noBag.meta.recommendations.cheapest.excludedForUnknownBagFee).toBe(0);
+  });
+
+  it("bag-cost pool rule end to end: no known fee at all -> 💰 shows the lower bound, no ⚖️, status bag_cost_unknown", async () => {
+    const zz = offer(50, { outbound: leg({ airlines: ["ZZ"] }), inbound: leg({ airlines: ["ZZ"] }) });
+    const { deps } = setup({ tp: mockTp({ rt: rtFor([zz]) }) });
+    const res = await runSearch(deps, req({ checkedBag: true }));
+    expect(kindsOf(res.cards)).toEqual(["cheapest"]);
+    expect(res.cards[0]?.offer.tags).toContain("bag_fee_unknown");
+    expect(res.meta.recommendations).toEqual({ cheapest: { status: "shown", excludedForUnknownBagFee: 0 }, bestValue: { status: "bag_cost_unknown" } });
+  });
+
+  it("meta.recommendations says no_offers when there is nothing to show", async () => {
+    const { deps } = setup({ tp: mockTp({ rt: rtFor([]) }) });
+    const res = await runSearch(deps, req({ checkedBag: true }));
+    expect(res.cards).toEqual([]);
+    expect(res.meta.recommendations).toEqual({ cheapest: { status: "no_offers", excludedForUnknownBagFee: 0 }, bestValue: { status: "no_offers" } });
+  });
+
   it("a different bag choice on cached data re-ranks correctly with zero Travelpayouts calls", async () => {
     const tp = mockTp({ rt: rtFor([lowcost(), full()]) });
     const { deps } = setup({ tp });
@@ -549,6 +580,33 @@ describe("buildSplits", () => {
     const outs = [fare("2026-11-12", 50, { leg: leg({ departTime: "09:00" }) })];
     const backs = [fare("2026-11-18", 70, { leg: leg({ departTime: "19:00" }) })];
     expect(build(outs, backs, req({ outHours: [7, 12], retHours: [15, 23] }))).toHaveLength(1);
+  });
+
+  it("with a bag requested, also combines the cheapest legs whose fee is known (an unknown fee counts as 0 when picking)", () => {
+    const unknownOut = fare("2026-11-12", 50, { leg: leg({ airlines: ["LY"] }) }); // no table fee
+    const knownOut = fare("2026-11-12", 60, { leg: leg({ airlines: ["W6"] }) });
+    const backs = [fare("2026-11-18", 70)];
+    expect(build([unknownOut, knownOut], backs).map((s) => s.priceAmount)).toEqual([120]); // no bag: unchanged
+    const withBag = build([unknownOut, knownOut], backs, req({ checkedBag: true }));
+    expect(withBag.map((s) => [s.priceAmount, s.outbound.airlines[0]])).toEqual([[120, "LY"], [130, "W6"]]);
+  });
+
+  it("adds no known-fee variant when the cheapest legs already have known fees, or when none has one", () => {
+    const bag = req({ checkedBag: true });
+    expect(build([fare("2026-11-12", 60)], [fare("2026-11-18", 70)], bag)).toHaveLength(1);
+    const ly = (d: string, p: number) => fare(d, p, { leg: leg({ airlines: ["LY"] }) });
+    expect(build([ly("2026-11-12", 60)], [ly("2026-11-18", 70)], bag)).toHaveLength(1);
+  });
+
+  it("combines known-fee legs inside the hour windows too", () => {
+    const timed = req({ checkedBag: true, outHours: [7, 12] });
+    const outs = [
+      fare("2026-11-12", 40, { leg: leg({ departTime: "09:00", airlines: ["LY"] }) }),
+      fare("2026-11-12", 55, { leg: leg({ departTime: "09:30", airlines: ["W6"] }) }),
+      fare("2026-11-12", 45, { leg: leg({ departTime: "20:00", airlines: ["W6"] }) }),
+    ];
+    const got = build(outs, [fare("2026-11-18", 70)], timed).map((s) => `${s.outbound.airlines[0]}@${s.outbound.departTime}`);
+    expect(got.sort()).toEqual(["LY@09:00", "W6@09:30", "W6@20:00"]);
   });
 
   it("skips fares whose currency has no rate", () => {

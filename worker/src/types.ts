@@ -88,6 +88,27 @@ export interface PriceContext {
   lowestAmount: number | null;
 }
 
+/**
+ * ADDITIVE (WEB_APP_SPEC §7.8 Δ21): why a source did not answer, as a machine code. `error` keeps its developer text.
+ *   no_token      the source has no API token configured, so it was not asked
+ *   scan_budget   the global upstream budget (GLOBAL_SCAN_LIMIT) is spent, so it was not asked
+ *   upstream_down it was asked and at least one request failed (network, HTTP error, auth or quota at the vendor)
+ */
+export type SourceUnavailableReason = "no_token" | "scan_budget" | "upstream_down";
+
+/** ADDITIVE: how much of the planned Travelpayouts scan was made (the request cap can cut a long window short). */
+export interface SourceCoverage {
+  /** Upstream requests the scan planned for this search. */
+  plannedRequests: number;
+  /** Planned requests not made because of the per-search request cap. 0 = the scan covered everything it planned. */
+  skippedRequests: number;
+  /**
+   * Planned requests not made because an earlier request failed with 401/403/429 and the scan stopped (the source then also
+   * reports ok: false and reason "upstream_down"). planned - skipped - aborted = requests actually attempted.
+   */
+  abortedRequests: number;
+}
+
 export interface SourceStatus {
   name: SourceName;
   enabled: boolean;
@@ -95,6 +116,15 @@ export interface SourceStatus {
   calls: number;
   offers: number;
   error: string | null;
+  /**
+   * ADDITIVE (travelpayouts entry only): true when the scan behind these results skipped part of its planned requests, so
+   * some dates or airport pairs were not searched. Also true on a cache hit of such a scan. Replaces parsing `error`.
+   */
+  truncated?: boolean;
+  /** ADDITIVE (travelpayouts entry only): the scan's request counts, or null when not known (no scan, or a cache hit of a complete scan). */
+  coverage?: SourceCoverage | null;
+  /** ADDITIVE (travelpayouts entry only): why the source did not answer, or null when it did (see SourceUnavailableReason). */
+  reason?: SourceUnavailableReason | null;
 }
 
 export interface CardView extends Card {
@@ -109,6 +139,17 @@ export interface CardView extends Card {
   airlines: Record<string, { nameHe: string; nameEn: string; lowCost: boolean }>;
 }
 
+/**
+ * ADDITIVE (WEB_APP_SPEC §7.2 `meta.recommendations`, bag-cost part only): drives the 💰/⚖️ gating notes (§5.3).
+ * `excludedForUnknownBagFee` = offers left out of 💰 because a bag was requested and their bag fee is unknown, counted only
+ * when their lower-bound total is below the shown 💰 total (0 when no offer has a known bag cost and the lower bound is shown).
+ * Not yet emitted: bestValue `insufficient_data` and the `myTimes` member.
+ */
+export interface RecommendationsMeta {
+  cheapest: { status: "shown" | "no_offers"; excludedForUnknownBagFee: number };
+  bestValue: { status: "shown" | "merged" | "bag_cost_unknown" | "no_offers" };
+}
+
 export interface SearchResponse {
   cards: CardView[];
   meta: {
@@ -121,6 +162,8 @@ export interface SearchResponse {
     sources: SourceStatus[];
     candidatePairs: number;
     generatedAt: string;
+    /** ADDITIVE: bag-cost pool gating of the 💰/⚖️ cards (see RecommendationsMeta). */
+    recommendations: RecommendationsMeta;
   };
 }
 
