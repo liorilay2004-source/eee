@@ -10,7 +10,7 @@
  */
 
 export type TicketStructure = "roundtrip" | "split";
-export type SourceName = "travelpayouts" | "google_flights";
+export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi";
 export type Cabin = "economy" | "premium-economy" | "business" | "first";
 export type RecKind = "cheapest" | "best_value" | "my_times";
 
@@ -105,6 +105,8 @@ export interface CardView extends Card {
 export interface SearchResponse {
   cards: CardView[];
   meta: {
+    /** ADDITIVE: contract version (WEB_APP_SPEC 7.1). */
+    apiVersion: 1;
     searchKey: string;
     fromCache: boolean;
     fxSource: string;
@@ -138,6 +140,11 @@ export interface CachedOffers {
   oneWayPairs?: OneWayPair[];
   /** ADDITIVE (fix pass): notes of the scan that produced the row (e.g. truncation), shown again on every hit. */
   notes?: string[];
+  /**
+   * ADDITIVE: the RAW live quotes (whole party, original currency) the scan that wrote the row got from the optional fare sources.
+   * A hit ranks them exactly as that scan did, so a repeat of the search answers the same as the first one. Absent = none.
+   */
+  quotes?: Offer[];
 }
 
 /** ADDITIVE (fix pass): both directions' one-way fares (per adult, original currency) of one airport pair. */
@@ -152,7 +159,7 @@ export interface OneWayPair {
 export interface Repo {
   getCachedOffers(searchKey: string, maxAgeHours: number, now: Date): Promise<CachedOffers | null>;
   /** `extra` is ADDITIVE (fix pass): one-way fares + scan notes stored beside the offers. */
-  putCachedOffers(searchKey: string, offers: Offer[], now: Date, extra?: { oneWayPairs: OneWayPair[]; notes: string[] }): Promise<void>;
+  putCachedOffers(searchKey: string, offers: Offer[], now: Date, extra?: { oneWayPairs: OneWayPair[]; notes: string[]; quotes?: Offer[] }): Promise<void>;
   /** Append to the shared price history (SPEC §12 `prices`). */
   savePrices(offers: Offer[]): Promise<void>;
   /** Recent offers already in the shared DB (e.g. written by the background monitor). */
@@ -173,6 +180,17 @@ export interface Repo {
   getLatestFxRates(): Promise<FxRates | null>;
   checkRateLimit(key: string, limit: number, windowSeconds: number, now: Date): Promise<{ allowed: boolean; remaining: number; retryAfterSec: number }>;
   recordSourceHealth(source: SourceName, ok: boolean, error: string | null, now: Date): Promise<void>;
+  /**
+   * ADDITIVE: reserves ONE request of a vendor's free allowance (table source_quota). True only when this call
+   * raised the counter and the new value is <= cap; false when the cap is reached AND on any error (fail closed).
+   * `period` is "lifetime" or a UTC month like "2026-09" (see quotaPeriodKey in quotes.ts).
+   */
+  reserveQuota(source: SourceName, period: string, cap: number, now: Date): Promise<boolean>;
+  /**
+   * ADDITIVE: reserves ONE unit of a per-UTC-day share (table rate_limits: `key` + the day's start). True only when this call raised
+   * the day's counter and the new value is <= cap; false when the share is spent AND on any error (fail closed). See withDailyShare.
+   */
+  reserveDaily(key: string, cap: number, now: Date): Promise<boolean>;
 }
 
 export interface Env {
@@ -182,4 +200,9 @@ export interface Env {
   ALLOWED_ORIGIN?: string; // CORS allow-origin for the Pages frontend
   /** Secret salt for hashing client addresses in rate limiting; without it a value derived from the Travelpayouts token is used (see ratelimit.ts). */
   RATE_LIMIT_SALT?: string;
+  /** Optional live fare sources (quotes.ts): no key = not configured = never called, never counted. */
+  IGNAV_API_KEY?: string;
+  WEGO_API_TOKEN?: string;
+  SEARCHAPI_KEY?: string;
+  SERPAPI_KEY?: string;
 }

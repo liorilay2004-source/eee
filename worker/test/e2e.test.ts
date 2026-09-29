@@ -454,7 +454,9 @@ describe("rate limiting (SPEC §14)", () => {
     const retry = Number(blocked.headers.get("Retry-After"));
     // The requests of this window also weigh on the next one, so the honest wait can exceed a single window.
     expect(Number.isInteger(retry) && retry >= 1 && retry <= 2 * 600).toBe(true);
-    expect(((await blocked.json()) as { error: { code: string } }).error.code).toBe("rate_limited");
+    const blockedBody = (await blocked.json()) as { error: { code: string; retryAfterSec?: number } };
+    expect(blockedBody.error.code).toBe("rate_limited");
+    expect(blockedBody.error.retryAfterSec).toBe(retry); // the body carries the wait too: a cross-origin client may not read headers
 
     // another client is unaffected
     expect((await post(env, BODY, { "CF-Connecting-IP": "198.51.100.9" })).status).toBe(200);
@@ -630,6 +632,7 @@ describe("CORS (never a wildcard)", () => {
     const res = await call(env, "/api/search", { method: "OPTIONS", headers: { Origin: ORIGIN, "Access-Control-Request-Method": "POST" } });
     expect(res.status).toBe(204);
     expect(res.headers.get("Access-Control-Allow-Origin")).toBe(ORIGIN);
+    expect(res.headers.get("Access-Control-Expose-Headers")).toBe("Retry-After"); // else a cross-origin fetch cannot read the 429 wait
     expect(res.headers.get("Access-Control-Allow-Methods")).toContain("POST");
     expect(res.headers.get("Access-Control-Allow-Headers")).toBe("Content-Type");
     expect(res.headers.get("Access-Control-Max-Age")).toBeTruthy();

@@ -12,9 +12,13 @@ database_name = "eee-db"
 database_id = "fe66df0f-f5ea-48af-8ccb-ea4e99c17145"
 migrations_dir = "migrations"
 
-# Daily retention (prices of past trips, old search log, dead rate-limit and cache rows).
+# Daily retention (prices of past trips, old search log, dead rate-limit and cache rows) and an hourly price snapshot
+# of one watchlist route (src/snapshots.ts): the history that deal detection needs.
 [triggers]
-crons = ["17 3 * * *"]
+crons = ["17 3 * * *", "43 * * * *"]
 
 # Secrets (never in this file): `wrangler secret put TRAVELPAYOUTS_TOKEN`, `TRAVELPAYOUTS_MARKER`, `RATE_LIMIT_SALT`.
 # Local runs read them from worker/.dev.vars (see .dev.vars.example).
+# OPTIONAL live fare sources, each only with its vendor's FREE plan and NEVER with a payment card: `IGNAV_API_KEY`,
+# `WEGO_API_TOKEN`, `SEARCHAPI_KEY`, `SERPAPI_KEY`. A source without its secret is not used and costs nothing; every
+# one has a hard request cap below its free allowance (src/sources/), counted in D1 by migration 0004.

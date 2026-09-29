@@ -11,7 +11,13 @@
 import { createRepo, pruneHistory } from "./db";
 import { getFxRates } from "./fx";
 import { defaultResolver, PipelineError, runSearch, sha256Hex } from "./pipeline";
+import { withDailyShare, type FareQuoteSource } from "./quotes";
 import { clientIdentity, createMemoryLimiter, limiterSalt } from "./ratelimit";
+import { createIgnavSource } from "./sources/ignav";
+import { createSearchApiSource } from "./sources/searchapi";
+import { createSerpApiSource } from "./sources/serpapi";
+import { createWegoSource } from "./sources/wego";
+import { runSnapshot } from "./snapshots";
 import { createTravelpayoutsClient, marketForCountry } from "./travelpayouts";
 import type { Env } from "./types";
 import { GLOBAL_SCAN_LIMIT, GLOBAL_SCAN_WINDOW_SECONDS, MAX_BODY_BYTES, parseSearchBody, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_SECONDS } from "./validate";
@@ -20,6 +26,9 @@ import { GLOBAL_SCAN_LIMIT, GLOBAL_SCAN_WINDOW_SECONDS, MAX_BODY_BYTES, parseSea
 // else (the limits live in validate.ts, the limiter helpers in ratelimit.ts for that reason).
 const AIRPORTS_DEFAULT_LIMIT = 8;
 const AIRPORTS_MAX_LIMIT = 10;
+
+/** Must equal the hourly entry of `crons` in wrangler.toml (a test pins that). */
+const SNAPSHOT_CRON = "43 * * * *";
 
 /**
  * Used only while the D1-backed limiter is failing (e.g. the free-tier write quota is spent, when every D1 write
@@ -34,9 +43,14 @@ interface ApiResult {
   headers?: Record<string, string>;
 }
 
-const errorResult = (status: number, code: string, message: string, extra: { fields?: Record<string, string>; headers?: Record<string, string> } = {}): ApiResult => ({
+const errorResult = (
+  status: number,
+  code: string,
+  message: string,
+  extra: { fields?: Record<string, string>; retryAfterSec?: number; headers?: Record<string, string> } = {},
+): ApiResult => ({
   status,
-  body: { error: { code, message, ...(extra.fields ? { fields: extra.fields } : {}) } },
+  body: { error: { code, message, ...(extra.fields ? { fields: extra.fields } : {}), ...(extra.retryAfterSec !== undefined ? { retryAfterSec: extra.retryAfterSec } : {}) } },
   headers: extra.headers,
 });
 
@@ -50,7 +64,11 @@ function corsHeaders(request: Request, env: Env): Record<string, string> {
   const allowed = allowedOrigin(env);
   if (!allowed) return {};
   const headers: Record<string, string> = { Vary: "Origin" }; // the answer depends on the Origin header
-  if (request.headers.get("Origin") === allowed) headers["Access-Control-Allow-Origin"] = allowed;
+  if (request.headers.get("Origin") === allowed) {
+    headers["Access-Control-Allow-Origin"] = allowed;
+    // Without this a cross-origin fetch cannot read Retry-After on a 429.
+    headers["Access-Control-Expose-Headers"] = "Retry-After";
+  }
   return headers;
 }
 
@@ -113,6 +131,32 @@ async function scanBudgetLeft(repo: ReturnType<typeof createRepo>, now: Date): P
   }
 }
 
+/** A secret only counts when it is a non-blank string: anything else (unset, empty, a stray number var) leaves the source out. */
+const secret = (value: unknown): string | undefined => (typeof value === "string" && value.trim() !== "" ? value : undefined);
+
+/**
+ * The optional live fare sources (quotes.ts), built once per search and only for the keys that are set: a source without a
+ * key is not constructed, so it is never called, never counted and not listed in meta.sources. Only this request path uses
+ * them: the scheduled job never does. The hard request caps live in the adapters and are counted in D1 (migration 0004);
+ * the daily shares (rate_limits) come on top.
+ */
+function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: typeof fetch, now: Date): FareQuoteSource[] {
+  const marker = env.TRAVELPAYOUTS_MARKER;
+  // Every vendor request also takes one unit of that vendor's daily share first (see withDailyShare): a client that dodges the
+  // search cache cannot use up a whole allowance in minutes. Fails closed like the caps.
+  const shared = { repo: withDailyShare(repo), now, fetchFn };
+  const ignav = secret(env.IGNAV_API_KEY);
+  const wego = secret(env.WEGO_API_TOKEN);
+  const searchApi = secret(env.SEARCHAPI_KEY);
+  const serpApi = secret(env.SERPAPI_KEY);
+  return [
+    ignav ? createIgnavSource({ ...shared, apiKey: ignav, marker }) : null,
+    wego ? createWegoSource({ ...shared, apiKey: wego }) : null,
+    searchApi ? createSearchApiSource({ ...shared, apiKey: searchApi, marker }) : null,
+    serpApi ? createSerpApiSource({ ...shared, apiKey: serpApi, marker }) : null,
+  ].filter((s): s is FareQuoteSource => s !== null && s.configured);
+}
+
 async function handleSearch(request: Request, env: Env, ctx: ExecutionContext): Promise<ApiResult> {
   const now = new Date();
   const repo = createRepo(env.DB);
@@ -134,7 +178,10 @@ async function handleSearch(request: Request, env: Env, ctx: ExecutionContext): 
     limit = fallbackLimiter.check(key, now.getTime());
   }
   if (!limit.allowed) {
-    return errorResult(429, "rate_limited", "Too many searches, try again later", { headers: { "Retry-After": String(limit.retryAfterSec) } });
+    return errorResult(429, "rate_limited", "Too many searches, try again later", {
+      retryAfterSec: limit.retryAfterSec,
+      headers: { "Retry-After": String(limit.retryAfterSec) },
+    });
   }
 
   if (!isJsonContentType(request)) return errorResult(415, "unsupported_media_type", "Content-Type must be application/json");
@@ -172,6 +219,7 @@ async function handleSearch(request: Request, env: Env, ctx: ExecutionContext): 
         resolver: defaultResolver,
         waitUntil: (p) => ctx.waitUntil(p),
         scanBudget: () => scanBudgetLeft(repo, now),
+        quoteSources: quoteSources(env, repo, fetchFn, now),
       },
       parsed.req,
     );
@@ -226,8 +274,24 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
 }
 
 export default {
-  /** Daily retention job (see wrangler.toml `[triggers]`): the append-only tables must not grow without bound. */
+  /**
+   * Two cron triggers (wrangler.toml `[triggers]`): the daily retention job (the append-only tables must not grow without
+   * bound), and the hourly price snapshot of one watchlist route (src/snapshots.ts).
+   */
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    if (controller.cron === SNAPSHOT_CRON) {
+      const now = new Date(controller.scheduledTime);
+      const fetchFn: typeof fetch = (input, init) => globalThis.fetch(input, init);
+      const repo = createRepo(env.DB);
+      const tp = createTravelpayoutsClient({
+        token: env.TRAVELPAYOUTS_TOKEN,
+        marker: env.TRAVELPAYOUTS_MARKER,
+        fetchFn,
+        marketFor: (origin) => marketForCountry(defaultResolver.countryOfAirport(origin)),
+      });
+      ctx.waitUntil(runSnapshot({ repo, tp, fx: () => getFxRates(repo, fetchFn, now), now, resolver: defaultResolver }).then(() => undefined));
+      return;
+    }
     ctx.waitUntil(
       pruneHistory(env.DB, new Date(controller.scheduledTime)).then(
         () => undefined,

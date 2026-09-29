@@ -14,6 +14,10 @@ const CACHE_RETENTION_MS = 7 * DAY_MS; // search_cache rows older than this are 
 const ERROR_MAX_LEN = 300;
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+/** The only period keys a quota row may have: a one-off allowance, or a UTC month (see quotaPeriodKey in quotes.ts). */
+const QUOTA_PERIOD = /^(lifetime|\d{4}-(0[1-9]|1[0-2]))$/;
+/** The only keys a daily share may have: "quota:" and a vendor name (see withDailyShare in quotes.ts). */
+const DAILY_KEY = /^quota:[a-z_]{1,32}$/;
 const CURRENCY = /^[A-Za-z]{3}$/;
 
 type Bind = string | number | null;
@@ -77,7 +81,7 @@ const INSERT_PRICE =
   "ticket_structure, airlines_json, legs_json, includes_json, deeplink, verify_link, checked_at) " +
   "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-const SOURCES: readonly string[] = ["travelpayouts", "google_flights"];
+const SOURCES: readonly string[] = ["travelpayouts", "google_flights", "ignav", "wego", "searchapi", "serpapi"];
 const STRUCTURES: readonly string[] = ["roundtrip", "split"];
 
 function serializeLeg(leg: Leg | undefined): Leg {
@@ -245,6 +249,8 @@ export function createRepo(db: D1Database): Repo {
         if (!isRecord(extra) || !Array.isArray(extra.oneWayPairs) || !Array.isArray(extra.notes)) return null;
         cached.oneWayPairs = extra.oneWayPairs as OneWayPair[];
         cached.notes = extra.notes.filter((n): n is string => typeof n === "string");
+        // Quotes are optional on top of the fares: a damaged list only means the hit shows none, never a miss.
+        if (Array.isArray(extra.quotes)) cached.quotes = extra.quotes as Offer[];
       }
       return cached;
     },
@@ -433,6 +439,50 @@ export function createRepo(db: D1Database): Repo {
       };
     },
 
+    async reserveQuota(source, period, cap, now) {
+      // Fail closed: anything but a confirmed increment (missing table, D1 error, odd result) means "do not call".
+      try {
+        if (!Number.isSafeInteger(cap) || cap < 1 || !QUOTA_PERIOD.test(period)) return false;
+        // One atomic statement, no read-modify-write. A missing row is inserted with used = 1 (only when cap >= 1: the
+        // SELECT ... WHERE guards the insert path, which the DO UPDATE ... WHERE below cannot). An existing row is
+        // raised only while used < cap, otherwise nothing changes and RETURNING yields no row. The SELECT needs its own
+        // WHERE so SQLite does not read ON CONFLICT as a join clause. The cap comes from code, never from D1 or env.
+        const res = await db
+          .prepare(
+            "INSERT INTO source_quota (source, period, used, updated_at) SELECT ?, ?, 1, ? WHERE ? >= 1 " +
+              "ON CONFLICT(source, period) DO UPDATE SET used = used + 1, updated_at = excluded.updated_at WHERE used < ? " +
+              "RETURNING used",
+          )
+          .bind(source, period, now.toISOString(), cap, cap)
+          .all<{ used: number }>();
+        const used = res.results.length === 1 ? res.results[0]?.used : undefined;
+        return typeof used === "number" && Number.isInteger(used) && used >= 1 && used <= cap;
+      } catch {
+        return false;
+      }
+    },
+
+    async reserveDaily(key, cap, now) {
+      // Fail closed, like reserveQuota. The day's counter lives in rate_limits (window_start = the UTC day's start, in seconds), so no
+      // migration is needed and the daily cleanup of that table drops old days. The share comes from code, never from D1 or env.
+      try {
+        const day = Math.floor(now.getTime() / DAY_MS) * (DAY_MS / 1000);
+        if (!Number.isSafeInteger(cap) || cap < 1 || !DAILY_KEY.test(key) || !Number.isSafeInteger(day)) return false;
+        const res = await db
+          .prepare(
+            "INSERT INTO rate_limits (key, window_start, count) SELECT ?, ?, 1 WHERE ? >= 1 " +
+              "ON CONFLICT(key, window_start) DO UPDATE SET count = count + 1 WHERE count < ? " +
+              "RETURNING count",
+          )
+          .bind(key, day, cap, cap)
+          .all<{ count: number }>();
+        const count = res.results.length === 1 ? res.results[0]?.count : undefined;
+        return typeof count === "number" && Number.isInteger(count) && count >= 1 && count <= cap;
+      } catch {
+        return false;
+      }
+    },
+
     async recordSourceHealth(source, ok, error, now) {
       const at = now.toISOString();
       if (ok) {
@@ -471,6 +521,8 @@ export type PruneResult = Record<"prices" | "searches" | "search_cache" | "rate_
  * per-request path must not pay for full-table deletes. Everything removed is already unreachable by the API.
  */
 export async function pruneHistory(db: D1Database, now: Date): Promise<PruneResult> {
+  // source_quota is deliberately NOT pruned (and PruneResult has no entry for it): a deleted counter hands back the
+  // vendor's free allowance, i.e. the next call could be a paid one. The table holds a few tiny rows per year.
   const ms = now.getTime();
   const priceCutoff = new Date(ms - PRICES_GRACE_DAYS * DAY_MS).toISOString().slice(0, 10);
   const searchCutoff = new Date(ms - SEARCHES_RETENTION_DAYS * DAY_MS).toISOString();

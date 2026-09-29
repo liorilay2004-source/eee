@@ -4,3 +4,11 @@ TRAVELPAYOUTS_TOKEN=
 TRAVELPAYOUTS_MARKER=
 # Random string, at least 32 characters: salts the hash of client addresses in rate limiting.
 RATE_LIMIT_SALT=
+
+# OPTIONAL live fare sources (src/quotes.ts). Leave a value empty and that source is simply not used and costs nothing.
+# Create each vendor account on its FREE plan and NEVER add a payment card: the code stops before the free allowance
+# (caps are in src/sources/, needs migration 0004), but the account must not be able to charge anything anyway.
+IGNAV_API_KEY=
+WEGO_API_TOKEN=
+SEARCHAPI_KEY=
+SERPAPI_KEY=
