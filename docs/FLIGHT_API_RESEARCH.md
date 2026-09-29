@@ -130,3 +130,68 @@ No official public price API or affiliate feed was found for El Al, Israir, Arki
 
 ## 9. Not covered
 IATA, OAG and Cirium pricing and terms; Awin, CJ and Impact eligibility for Israel; licence texts for OpenFlights, the Travelpayouts data files, data.gov.il "Other (Open)" and the Bank of Israel terms of use; Skyscanner's own terms; whether Frankfurter and open.er-api.com carry ILS.
+
+---
+
+## 10. Deal sources (error fares, sales, alerts) — second pass
+
+Coverage of this pass is partial: Reddit, Secret Flying (feed and terms), the Fly4Free terms page and the Travelpayouts help centre returned 403 to the research tool. **[UNVERIFIED]** marks anything not opened. Not researched: Airfarewatchdog, Travelzoo, Hopper, Kayak Explore, Holiday Pirates, Jack's Flight Club, and the sale pages of El Al, Israir, Arkia, Wizz, Ryanair, easyJet, Pegasus, Turkish, Aegean, Air Europa and ITA. No Hebrew edition of Fly4Free, "Tripper" or "Flying Carpet" was found.
+
+| Source | How to consume | Israel departures | Reuse terms | Verdict |
+|---|---|---|---|---|
+| Fly4Free (EU) | RSS `https://www.fly4free.com/feed/` (live, ~hourly) | Sample items were Stockholm, Dublin, Copenhagen; no TLV seen [UNVERIFIED] | Terms cite copyright over articles and databases (search snippet; page blocked) | Inspiration signal: headline + link out only, after confirming terms |
+| The Flight Deal | RSS `https://www.theflightdeal.com/feed/` (live) | US-origin; no TLV seen | Not checked [UNVERIFIED] | Format reference only |
+| Secret Flying | Site, email and instant alerts; "Cheap flights from Israel" page; has posted error fares New York → Tel Aviv | Inbound to TLV confirmed; departures from Israel not verified (403) | Not read [UNVERIFIED] | Strong for error fares; manual review or email, terms before any automated reuse |
+| Reddit r/FlightDeals, r/traveldeals | Data API, OAuth required | Rarely Israel [UNVERIFIED] | Free tier non-commercial; commercial needs approval (~$0.24 per 1,000 calls, secondary blogs only) | Weak fit |
+| Going / Scott's Cheap Flights | Email / app push, no API | Only US airports on its pages | Paid subscriber content | Not machine-readable; skip |
+| **Secret Flights (טיסות סודיות)**, Israeli | Telegram `@SecretFlights`, Facebook, Instagram, WhatsApp bot, https://secretflights.co.il/ | **Yes (Israeli service)** | Not read; the site lists a partnership contact (flywith@secretflights.co.il) | Most relevant Hebrew source: ask for permission or a partnership rather than scrape |
+| Hulyo (חוליו) | Website of last-minute flights (https://www.hulyo.co.il/) | Yes | Not read | Comparison target, not a feed |
+| Travelpayouts special offers | `GET /v2/prices/special-offers` (XML) and `GET /aviasales/v3/get_special_offers` (origin, destination, locale, airline) | Origin accepts IATA such as TLV; whether TLV offers come back is [UNVERIFIED] | Affiliate terms; republishing not settled | Practical machine-readable base for our own detection |
+| Skiplagged | No API | Yes | Terms forbid automated access without permission (https://skiplagged.com/terms) | Do not scrape |
+| Airline newsletters | Subscribe a project mailbox and parse the mail | — | No scraping involved | Recommended by the research pass for sale detection; per-airline terms unverified |
+
+**Reading Telegram channels:** done through the Telegram API (`api_id`/`api_hash` from my.telegram.org, e.g. Telethon). Secondary sources say reading public channels is low risk and that member-list scraping triggers restrictions; Telegram's own API terms were not read, and the channel owner keeps the copyright either way, so asking permission is the clean route.
+
+### 10.1 Detecting anomalies ourselves
+- **Google price insights** (via SerpApi): `price_insights` returns `lowest_price`, `price_level`, `typical_price_range` and `price_history` (https://serpapi.com/google-flights-price-insights). A first-pass filter is `price_level == "low"` plus a price below the low end of `typical_price_range`. Retention of the history is not stated.
+- **Travelpayouts cache** holds only 2–7 days, so it can find cheap offers but not build a long baseline; **we must store our own snapshots** (the `prices` table already does).
+- **Public datasets are not useful for TLV:** BTS DB1B is US-only and lagged; the Kaggle "Flight Prices" set is Expedia US airports, April–October 2022.
+- **History needed:** no source says how much is enough. The research pass's own estimate (not a sourced fact): about 4–8 weeks of daily snapshots per route for a robust median and MAD threshold, a year for seasonality; until then flag fares 40–50% below the route's rolling median or below Google's `typical_price_range`. The threshold would be tuned on real data.
+
+## 11. Additional fare sources (not in §3–§5)
+
+No new source with confirmed TLV coverage was found, and none is both free and legally clean for a public comparison site.
+
+| Source | Returns | Access / price | Legal risk | Verdict |
+|---|---|---|---|---|
+| **Ignav** (https://ignav.com) | One-way and round-trip fares, flexible search, booking links | 1,000 free requests, then $2 per 1,000 successful; `X-Api-Key` header (https://ignav.com/pricing) | Data source not documented; a third-party listing says it structures Google Flights output [UNVERIFIED]; cache/display rights unknown | Cheapest way to test coverage; no cheapest-date endpoint, so date loops; ask the vendor about caching and display |
+| **Transavia** partner API | Fare search with deeplinks, affiliate route needing no booking integration (https://partner.transavia.com/en-EU/products-and-services/our-api/) | Partner form and agreement; EUR only; quotas not stated | Low (official) | The only airline with an officially documented fare + deeplink path; one airline; TLV not confirmed |
+| Ryanair `farfnd` (unofficial) | `cheapestPerDay`, round-trip and range searches | No key, undocumented, session errors reported | **High:** Ryanair terms prohibit "screen scraping" for commercial purposes (https://www.ryanair.com/gb/en/corporate/terms-of-use) | Do not build a public product on it; use an affiliate deeplink |
+| Wizz Air timetable, easyJet, Pegasus | Internal / unofficial endpoints via third-party scrapers | None official | Reverse-engineered; terms unread [UNVERIFIED] | Skip |
+| El Al, Israir, Arkia | No developer API, feed or affiliate programme found | — | — | Direct business development |
+| Kiwi via affiliate (Awin/Travelpayouts) | Deeplinks only; Tequila "anywhere" is invite-only | Awin commission 2.8% (one snippet) | Fine for affiliate use | Monetisation route, no data feed |
+| Hopper HTS, Pkfare | Enterprise / B2B wholesale APIs | Business onboarding | — | Not viable unless ticketing |
+| RapidAPI Skyscanner/Kiwi clones (Sky-Scrapper, flights-sky, …) | Skyscanner-derived fares and price calendar | Freemium | **High:** Skyscanner's terms prohibit bots; no SLA | Prototype only |
+| **SerpApi Google Travel Explore** | Explore / "anywhere": `engine=google_travel_explore`, `departure_id`, prices, destinations, dates | 250 free queries per month | Google scraping through a vendor | Fine for a small "cheapest destinations from TLV" cache job |
+| Apify "Kiwi Cheapest Destinations Explorer", "Cheap Flight Destinations" | Explore-style output | Per-result pricing | Scraping; community maintainers | Backup for explore |
+| Aviasales Data API | `prices_for_dates`, `month-matrix` (with origin and destination omitted it returns the cheapest tickets of the last 48 hours), `grouped_prices`, `prices_direct` | Free | Affiliate terms | Still the best free source for "cheapest month / anywhere" |
+
+Affiliate networks (Awin: Kiwi, Trip.com, Flightnetwork, Alternative Airlines, Gotogate; Etihad on Partnerize; Emirates programme) supply deeplinks and creatives, not per-route fare feeds. Open datasets for baselines: OpenFlights `routes.dat` (route existence only, ODbL, old), data.gov.il `flydata` (schedules, no fares). Not researched: Flightio, Fliggy, Momondo/Cheapflights APIs.
+
+## 12. Proposed source architecture (a proposal, not implemented)
+
+Layered, so that one source failing or being withdrawn never breaks search; the engine already stores raw offers per source and re-ranks per request.
+
+| Layer | Job | Sources | Status |
+|---|---|---|---|
+| 1. Core prices | Cheapest dates for every requested window | Travelpayouts Data API | Live |
+| 2. Detail | Return-leg times, airline names, booking detail for the top pairs | `fast-flights` (free, best-effort) → a paid wrapper (SearchApi `google_flights` / SerpApi / Ignav) if the owner accepts the risk | fast-flights exists; paid is a decision |
+| 3. Date grid fallback | Managed calendar when layer 1 is thin for a route | SearchApi `google_flights_calendar` | Proposal (paid, Google ToS exposure) |
+| 4. Deal detection | Flag error fares and unusual drops | Our own `prices` history (median / MAD per route), Google `typical_price_range` where available, Travelpayouts `special-offers` | Proposal: needs 4–8 weeks of snapshots first |
+| 5. Deal signals | Human-curated tips and alerts | Secret Flights (partnership), Secret Flying and airline newsletters (mailbox), Fly4Free RSS (link out) | Proposal; terms to confirm |
+| 6. Monetisation | Outbound links | Travelpayouts marker; Transavia / Kiwi / Awin deeplinks | Travelpayouts live |
+| 7. Reference | Airports, Hebrew names, FX, status | Bundled table, Wikidata/GeoNames, Bank of Israel, data.gov.il | Mostly live |
+
+**"Best value" ranking** stays in the engine: price, bag fee, stops, duration and departure hours, with unknown data never winning (spec §5.3). More sources only widen the candidate pool; the ranking rules do not change.
+
+**Decisions for the owner:** (a) whether to use scraping-based wrappers at all (Google terms, the SerpApi litigation); (b) whether to approach Secret Flights and Transavia; (c) whether to start collecting price snapshots on a schedule now, which is what makes layer 4 possible (a Worker cron or the Actions monitor, sized to the D1 free-tier write limit).
