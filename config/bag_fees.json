@@ -1,0 +1,47 @@
+{
+  "_comment": "PLACEHOLDER seed data for Phase 0 - approximate per-passenger, per-leg fees for one 20-23kg checked bag. Must be verified by the owner before launch (SPEC §17). Airlines missing from this table get an 'unknown bag fee' tag instead of a guessed price.",
+  "fees": {
+    "W6": {
+      "checked_bag": {
+        "amount": 45,
+        "currency": "EUR"
+      },
+      "note": "Wizz Air, varies by route/date"
+    },
+    "FR": {
+      "checked_bag": {
+        "amount": 40,
+        "currency": "EUR"
+      },
+      "note": "Ryanair, varies by route/date"
+    },
+    "U2": {
+      "checked_bag": {
+        "amount": 35,
+        "currency": "EUR"
+      },
+      "note": "easyJet, varies by route/date"
+    },
+    "VY": {
+      "checked_bag": {
+        "amount": 35,
+        "currency": "EUR"
+      },
+      "note": "Vueling basic fare"
+    },
+    "IZ": {
+      "checked_bag": {
+        "amount": 40,
+        "currency": "USD"
+      },
+      "note": "Arkia lite fare"
+    },
+    "6H": {
+      "checked_bag": {
+        "amount": 40,
+        "currency": "USD"
+      },
+      "note": "Israir lite fare"
+    }
+  }
+}

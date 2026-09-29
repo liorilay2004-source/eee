@@ -1,0 +1,58 @@
+name: Phase 0 - price proof
+
+# Run from GitHub (web or mobile app): Actions -> "Phase 0 - price proof" -> Run workflow.
+# No local computer needed.
+on:
+  workflow_dispatch:
+    inputs:
+      origin:        { description: "Origin IATA",                      default: "TLV" }
+      destination:   { description: "Destination IATA",                 default: "BCN" }
+      window_start:  { description: "Earliest departure YYYY-MM-DD (empty = today+40)", default: "" }
+      window_end:    { description: "Latest return YYYY-MM-DD (empty = start+15)",      default: "" }
+      stay_min:      { description: "Min nights", default: "5" }
+      stay_max:      { description: "Max nights", default: "7" }
+      out_hours:     { description: "Preferred outbound departure hours, e.g. 6-14 (empty = any)", default: "" }
+      ret_hours:     { description: "Preferred return departure hours, e.g. 12-23 (empty = any)",  default: "" }
+      checked_bag:   { description: "Checked bag?", type: boolean, default: false }
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase0-proof
+  cancel-in-progress: false
+
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: engine/requirements.txt
+      - run: pip install -r engine/requirements.txt
+      - name: Run search
+        env:
+          TRAVELPAYOUTS_TOKEN:  ${{ secrets.TRAVELPAYOUTS_TOKEN }}
+          TRAVELPAYOUTS_MARKER: ${{ secrets.TRAVELPAYOUTS_MARKER }}
+          RESEND_API_KEY:       ${{ secrets.RESEND_API_KEY }}
+          OWNER_EMAIL:          ${{ secrets.OWNER_EMAIL }}
+          EMAIL_FROM:           ${{ vars.EMAIL_FROM }}
+          ENABLE_FAST_FLIGHTS:  ${{ vars.ENABLE_FAST_FLIGHTS }}
+          OUT_DIR: out
+        run: >
+          python engine/phase0.py
+          --origin "${{ inputs.origin }}" --destination "${{ inputs.destination }}"
+          --window-start "${{ inputs.window_start }}" --window-end "${{ inputs.window_end }}"
+          --stay-min "${{ inputs.stay_min }}" --stay-max "${{ inputs.stay_max }}"
+          --out-hours "${{ inputs.out_hours }}" --ret-hours "${{ inputs.ret_hours }}"
+          --checked-bag "${{ inputs.checked_bag }}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase0-result
+          path: out/
+          retention-days: 14

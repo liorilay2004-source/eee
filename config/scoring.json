@@ -1,0 +1,11 @@
+{
+  "_comment": "Best Value penalties in ILS (SPEC §8). Shared by the Python engine and, from Phase 1, scoring.config.ts in the Worker.",
+  "night_departure_penalty_ils": 150,
+  "night_start_hour": 0,
+  "night_end_hour": 6,
+  "stop_penalty_ils": 180,
+  "duration_penalty_ils_per_hour": 35,
+  "default_drop_pct": 10,
+  "cache_ttl_hours": 6,
+  "top_n_candidates": 5
+}

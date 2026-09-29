@@ -1,0 +1,21 @@
+{
+  "success": true,
+  "currency": "usd",
+  "data": [
+    {"origin": "TLV", "destination": "BCN", "origin_airport": "TLV", "destination_airport": "BCN",
+     "price": 189, "airline": "W6", "flight_number": "4303",
+     "departure_at": "2026-11-12T06:15:00+02:00", "return_at": "2026-11-18T21:40:00+01:00",
+     "transfers": 1, "return_transfers": 1, "duration": 900, "duration_to": 420, "duration_back": 480,
+     "link": "/search/TLV1211BCN18111?t=W6_example"},
+    {"origin": "TLV", "destination": "BCN", "origin_airport": "TLV", "destination_airport": "BCN",
+     "price": 264, "airline": "LY", "flight_number": "395",
+     "departure_at": "2026-11-14T08:05:00+02:00", "return_at": "2026-11-20T15:30:00+01:00",
+     "transfers": 0, "return_transfers": 0, "duration": 560, "duration_to": 290, "duration_back": 270,
+     "link": "/search/TLV1411BCN20111?t=LY_example"},
+    {"origin": "TLV", "destination": "BCN", "origin_airport": "TLV", "destination_airport": "BCN",
+     "price": 150, "airline": "W6", "flight_number": "4303",
+     "departure_at": "2026-11-21T06:15:00+02:00", "return_at": "2026-11-28T21:40:00+01:00",
+     "transfers": 0, "return_transfers": 0, "duration": 560, "duration_to": 290, "duration_back": 270,
+     "link": "/search/TLV2111BCN28111?t=out_of_window"}
+  ]
+}
