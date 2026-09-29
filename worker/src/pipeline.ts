@@ -39,6 +39,14 @@ import {
   type QuoteSourceName,
   type QuoteStat,
 } from "./quotes";
+import {
+  applyPriceGuard,
+  createPriceGuard,
+  HISTORY_LOOKBACK_DAYS,
+  HISTORY_ROWS_PER_PAIR,
+  historyTargets,
+  type PriceGuard,
+} from "./priceguard";
 import { fareExpired, fareFreshness, vendorTimestamp } from "./freshness";
 import { buildSplits, dayNumber, pairOk } from "./splits";
 import { monthsBetween, TravelpayoutsError, withPartySize, type Party } from "./travelpayouts";
@@ -836,8 +844,16 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   }
   // A live price replaces the cached one for the same flight; the same flight seen by two sources counts once.
   const ranking = mergeQuoted(working);
+  // Price guard (priceguard.ts): a cached fare far below its neighbouring dates or its own recent history is tagged; when both
+  // signals agree it is kept out of the cards while anything else is priced. One indexed D1 read (the cheapest date pairs' history); storage trouble = no history.
+  const since = new Date(now.getTime() - HISTORY_LOOKBACK_DAYS * 86_400_000);
+  const targets = historyTargets(ranking, fx, pax);
+  const history =
+    targets.length > 0 && repo.priceHistory ? ((await attempt(() => repo.priceHistory!(targets, since, HISTORY_ROWS_PER_PAIR))) ?? []) : [];
+  const guard = createPriceGuard(ranking, history, fx, pax);
   // ...but a quote that does not state its return flight cannot pass the user's return-hour window or max stops: the cached fare it replaced stays a 🎯 candidate.
-  const cards = recommend(ranking, req, SCORING, timeCandidates(working, ranking, req));
+  const guarded = applyPriceGuard(ranking, timeCandidates(working, ranking, req), guard);
+  const cards = recommend(guarded.pool, req, SCORING, guarded.timeOnly);
 
   // Step 4 bookkeeping: how many date pairs are candidates for the deep search (top N cheapest pairs).
   const pairsWithPrice = new Set<string>();
@@ -854,8 +870,8 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
 
   // History and vendor health come last: the ranking above has read its price context before this search's own prices are written.
   // After the scan's own write, never beside it: both may write the cache row, and the one with the quotes must be the last.
-  const rest = jobOf({ logSearch: false, fresh: fromCache ? [] : live, quotes: quotedRaw, quoteHealth: quoteHealth(), cache: quotedRaw.length > 0 ? cacheRow(quotedRaw) : null });
-  await write(scanStored ? scanStored.then(() => persist(rest)) : persist(wholeJob()));
+  const rest = jobOf({ logSearch: false, fresh: fromCache ? [] : live, quotes: quotedRaw, guard, quoteHealth: quoteHealth(), cache: quotedRaw.length > 0 ? cacheRow(quotedRaw) : null });
+  await write(scanStored ? scanStored.then(() => persist(rest)) : persist({ ...wholeJob(), guard }));
 
   return {
     cards: views,
@@ -868,6 +884,8 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
       sources: [tpStatus, gfStatus, ...quoters.map((s) => quoteStatus(s, quoteStats.get(s.name), fromDb.filter((o) => o.source === s.name).length))],
       candidatePairs: Math.min(SCORING.topNCandidates, pairsWithPrice.size),
       generatedAt: now.toISOString(),
+      // Only when something was flagged: an ordinary answer keeps exactly the fields it had before the guard.
+      ...(guarded.suspicious.size > 0 ? { priceGuard: { suspicious: guarded.suspicious.size, excluded: guarded.excluded } } : {}),
       recommendations: recommendationsMeta(ranking, req, cards),
     },
   };
@@ -891,6 +909,12 @@ interface PersistJob {
   /** What to keep for the next identical search, or null when this scan must not be reused. */
   cache: { offers: Offer[]; oneWayPairs: OneWayPair[]; notes: string[]; quotes: Offer[] } | null;
   health: { ok: boolean; error: string | null } | null;
+  /**
+   * Set once the ranking has run: fresh fares BOTH guard signals reject are not written to the price history, so a stale cached
+   * fare cannot become the "lowest we have seen" of a price context or the baseline of the next check. A fare only one signal
+   * doubts is written, so the history can learn that a new low level is real.
+   */
+  guard?: PriceGuard;
 }
 
 /** Best effort and never rejects: a storage hiccup must not turn a good answer into an error. */
@@ -898,7 +922,8 @@ async function persist(job: PersistJob): Promise<void> {
   const { repo, now } = job;
   const work: Array<Promise<unknown>> = [];
   if (job.logSearch) work.push(attempt(() => repo.saveSearch(job.req, job.searchKey, now)));
-  if (job.fresh.length > 0) work.push(attempt(() => repo.savePrices(historyRows(job.fresh, job.fx, job.pax, job.now))));
+  const fresh = job.guard ? job.fresh.filter((o) => !job.guard!.check(o)?.exclude) : job.fresh;
+  if (fresh.length > 0) work.push(attempt(() => repo.savePrices(historyRows(fresh, job.fx, job.pax, job.now))));
   if (job.quotes.length > 0) work.push(attempt(() => repo.savePrices(historyRows(job.quotes, job.fx, job.pax, job.now))));
   for (const h of job.quoteHealth) work.push(attempt(() => repo.recordSourceHealth(h.name, h.ok, h.error, now)));
   if (job.cache) {
