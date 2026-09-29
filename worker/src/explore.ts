@@ -26,7 +26,9 @@ export const LATEST_API = "https://api.travelpayouts.com/v2/prices/latest";
 export const CHEAP_API = "https://api.travelpayouts.com/v1/prices/cheap";
 
 export const EXPLORE_ORIGINS: readonly string[] = ["TLV", "ETM"];
-export const EXPLORE_MAX_WINDOW_DAYS = 61; // end - start; at most 3 calendar months -> at most 6 upstream calls
+export const EXPLORE_MAX_WINDOW_DAYS = 61; // end - start
+/** Calendar months a window may touch (checked separately: 61 days can straddle 4). 2 upstream calls per month. */
+export const EXPLORE_MAX_MONTHS = 3;
 export const EXPLORE_MAX_ADVANCE_DAYS = 365;
 export const EXPLORE_DEFAULT_LIMIT = 20;
 export const EXPLORE_MAX_LIMIT = 50;
@@ -67,8 +69,11 @@ export interface ExploreParams {
   maxPriceIls: number | null;
   sort: ExploreSort;
   limit: number;
-  /** Set when the request came with free text (`q`): what was read from it. */
-  understood: { text: string; nights: NightsRange | null; month: string | null } | null;
+  /**
+   * Set when the request came with free text (`q`): what was read from it. `missing` / `message` (ADDITIVE) say what
+   * could not be read, so the client can tell the user that e.g. no length filter was applied.
+   */
+  understood: { text: string; nights: NightsRange | null; month: string | null; missing: ("nights" | "month")[]; message: string | null } | null;
 }
 
 export type ExploreParamsResult =
@@ -130,10 +135,11 @@ export function parseExploreParams(sp: URLSearchParams, now: Date): ExploreParam
     if (q.length > MAX_TEXT_LEN) fields.q = `must be at most ${MAX_TEXT_LEN} characters`;
     else {
       const parsed = parseExploreQuery(q, now);
-      if (!parsed.ok) {
+      // A length that was written but makes no trip is refused, never silently dropped (the filter would vanish).
+      if (!parsed.ok || parsed.invalidNights) {
         return { ok: false, code: "query_not_understood", message: parsed.message ?? "", fields: { q: parsed.message ?? "" } };
       }
-      understood = { text: q.trim(), nights: parsed.nights, month: parsed.month };
+      understood = { text: q.trim(), nights: parsed.nights, month: parsed.month, missing: parsed.missing, message: parsed.message };
     }
   }
 
@@ -165,6 +171,9 @@ export function parseExploreParams(sp: URLSearchParams, now: Date): ExploreParam
       if ((end as string) < (start as string)) fields.end = "must not be before start";
       else if ((dayMs(end as string) - dayMs(start as string)) / DAY_MS > EXPLORE_MAX_WINDOW_DAYS) {
         fields.end = `the window may span at most ${EXPLORE_MAX_WINDOW_DAYS} days`;
+      } else if (monthsOf(start as string, end as string).length > EXPLORE_MAX_MONTHS) {
+        // 61 days can straddle 4 calendar months (Dec 31 - Mar 2): that would be 8 upstream calls for one budget unit.
+        fields.end = `the window may touch at most ${EXPLORE_MAX_MONTHS} calendar months`;
       }
     }
   } else if (understood?.month) {
@@ -618,6 +627,7 @@ const NOTE = {
   weather: "נתוני מזג האוויר הם ממוצעים רב-שנתיים משוערים לחודש, לא תחזית.",
   stale: "לא ניתן היה לרענן את כל הנתונים כעת, ולכן חלק מהתוצאות מבוססות על נתונים ישנים יותר (עד 48 שעות).",
   partial: "לא הצלחנו לבדוק את כל הטווח שביקשת, ולכן ייתכן שיש יעדים זולים נוספים.",
+  noNights: "לא הבנו מהטקסט לכמה לילות, ולכן התוצאות אינן מסוננות לפי אורך הטיול.",
   budget: (n: number) => `${n} יעדים נוספים נמצאו מעל התקציב שהגדרת.`,
 } as const;
 
@@ -752,6 +762,8 @@ export async function runExplore(deps: ExploreDeps, params: ExploreParams): Prom
   );
 
   const notes: string[] = [NOTE.basis];
+  // Free text whose length could not be read: say that no length filter was applied (explicit nights= overrides).
+  if (params.understood?.missing.includes("nights") && params.nights === null) notes.push(NOTE.noNights);
   if (results.some((r) => r.climate)) notes.push(NOTE.weather);
   if (stale) notes.push(NOTE.stale);
   if (partial) notes.push(NOTE.partial);

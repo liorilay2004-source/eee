@@ -7,7 +7,7 @@ const read = (text: string, now = NOW) => parseExploreQuery(text, now);
 
 describe("parseExploreQuery: the owner's example", () => {
   it('"יש לי 4 ימים בנובמבר" -> 3 nights in November 2026', () => {
-    expect(read("יש לי 4 ימים בנובמבר")).toEqual({ ok: true, nights: { min: 3, max: 3 }, month: "2026-11", missing: [], message: null });
+    expect(read("יש לי 4 ימים בנובמבר")).toEqual({ ok: true, nights: { min: 3, max: 3 }, month: "2026-11", missing: [], message: null, invalidNights: false });
   });
 });
 
@@ -31,6 +31,9 @@ describe("parseExploreQuery: trip length", () => {
     ["סופש בנובמבר", 2, 3],
     ["סוף שבוע בנובמבר", 2, 3],
     ["סוף-שבוע בנובמבר", 2, 3],
+    ["3 שבועות בדצמבר", 21, 21],
+    ["שלושה שבועות בדצמבר", 21, 21],
+    ["4 שבועות בדצמבר", 28, 28],
   ])("%s -> %i-%i nights", (text, min, max) => {
     const r = read(text);
     expect(r.nights).toEqual({ min, max });
@@ -42,8 +45,9 @@ describe("parseExploreQuery: trip length", () => {
   });
 
   it("refuses lengths that make no trip instead of guessing", () => {
-    for (const text of ["יום אחד בנובמבר", "1 ימים בנובמבר", "40 לילות בנובמבר", "0 לילות בנובמבר"]) {
+    for (const text of ["יום אחד בנובמבר", "1 ימים בנובמבר", "40 לילות בנובמבר", "0 לילות בנובמבר", "5 שבועות בנובמבר"]) {
       const r = read(text);
+      expect(r.invalidNights, text).toBe(true);
       expect(r.nights, text).toBeNull();
       expect(r.missing, text).toContain("nights");
       expect(r.message, text).toMatch(/בין 1 ל-30 לילות/);
@@ -93,7 +97,7 @@ describe("parseExploreQuery: says so when it cannot tell", () => {
 
   it("only a month -> ok, nights reported missing", () => {
     const r = read("משהו בנובמבר");
-    expect(r).toMatchObject({ ok: true, nights: null, month: "2026-11", missing: ["nights"] });
+    expect(r).toMatchObject({ ok: true, nights: null, month: "2026-11", missing: ["nights"], invalidNights: false });
     expect(r.message).toMatch(/לכמה לילות/);
   });
 

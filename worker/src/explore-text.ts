@@ -9,7 +9,7 @@
  *   "N ימים" / "N יום"   = N days away = N-1 nights ("4 ימים" -> 3 nights). "יום אחד" is refused (0 nights).
  *   "N לילות" / "לילה"   = N nights.
  *   "סופ״ש" / "סוף שבוע" = 2-3 nights (Thursday or Friday out, Saturday or Sunday back).
- *   "שבוע" = 7 nights, "שבוע וחצי" = 10, "שבועיים" = 14.
+ *   "שבוע" = 7 nights, "שבוע וחצי" = 10, "שבועיים" = 14, "N שבועות" = 7N (up to 30 nights).
  *   A month name is the next time that month comes (this month counts); "בחודש הבא" = next calendar month;
  *   "החודש" = this month.
  */
@@ -29,6 +29,8 @@ export interface ExploreTextResult {
   missing: ("nights" | "month")[];
   /** Hebrew, for the user: set whenever something is missing. */
   message: string | null;
+  /** ADDITIVE: a trip length was written but makes no trip ("יום אחד", "40 לילות"): the caller must not ignore it. */
+  invalidNights: boolean;
 }
 
 export const MAX_TEXT_LEN = 200;
@@ -155,6 +157,11 @@ function parseNights(text: string): NightsRange | null | "invalid" {
   if (new RegExp(`${B}${PFX}יומיים${E}`).test(text)) return { min: 1, max: 1 };
   if (new RegExp(`${B}${PFX}לילותיים${E}`).test(text)) return { min: 2, max: 2 };
   if (new RegExp(`${B}${PFX}שבועיים${E}`).test(text)) return { min: 14, max: 14 };
+  const weeks = new RegExp(`${B}${NUM} ${PFX}שבועות${E}`).exec(text);
+  if (weeks) {
+    const n = toNumber(weeks[1] as string);
+    return n === null ? "invalid" : (range(7 * n, 7 * n) ?? "invalid");
+  }
   if (new RegExp(`${B}${PFX}שבוע וחצי${E}`).test(text)) return { min: 10, max: 10 };
   if (new RegExp(`${B}${PFX}שבוע${E}`).test(text)) return { min: 7, max: 7 };
   return null;
@@ -184,5 +191,5 @@ export function parseExploreQuery(input: string, now: Date = new Date()): Explor
   else if (missing.length === 2) message = MESSAGES.nothing;
   else if (missing[0] === "nights") message = MESSAGES.nights;
   else if (missing[0] === "month") message = MESSAGES.month;
-  return { ok: nights !== null || month !== null, nights, month, missing, message };
+  return { ok: nights !== null || month !== null, nights, month, missing, message, invalidNights: parsedNights === "invalid" };
 }

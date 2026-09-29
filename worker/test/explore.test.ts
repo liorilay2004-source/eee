@@ -226,7 +226,7 @@ describe("GET /api/explore: results", () => {
     stubUpstream();
     const { res, data } = await explore(makeEnv(), `q=${encodeURIComponent("יש לי 5 ימים בנובמבר")}`);
     expect(res.status).toBe(200);
-    expect(data.meta.understood).toEqual({ text: "יש לי 5 ימים בנובמבר", nights: { min: 4, max: 4 }, month: "2026-11" });
+    expect(data.meta.understood).toEqual({ text: "יש לי 5 ימים בנובמבר", nights: { min: 4, max: 4 }, month: "2026-11", missing: [], message: null });
     expect(data.meta.nights).toEqual({ min: 4, max: 4 });
     expect(data.results.every((r) => r.nights === 4)).toBe(true);
   });
@@ -238,6 +238,40 @@ describe("GET /api/explore: results", () => {
     expect(data.error?.code).toBe("query_not_understood");
     expect(data.error?.message).toMatch(/לא הצלחנו להבין/);
     expect(up.calls).toHaveLength(0);
+  });
+
+  it.each(["40 לילות בנובמבר", "יום אחד בנובמבר", "0 לילות בנובמבר", "5 שבועות בנובמבר"])(
+    "free text with a month but a length that makes no trip (%s) -> 400, never a silently dropped filter",
+    async (text) => {
+      const up = stubUpstream();
+      const { res, data } = await explore(makeEnv(), `q=${encodeURIComponent(text)}`);
+      expect(res.status).toBe(400);
+      expect(data.error?.code).toBe("query_not_understood");
+      expect(data.error?.fields?.q).toMatch(/בין 1 ל-30 לילות/);
+      expect(up.calls).toHaveLength(0);
+    },
+  );
+
+  it("'3 שבועות בדצמבר' = 21 nights in December", async () => {
+    stubUpstream();
+    const { res, data } = await explore(makeEnv(), `q=${encodeURIComponent("3 שבועות בדצמבר")}`);
+    expect(res.status).toBe(200);
+    expect(data.meta.nights).toEqual({ min: 21, max: 21 });
+    expect(data.meta.window.start).toBe("2026-12-01");
+  });
+
+  it("free text with a month but no readable length: answered, and the response says no length filter was applied", async () => {
+    stubUpstream();
+    const { res, data } = await explore(makeEnv(), `q=${encodeURIComponent("כמה ימים בנובמבר")}`);
+    expect(res.status).toBe(200);
+    expect(data.meta.nights).toBeNull();
+    expect(data.meta.understood).toMatchObject({ month: "2026-11", nights: null, missing: ["nights"] });
+    expect(data.meta.understood?.message).toMatch(/לכמה לילות/);
+    expect(data.meta.notes.some((n) => n.includes("אינן מסוננות לפי אורך הטיול"))).toBe(true);
+    // An explicit nights= fills the gap, and then there is nothing to warn about.
+    const withNights = (await explore(makeEnv(), `q=${encodeURIComponent("כמה ימים בנובמבר")}&nights=4`)).data;
+    expect(withNights.meta.nights).toEqual({ min: 4, max: 4 });
+    expect(withNights.meta.notes.some((n) => n.includes("אינן מסוננות"))).toBe(false);
   });
 
   it("free text without a month -> 400 asking for the month (never a guessed month)", async () => {
@@ -478,6 +512,7 @@ describe("parseExploreParams", () => {
     ["start=2026-11-01", "end"],
     ["start=2026-11-10&end=2026-11-01", "end"],
     ["start=2026-11-01&end=2027-01-15", "end"], // longer than 61 days
+    ["start=2026-12-31&end=2027-03-02", "end"], // 61 days, but 4 calendar months -> would be 8 upstream calls
     ["start=2026-02-30&end=2026-03-10", "start"],
     ["month=2026-11&nights=0", "nights"],
     ["month=2026-11&nights=31", "nights"],
@@ -506,6 +541,21 @@ describe("parseExploreParams", () => {
   it("a three-month window touches three months, never more", () => {
     const r = parse("start=2026-11-30&end=2027-01-29");
     expect(r).toMatchObject({ ok: true, params: { months: ["2026-11", "2026-12", "2027-01"] } });
+    // Boundary: 61 days straddling 4 months is refused with a message on `end`; 60 days in 3 months passes.
+    const four = parse("start=2026-12-31&end=2027-03-02");
+    expect(four).toMatchObject({ ok: false, fields: { end: expect.stringMatching(/3 calendar months/) } });
+    expect(parse("start=2027-01-01&end=2027-03-02")).toMatchObject({ ok: true, params: { months: ["2027-01", "2027-02", "2027-03"] } });
+  });
+
+  it("no accepted window ever needs more than 3 months (6 upstream calls)", () => {
+    for (let d = 0; d < 400; d += 3) {
+      const start = new Date(Date.UTC(2026, 9, 2) + d * 86_400_000).toISOString().slice(0, 10);
+      for (const len of [59, 60, 61]) {
+        const end = new Date(Date.parse(start) + len * 86_400_000).toISOString().slice(0, 10);
+        const r = parse(`start=${start}&end=${end}`);
+        if (r.ok) expect(r.params.months.length, `${start}..${end}`).toBeLessThanOrEqual(3);
+      }
+    }
   });
 });
 
