@@ -87,10 +87,30 @@ export function parseEcb(payload: unknown): Rates | null {
   return rates.USD === undefined ? null : rates;
 }
 
-const SOURCES: { name: string; url: string; format: "json" | "xml"; parse: (payload: unknown) => Rates | null }[] = [
+/**
+ * The day an ECB file is for: <Cube time='YYYY-MM-DD'>. The ECB publishes on working days only, so on weekends,
+ * holidays and before ~16:00 CET this is an earlier day than today. A file without a valid date is not trusted.
+ */
+export function ecbRatesDate(payload: unknown): string | null {
+  if (typeof payload !== "string") return null;
+  for (const m of payload.matchAll(/<(?:[\w-]+:)?Cube\b([^>]*)>/g)) {
+    const time = xmlAttr(m[1] ?? "", "time")?.trim() ?? "";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(time) && time === new Date(`${time}T00:00:00Z`).toISOString().slice(0, 10)) return time;
+  }
+  return null;
+}
+
+const SOURCES: {
+  name: string;
+  url: string;
+  format: "json" | "xml";
+  parse: (payload: unknown) => Rates | null;
+  /** The day the rates are for, when the source says so; absent = the source serves today's rates. */
+  asOf?: (payload: unknown) => string | null;
+}[] = [
   { name: "bank_of_israel", url: BOI_URL, format: "json", parse: parseBoi },
   { name: "open.er-api.com", url: FALLBACK_URL, format: "json", parse: parseFallback },
-  { name: "ecb", url: ECB_URL, format: "xml", parse: parseEcb },
+  { name: "ecb", url: ECB_URL, format: "xml", parse: parseEcb, asOf: ecbRatesDate },
 ];
 
 async function fetchPayload(fetchFn: typeof fetch, url: string, format: "json" | "xml"): Promise<unknown> {
@@ -116,6 +136,21 @@ async function attempt<T>(fn: () => Promise<T>): Promise<T | null> {
 
 const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err)).slice(0, 200);
 
+const markStale = (fx: FxRates): FxRates => ({ ...fx, source: fx.source.endsWith(":stale") ? fx.source : `${fx.source}:stale` });
+
+/**
+ * Rates a source published for an EARLIER day (the ECB on a weekend): never stored or served as today's. They are
+ * kept under their own day (only if that day has no row yet, so a Bank of Israel row is never overwritten) and served
+ * marked ":stale", unless the newest stored day is at least as recent, which then wins.
+ */
+async function olderDay(repo: Repo, fx: FxRates): Promise<FxRates> {
+  const stored = await attempt(() => repo.getLatestFxRates());
+  if (usable(stored) && stored.date >= fx.date) return markStale(stored);
+  const sameDay = await attempt(() => repo.getFxRates(fx.date));
+  if (!usable(sameDay)) await attempt(() => repo.saveFxRates(fx));
+  return markStale(fx);
+}
+
 export async function getFxRates(repo: Repo, fetchFn: typeof fetch, now: Date): Promise<FxRates> {
   const date = now.toISOString().slice(0, 10); // rates are cached per UTC date (24h)
 
@@ -125,8 +160,12 @@ export async function getFxRates(repo: Repo, fetchFn: typeof fetch, now: Date): 
   const failures: string[] = [];
   for (const source of SOURCES) {
     try {
-      const rates = source.parse(await fetchPayload(fetchFn, source.url, source.format));
+      const payload = await fetchPayload(fetchFn, source.url, source.format);
+      const rates = source.parse(payload);
       if (!rates) throw new Error("unexpected payload");
+      const asOf = source.asOf ? source.asOf(payload) : date;
+      if (asOf === null) throw new Error("no rates date");
+      if (asOf < date) return await olderDay(repo, { date: asOf, source: source.name, ratesToIls: { ...rates, ILS: 1 } });
       const fx: FxRates = { date, source: source.name, ratesToIls: { ...rates, ILS: 1 } };
       await attempt(() => repo.saveFxRates(fx)); // a failed cache write must not lose fresh rates
       return fx;
@@ -136,8 +175,6 @@ export async function getFxRates(repo: Repo, fetchFn: typeof fetch, now: Date): 
   }
 
   const stale = await attempt(() => repo.getLatestFxRates());
-  if (usable(stale)) {
-    return { ...stale, source: stale.source.endsWith(":stale") ? stale.source : `${stale.source}:stale` };
-  }
+  if (usable(stale)) return markStale(stale);
   throw new Error(`No FX rates available (${failures.join("; ")})`);
 }

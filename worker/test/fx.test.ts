@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BOI_URL, ECB_URL, FALLBACK_URL, getFxRates, parseEcb } from "../src/fx";
+import { BOI_URL, ECB_URL, FALLBACK_URL, ecbRatesDate, getFxRates, parseEcb } from "../src/fx";
 import { createRepo } from "../src/db";
 import { toIls } from "../src/money";
 import type { FxRates, Repo } from "../src/types";
@@ -338,11 +338,11 @@ describe("storage failures", () => {
 });
 
 // ECB euro reference rates: the third fresh source, asked only when the Bank of Israel and open.er-api.com both fail.
-const ECB_XML = `<?xml version="1.0" encoding="UTF-8"?>
+const ecbXml = (day: string) => `<?xml version="1.0" encoding="UTF-8"?>
 <gesmes:Envelope xmlns:gesmes="http://www.gesmes.org/xml/2002-08-01" xmlns="http://www.ecb.int/vocabulary/2002-08-01/eurofxref">
 	<gesmes:subject>Reference rates</gesmes:subject>
 	<Cube>
-		<Cube time='2026-09-29'>
+		<Cube time='${day}'>
 			<Cube currency='USD' rate='1.1355'/>
 			<Cube currency='JPY' rate='178.41'/>
 			<Cube currency='GBP' rate='0.85718'/>
@@ -350,6 +350,7 @@ const ECB_XML = `<?xml version="1.0" encoding="UTF-8"?>
 		</Cube>
 	</Cube>
 </gesmes:Envelope>`;
+const ECB_XML = ecbXml(TODAY);
 const xml = (body: string): Handler => () => new Response(body, { status: 200, headers: { "content-type": "text/xml" } });
 
 describe("ECB euro reference rates (third source)", () => {
@@ -396,6 +397,45 @@ describe("ECB euro reference rates (third source)", () => {
       `<Cube currency='USD' rate='1.1'/><Cube currency='ILS' rate='3.3'/><Cube currency='GBP' rate='0'/><Cube currency='CHF' rate='-1'/><Cube currency='usd1' rate='2'/><Cube currency='SEK' rate=''/>`,
     );
     expect(Object.keys(rates ?? {}).sort()).toEqual(["EUR", "USD"]);
+  });
+
+  it("reads the day the file is for from <Cube time>", () => {
+    expect(ecbRatesDate(ECB_XML)).toBe(TODAY);
+    expect(ecbRatesDate(ecbXml("2026-10-30"))).toBe("2026-10-30");
+    expect(ecbRatesDate(ecbXml("2026-02-30"))).toBeNull(); // not a real day
+    expect(ecbRatesDate(`<Cube currency='USD' rate='1.1'/><Cube currency='ILS' rate='3.4'/>`)).toBeNull();
+    expect(ecbRatesDate(42)).toBeNull();
+  });
+
+  it("an ECB file from an earlier day (weekend) is served as that day, marked :stale, and stored under its own day only", async () => {
+    // 2026-11-01 is a Sunday: the newest ECB file is Friday's.
+    const { get, repo } = setup(status(500), status(500), xml(ecbXml("2026-10-30")));
+    const fx = await get();
+    expect(fx.date).toBe("2026-10-30");
+    expect(fx.source).toBe("ecb:stale");
+    expect(fx.ratesToIls.USD).toBeCloseTo(3.4702 / 1.1355, 10);
+    expect(await repo.getFxRates(TODAY)).toBeNull(); // never cached as today's
+    expect((await repo.getFxRates("2026-10-30"))?.source).toBe("ecb"); // kept under its real day, without the marker
+  });
+
+  it("a newer stored day beats an older ECB file", async () => {
+    const { get, repo } = setup(status(500), status(500), xml(ecbXml("2026-10-30")));
+    await repo.saveFxRates({ date: "2026-10-31", source: "bank_of_israel", ratesToIls: { USD: 3.5, ILS: 1 } });
+    const fx = await get();
+    expect(fx).toMatchObject({ date: "2026-10-31", source: "bank_of_israel:stale" });
+  });
+
+  it("an older ECB file never overwrites a stored row for the same day", async () => {
+    const { get, repo } = setup(status(500), status(500), xml(ecbXml("2026-10-30")));
+    await repo.saveFxRates({ date: "2026-10-30", source: "bank_of_israel", ratesToIls: { USD: 3.5, ILS: 1 } });
+    expect((await get()).source).toBe("bank_of_israel:stale");
+    expect((await repo.getFxRates("2026-10-30"))?.source).toBe("bank_of_israel");
+  });
+
+  it("an ECB file without a date is not used", async () => {
+    const undated = `<Cube><Cube currency='USD' rate='1.1'/><Cube currency='ILS' rate='3.4'/></Cube>`;
+    const { get } = setup(status(500), status(500), xml(undated));
+    await expect(get()).rejects.toThrow(/ecb: no rates date/);
   });
 
   it("a garbage ECB answer still ends in the stale day, never in invented rates", async () => {
