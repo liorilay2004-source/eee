@@ -205,3 +205,23 @@ Layered, so that one source failing or being withdrawn never breaks search; the 
 | 3 | Start collecting price snapshots? | **Yes: built** as an hourly Worker cron over a 24-route watchlist (PR "Worker: hourly price snapshots"). It changes nothing until that PR is merged and deployed. | Layer 4 (deal detection) needs 4–8 weeks of our own history, so the clock should start as early as possible. Cost is about 4,500 D1 row writes a day. | Yes: remove the cron entry |
 | 4 | Merge and deploy | **Left to the owner.** | Merging to `main` redeploys the production Worker through Workers Builds, and Cloudflare was kept with the owner. | — |
 | 5 | Next source to test | **Ignav's 1,000 free requests** for TLV coverage, and Travelpayouts `special-offers` for TLV, once the token is available to test with. Ask the vendor about caching and display rights before relying on Ignav. | Cheapest, lowest-commitment tests of the two open questions (coverage, offers from TLV). | Yes |
+
+## 14. Owner rule: nothing that costs money (2026-09-29)
+
+The owner ruled that **no paid source, paid tier or paid quota is to be added**, now or later, without the owner asking for it explicitly. This overrides the "paid fallback" and "paid wrapper" options in §2, §5, §11 and §12 and the extra-adapter plan (SerpApi, FlightAPI.io, Duffel, Bright Data, Apify), which are dropped. A multi-source layer that was being built for Ignav, Wego and SearchApi was stopped before any file was written.
+
+What stays inside the rule (free, no card, no quota that can turn into a bill):
+
+| Source | Use | Note |
+|---|---|---|
+| Travelpayouts / Aviasales Data API | Core prices | Free; the token is free |
+| `fast-flights` (open source) | Best-effort detail enrichment in the Actions monitor | Free; fragile; Google terms risk stays the owner's call |
+| Bank of Israel FX, Frankfurter, open.er-api.com | ILS conversion | Free; open.er-api.com needs an attribution link |
+| data.gov.il `flydata` | Ben Gurion flight status | Free; ETM not confirmed |
+| OurAirports, Wikidata, GeoNames | Airports and Hebrew names | Free (public domain / CC0 / CC-BY) |
+| Own price history (hourly snapshots) | Deal and error-fare detection | Free; uses D1 free-tier writes only |
+| Public deal feeds read by hand or RSS (Fly4Free, Secret Flying, Secret Flights) | Deal signals | Free; terms to confirm; link out only |
+
+Sources with a free allowance (Ignav 1,000 requests, SearchApi 100, SerpApi 250 a month) are **not** used either: the owner's rule is "nothing with money", and a free allowance can become a bill.
+
+Guard rails that follow: no payment details are entered anywhere, no source is called without the owner having created its key, and the Worker's Cloudflare usage stays inside the free plan (already designed for, see runbook §8).
