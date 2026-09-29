@@ -5,8 +5,11 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as entry from "../src/index";
+import { createRepo } from "../src/db";
 import {
   computeRouteReport,
+  FX_MAX_AGE_DAYS,
+  routeAirports,
   loadDeals,
   MAX_REPORT_ROWS,
   RECENT_LIMIT,
@@ -18,8 +21,8 @@ import {
   type RouteReport,
 } from "../src/dealreports";
 import { DEAL_CONFIG, detectDeals, type DealPriceRow } from "../src/deals";
-import { pickSnapshotRoute, SNAPSHOT_ROUTES } from "../src/snapshots";
-import type { Env } from "../src/types";
+import { pickSnapshotRoute, runSnapshot, SNAPSHOT_ROUTES } from "../src/snapshots";
+import type { Env, Offer, TravelpayoutsClient } from "../src/types";
 import { createTestD1 } from "./helpers/d1";
 
 const worker = entry.default;
@@ -311,5 +314,99 @@ describe("GET /api/deals and the snapshot cron", () => {
     await worker.scheduled({ scheduledTime: NOW.getTime(), cron: "17 3 * * *", noRetry() {} } as ScheduledController, env, ctxOf(pending));
     await Promise.all(pending);
     expect((await env.DB.prepare("SELECT COUNT(*) AS n FROM deal_reports").first<{ n: number }>())?.n).toBe(0);
+  });
+});
+
+describe("watched city routes resolve to the airports the scan stores", () => {
+  const offer = (dest: string, price: number, checkedAt: string): Offer => ({
+    origin: "TLV",
+    destination: dest,
+    departDate: "2026-11-10",
+    returnDate: "2026-11-15",
+    priceAmount: price,
+    priceCurrency: "ILS",
+    source: "travelpayouts",
+    ticketStructure: "roundtrip",
+    outbound: { departTime: null, arriveTime: null, stops: null, durationMin: null, airlines: ["LY"] },
+    inbound: { departTime: null, arriveTime: null, stops: null, durationMin: null, airlines: ["LY"] },
+    includes: {},
+    deeplink: null,
+    verifyLink: null,
+    checkedAt,
+    extrasAmountIls: 0,
+    totalIls: null,
+    tags: [],
+  });
+
+  it("every watched route has airports; city routes expand like the scan (LON -> LHR, LGW, ...)", () => {
+    for (const [o, d] of SNAPSHOT_ROUTES) {
+      const a = routeAirports(o, d, NOW);
+      expect(a.origins.length, `${o}-${d}`).toBeGreaterThan(0);
+      expect(a.destinations.length, `${o}-${d}`).toBeGreaterThan(0);
+    }
+    expect(routeAirports("TLV", "LON", NOW).destinations).toEqual(expect.arrayContaining(["LHR", "LGW"]));
+    expect(routeAirports("TLV", "LON", NOW).destinations).not.toContain("LON");
+    expect(routeAirports("ETM", "ATH", NOW).origins).toEqual(expect.arrayContaining(["ETM", "VDA"]));
+  });
+
+  it("TLV-LON end to end: runSnapshot stores airport rows, refreshDealReport finds the LHR deal and judges LGW", async () => {
+    const db = createTestD1();
+    await seedPair(db, "2026-11-10", "2026-11-15", 1000, "TLV", "LHR");
+    await seedPair(db, "2026-11-10", "2026-11-15", 1000, "TLV", "LGW");
+    await db.prepare("DELETE FROM prices WHERE checked_at >= ?").bind(at(2 * HOUR)).run(); // drop the seeded fresh checks
+    const asked: string[] = [];
+    const tp: TravelpayoutsClient = {
+      configured: true,
+      callCount: () => asked.length,
+      async roundTrips(origin, destination) {
+        asked.push(`${origin}-${destination}`);
+        if (destination === "LHR") return [offer("LHR", 600, NOW.toISOString())];
+        if (destination === "LGW") return [offer("LGW", 1010, NOW.toISOString())];
+        return [];
+      },
+      async oneWays() {
+        return [];
+      },
+    };
+    const snap = await runSnapshot({ repo: createRepo(db), tp, fx: { date: "2026-10-01", source: "test", ratesToIls: { ILS: 1, USD: 3.7 } }, now: NOW }, [["TLV", "LON"]]);
+    expect(snap.ok).toBe(true);
+    const stored = (await db.prepare("SELECT DISTINCT destination FROM prices WHERE checked_at = ?").bind(NOW.toISOString()).all<{ destination: string }>()).results;
+    expect(stored.map((r) => r.destination).sort()).toEqual(["LGW", "LHR"]);
+
+    const r = await refreshDealReport(db, "TLV", "LON", new Date(NOW.getTime() + 60_000));
+    expect(r?.deals).toHaveLength(1);
+    expect(r?.deals[0]).toMatchObject({ verdict: "deal", origin: "TLV", destination: "LHR", priceIls: 600 });
+    expect(r?.judgedBuckets).toBe(2); // LHR and LGW are separate series
+    const body = await loadDeals(db, new Date(NOW.getTime() + 120_000));
+    expect(body.routes.find((x) => x.destination === "LON")?.status).toBe("deals");
+  });
+
+  it("ETM-ATH reads Ramon (ETM) and Ovda (VDA) rows alike", async () => {
+    const db = createTestD1();
+    await seedPair(db, "2026-11-10", "2026-11-15", 600, "VDA", "ATH");
+    const r = await computeRouteReport(db, "ETM", "ATH", NOW);
+    expect(r.deals[0]).toMatchObject({ origin: "VDA", destination: "ATH", verdict: "deal" });
+  });
+});
+
+describe("report freshness and FX", () => {
+  it("a report is fresh for one whole watchlist cycle, plus slack", () => {
+    expect(REPORT_MAX_AGE_HOURS).toBeGreaterThan(SNAPSHOT_ROUTES.length);
+    expect(REPORT_MAX_AGE_HOURS).toBeLessThanOrEqual(SNAPSHOT_ROUTES.length + 12);
+    const r = report({ computedAt: at((SNAPSHOT_ROUTES.length + 1) * HOUR), judgedBuckets: 1 });
+    expect(routeView("TLV", "BCN", r, NOW).status).toBe("no_deal");
+  });
+
+  it("stored FX is shown with the report, and marked stale when it is old or a fallback day", () => {
+    const fresh = routeView("TLV", "BCN", report({ fx: { date: "2026-10-01", source: "bank_of_israel" } }), NOW);
+    expect(fresh.fx).toEqual({ date: "2026-10-01", source: "bank_of_israel", stale: false });
+    const yesterday = routeView("TLV", "BCN", report({ fx: { date: "2026-09-30", source: "bank_of_israel" } }), NOW);
+    expect(yesterday.fx?.stale).toBe(false);
+    const old = routeView("TLV", "BCN", report({ fx: { date: "2026-09-28", source: "bank_of_israel" } }), NOW);
+    expect(old.fx?.stale).toBe(true);
+    const fallback = routeView("TLV", "BCN", report({ fx: { date: "2026-10-01", source: "bank_of_israel:stale" } }), NOW);
+    expect(fallback.fx?.stale).toBe(true);
+    expect(routeView("TLV", "BCN", report(), NOW).fx).toBeNull();
+    expect(FX_MAX_AGE_DAYS).toBe(1);
   });
 });

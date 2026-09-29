@@ -16,7 +16,9 @@
  */
 import { createRepo } from "./db";
 import { assessBuckets, DEAL_CONFIG, type Deal, type DealPriceRow, type DealStats, type RatesToIls } from "./deals";
-import { SNAPSHOT_ROUTES } from "./snapshots";
+import { airportPairs, defaultResolver } from "./pipeline";
+import { buildSnapshotRequest, SNAPSHOT_ROUTES } from "./snapshots";
+import type { Resolver } from "./airports/types";
 
 const HOUR_MS = 3_600_000;
 const DAY_MS = 86_400_000;
@@ -26,14 +28,24 @@ export const RECENT_LIMIT = 500;
 /** Query B looks back this far: longer than the trend window (21 d) plus the minimum span (7 d) with room to spare. */
 export const HISTORY_DAYS = 45;
 export const HISTORY_LIMIT = 1500;
-/** At most this many candidate date pairs per route: 4 + 2 x 40 bound parameters stay under D1's 100. */
-export const MAX_PAIRS = 40;
+/**
+ * Candidate (airport pair, date pair) keys per query B statement: 4 x 20 + 3 bound parameters stay under D1's 100.
+ * At most MAX_PAIR_CHUNKS statements (one batch) per route, so MAX_PAIRS keys in all.
+ */
+export const PAIRS_PER_CHUNK = 20;
+export const MAX_PAIR_CHUNKS = 3;
+export const MAX_PAIRS = PAIRS_PER_CHUNK * MAX_PAIR_CHUNKS;
 /** Deals kept per route in a stored report (the biggest drops first). */
 export const MAX_DEALS_PER_ROUTE = 10;
 /** Watched routes read from deal_reports per request (one IN list, so at most this many bound parameters). */
 export const MAX_REPORT_ROWS = 64;
-/** Each route is recomputed once a day (one route per hourly run); a report older than this means the cron missed it. */
-export const REPORT_MAX_AGE_HOURS = 30;
+/**
+ * One route per hourly run, so each route is recomputed every SNAPSHOT_ROUTES.length hours; a report older than one
+ * cycle plus 6 hours of slack means the cron missed it.
+ */
+export const REPORT_MAX_AGE_HOURS = SNAPSHOT_ROUTES.length + 6;
+/** Stored FX older than this (relative to the report) is shown as stale. */
+export const FX_MAX_AGE_DAYS = 1;
 export const RESPONSE_CACHE_MS = 5 * 60_000;
 
 const PRICE_COLS = "origin, destination, depart_date, return_date, price_amount, price_currency, source, ticket_structure, airlines_json, checked_at";
@@ -70,12 +82,26 @@ async function storedRates(db: D1Database, now: Date): Promise<{ rates: RatesToI
   return { rates: {}, fx: null };
 }
 
+/**
+ * The concrete airports of a watched route, exactly as the snapshot scan expands it (airportPairs over the snapshot
+ * request): `prices` rows hold AIRPORT codes (LHR, LGW...), while the watchlist holds city codes (LON).
+ */
+export function routeAirports(origin: string, destination: string, now: Date, resolver: Resolver = defaultResolver): { origins: string[]; destinations: string[] } {
+  const pairs = airportPairs(resolver, buildSnapshotRequest(origin, destination, now));
+  const origins = [...new Set(pairs.map((p) => p.origin))];
+  const destinations = [...new Set(pairs.map((p) => p.dest))];
+  return { origins, destinations };
+}
+
+const inList = (n: number): string => Array.from({ length: n }, () => "?").join(", ");
+
 /** Reads the route's bounded history (queries A and B) and runs the detector as of `now`. Throws on D1 errors. */
-export async function computeRouteReport(db: D1Database, origin: string, destination: string, now: Date): Promise<RouteReport> {
+export async function computeRouteReport(db: D1Database, origin: string, destination: string, now: Date, resolver: Resolver = defaultResolver): Promise<RouteReport> {
   const nowMs = now.getTime();
   const today = now.toISOString().slice(0, 10);
   const recentCutoff = new Date(nowMs - DEAL_CONFIG.liveWithinHours * HOUR_MS).toISOString();
   const historyFrom = new Date(nowMs - HISTORY_DAYS * DAY_MS).toISOString();
+  const { origins, destinations } = routeAirports(origin, destination, now, resolver);
   const { rates, fx } = await storedRates(db, now);
 
   // (A) Every row a live candidate can come from. A trip that already departed is never a deal.
@@ -83,10 +109,10 @@ export async function computeRouteReport(db: D1Database, origin: string, destina
     await db
       .prepare(
         `SELECT ${PRICE_COLS} FROM prices INDEXED BY idx_prices_recent ` +
-          "WHERE origin = ? AND destination = ? AND checked_at >= ? AND depart_date >= ? " +
+          `WHERE origin IN (${inList(origins.length)}) AND destination IN (${inList(destinations.length)}) AND checked_at >= ? AND depart_date >= ? ` +
           "ORDER BY checked_at DESC, id DESC LIMIT ?",
       )
-      .bind(origin, destination, recentCutoff, today, RECENT_LIMIT)
+      .bind(...origins, ...destinations, recentCutoff, today, RECENT_LIMIT)
       .all<DealPriceRow>()
   ).results;
   let truncated = recent.length >= RECENT_LIMIT;
@@ -94,28 +120,40 @@ export async function computeRouteReport(db: D1Database, origin: string, destina
   const oldestRecent = recent[recent.length - 1]?.checked_at;
   const historyUpTo = truncated && typeof oldestRecent === "string" ? oldestRecent : recentCutoff; // every (A) row is >= recentCutoff
 
-  // The candidate pair of each live bucket (it depends only on the bucket's newest instant, which is in `recent`).
-  const pairSet = new Map<string, [string, string]>();
-  for (const b of assessBuckets(recent, rates, now).buckets) pairSet.set(`${b.departDate}|${b.returnDate}`, [b.departDate, b.returnDate]);
-  const pairs = [...pairSet.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([, p]) => p);
-  if (pairs.length > MAX_PAIRS) truncated = true;
-  const used = pairs.slice(0, MAX_PAIRS);
+  // The candidate of each live bucket (it depends only on the bucket's newest instant, which is in `recent`). The
+  // bucket, and so the key, includes the concrete airports: LHR and LGW fares are separate series.
+  const keySet = new Map<string, [string, string, string, string]>();
+  for (const b of assessBuckets(recent, rates, now).buckets) {
+    const [o, d] = b.bucket.split("|") as [string, string];
+    keySet.set(`${o}|${d}|${b.departDate}|${b.returnDate}`, [o, d, b.departDate, b.returnDate]);
+  }
+  const keys = [...keySet.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([, k]) => k);
+  if (keys.length > MAX_PAIRS) truncated = true;
+  const used = keys.slice(0, MAX_PAIRS);
 
-  // (B) The older history of those pairs only: disjoint from (A) by checked_at, so no row is counted twice.
+  // (B) The older history of those keys only, disjoint from (A) by checked_at. One batch of at most MAX_PAIR_CHUNKS
+  // statements, each served by idx_prices_route, each with its share of HISTORY_LIMIT.
   let history: DealPriceRow[] = [];
   if (used.length > 0) {
-    const ors = used.map(() => "(depart_date = ? AND return_date = ?)").join(" OR ");
-    history = (
-      await db
-        .prepare(
-          `SELECT ${PRICE_COLS} FROM prices ` +
-            `WHERE origin = ? AND destination = ? AND checked_at >= ? AND checked_at < ? AND (${ors}) ` +
-            "ORDER BY checked_at DESC, id DESC LIMIT ?",
-        )
-        .bind(origin, destination, historyFrom, historyUpTo, ...used.flat(), HISTORY_LIMIT)
-        .all<DealPriceRow>()
-    ).results;
-    if (history.length >= HISTORY_LIMIT) truncated = true;
+    const chunks: Array<typeof used> = [];
+    for (let i = 0; i < used.length; i += PAIRS_PER_CHUNK) chunks.push(used.slice(i, i + PAIRS_PER_CHUNK));
+    const perChunk = Math.floor(HISTORY_LIMIT / chunks.length);
+    const results = await db.batch<DealPriceRow>(
+      chunks.map((chunk) =>
+        db
+          .prepare(
+            `SELECT ${PRICE_COLS} FROM prices WHERE checked_at >= ? AND checked_at < ? AND (` +
+              chunk.map(() => "(origin = ? AND destination = ? AND depart_date = ? AND return_date = ?)").join(" OR ") +
+              ") ORDER BY checked_at DESC, id DESC LIMIT ?",
+          )
+          .bind(historyFrom, historyUpTo, ...chunk.flat(), perChunk),
+      ),
+    );
+    for (const r of results) {
+      const rows = r.results ?? [];
+      if (rows.length >= perChunk) truncated = true;
+      history = history.concat(rows);
+    }
   }
 
   const result = assessBuckets([...recent, ...history], rates, now);
@@ -194,6 +232,8 @@ export interface RouteDealsView {
   buckets: { total: number; judged: number; insufficient: number; stale: number } | null;
   readiness: { sampleSize: number; spanDays: number } | null;
   truncated: boolean;
+  /** The stored FX day the report converted with; stale when older than FX_MAX_AGE_DAYS before the report, or a fallback day. */
+  fx: { date: string; source: string; stale: boolean } | null;
 }
 
 export interface DealsResponse {
@@ -220,6 +260,15 @@ function parseReport(json: unknown, origin: string, destination: string): RouteR
   }
 }
 
+function fxView(report: RouteReport | null): RouteDealsView["fx"] {
+  const fx = report?.fx;
+  if (!fx || typeof fx.date !== "string" || typeof fx.source !== "string") return null;
+  const fxMs = Date.parse(`${fx.date}T00:00:00Z`);
+  const computedMs = Date.parse(report.computedAt);
+  const old = !Number.isFinite(fxMs) || !Number.isFinite(computedMs) || computedMs - fxMs > (FX_MAX_AGE_DAYS + 1) * DAY_MS;
+  return { date: fx.date, source: fx.source, stale: old || fx.source.endsWith(":stale") };
+}
+
 export function routeView(origin: string, destination: string, report: RouteReport | null, now: Date): RouteDealsView {
   const base = { origin, destination, deals: [] as RouteDealsView["deals"] };
   const make = (status: RouteDealStatus, extra: Partial<RouteDealsView> = {}): RouteDealsView => ({
@@ -237,6 +286,7 @@ export function routeView(origin: string, destination: string, report: RouteRepo
       : null,
     readiness: report?.readiness ?? null,
     truncated: report?.truncated ?? false,
+    fx: fxView(report),
     ...extra,
   });
   if (!report) return make("not_computed");
