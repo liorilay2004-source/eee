@@ -206,7 +206,7 @@ describe("search answer: airlineNames and airlines on every card", () => {
     expect(Object.keys(data).sort()).toEqual(["cards", "meta"]);
     expect(Object.keys(data.meta).sort()).toEqual(["apiVersion", "candidatePairs", "fromCache", "fxDate", "fxSource", "generatedAt", "recommendations", "searchKey", "sources"]);
     for (const card of data.cards) {
-      expect(Object.keys(card).sort()).toEqual(["ageHours", "airlineNames", "airlines", "kinds", "offer", "priceContext", "savingsVsRoundtripIls"]);
+      expect(Object.keys(card).sort()).toEqual(["ageHours", "ageLabelHe", "ageLabelKey", "airlineNames", "airlines", "fareAgeBasis", "fareAgeHours", "fareAgeMaxMinutes", "fareAgeMinutes", "fareFoundAt", "freshness", "kinds", "offer", "priceContext", "savingsVsRoundtripIls", "scanAgeMinutes"]);
     }
     // Names are looked up after ranking: an unknown code everywhere yields the same cards at the same prices.
     stub(() => "ZZ");
