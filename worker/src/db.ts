@@ -1,4 +1,5 @@
-import type { CachedOffers, FxRates, Leg, Offer, OneWayPair, PriceContext, Repo, SearchRequest, SourceName } from "./types";
+import { bucketKey } from "./deals";
+import type { CachedOffers, FxRates, Leg, Offer, OneWayPair, PriceContext, PriceHistoryRow, Repo, SearchRequest, SourceName } from "./types";
 
 /**
  * D1 persistence (SPEC §12). Every statement is prepared and bound: values never reach the SQL text, only
@@ -12,6 +13,9 @@ const BATCH_CHUNK = 50; // statements per db.batch call
 const LOAD_LIMIT = 5000; // newest rows read by loadRecentOffers, a guard against unbounded history
 const CACHE_RETENTION_MS = 7 * DAY_MS; // search_cache rows older than this are garbage under any sane TTL
 const ERROR_MAX_LEN = 300;
+/** priceHistory bounds (D1 allows 100 bound parameters per query: 6 per pair). */
+const HISTORY_MAX_PAIRS = 10;
+const HISTORY_MAX_PER_PAIR = 100;
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 /** The only period keys a quota row may have: a one-off allowance, or a UTC month (see quotaPeriodKey in quotes.ts). */
@@ -173,6 +177,72 @@ function rowToOffer(row: PriceRow): Offer | null {
   };
 }
 
+// --- price-history write dedup ---------------------------------------------------------------------------
+
+/** Only the Data API's cached fares are deduplicated: a live quote's own timestamp is what makes it "live". */
+const DEDUP_SOURCE = "travelpayouts";
+
+/** Identity of one fare in INSERT_PRICE params order: origin, destination, depart, return, source, structure. */
+const fareKey = (p: readonly Bind[]): string => [p[0], p[1], p[2], p[3], p[6], p[7]].join("|");
+
+/** The deal-detection bucket (deals.ts bucketKey: route, structure, month, trip length band) of INSERT_PRICE params. */
+const bucketOf = (p: readonly Bind[]): string =>
+  bucketKey({ origin: p[0] as string, destination: p[1] as string, depart_date: p[2] as string, return_date: p[3] as string, ticket_structure: p[7] as string }) ??
+  `unbucketed|${fareKey(p)}`;
+
+/**
+ * Keys (fareKey) of the rows in `rows` that need not be written: whole deal-detection BUCKETS in which every row is a
+ * travelpayouts fare whose NEWEST stored row is at or after `since` with the same amount and currency. Writing them again
+ * adds three D1 row writes each (the table and two indexes) and no information inside that time bin.
+ *  - Newest row only: a fare that went 100 -> 120 -> 100 in one bin still writes the second 100.
+ *  - Whole buckets only: deals.ts takes its candidate from the newest instant of a bucket, so a bucket is either written
+ *    complete or not at all, and the history then reads exactly as if this repeat look had not happened (an equal row is
+ *    already in the same bin, so the per-bin observations are unchanged too).
+ * One indexed read per origin (idx_prices_recent, bounded to rows since `since`). Any failure = skip nothing.
+ */
+async function unchangedFares(db: D1Database, rows: readonly Bind[][], since: string): Promise<Set<string>> {
+  const skip = new Set<string>();
+  const byOrigin = new Map<string, Set<string>>();
+  for (const p of rows) {
+    if (p[6] !== DEDUP_SOURCE) continue;
+    const dests = byOrigin.get(p[0] as string) ?? new Set<string>();
+    dests.add(p[1] as string);
+    byOrigin.set(p[0] as string, dests);
+  }
+  if (byOrigin.size === 0) return skip;
+  try {
+    const newest = new Map<string, { amount: number; currency: string }>();
+    for (const [origin, dests] of byOrigin) {
+      const list = [...dests];
+      const { results } = await db
+        .prepare(
+          "SELECT origin, destination, depart_date, return_date, source, ticket_structure, price_amount, price_currency " +
+            "FROM prices INDEXED BY idx_prices_recent " +
+            `WHERE origin = ? AND destination IN (${list.map(() => "?").join(", ")}) AND checked_at >= ? AND source = ? ` +
+            "ORDER BY checked_at ASC, id ASC",
+        )
+        .bind(origin, ...list, since, DEDUP_SOURCE)
+        .all<PriceRow>();
+      // Ascending: the last row seen per fare is its newest.
+      for (const r of results) {
+        newest.set(fareKey([r.origin, r.destination, r.depart_date, r.return_date, null, null, r.source, r.ticket_structure]), {
+          amount: r.price_amount,
+          currency: r.price_currency,
+        });
+      }
+    }
+    const changed = new Set<string>(); // buckets with at least one row that must be written
+    for (const p of rows) {
+      const prev = p[6] === DEDUP_SOURCE ? newest.get(fareKey(p)) : undefined;
+      if (!(prev && prev.amount === p[4] && prev.currency === p[5])) changed.add(bucketOf(p));
+    }
+    for (const p of rows) if (!changed.has(bucketOf(p))) skip.add(fareKey(p));
+  } catch {
+    return new Set<string>(); // never lose history over a failed read: write everything
+  }
+  return skip;
+}
+
 // --- fx_rates -----------------------------------------------------------------------------------------
 
 interface FxRow {
@@ -271,12 +341,15 @@ export function createRepo(db: D1Database): Repo {
       ]);
     },
 
-    async savePrices(offers) {
-      const statements: D1PreparedStatement[] = [];
+    async savePrices(offers, opts) {
+      const rows: Bind[][] = [];
       for (const offer of offers) {
         const params = priceParams(offer);
-        if (params) statements.push(db.prepare(INSERT_PRICE).bind(...params));
+        if (params) rows.push(params);
       }
+      const since = canonicalTimestamp(opts?.skipUnchangedSince);
+      const skip = since === null ? new Set<string>() : await unchangedFares(db, rows, since);
+      const statements = rows.filter((p) => !skip.has(fareKey(p))).map((p) => db.prepare(INSERT_PRICE).bind(...p));
       await runChunked(db, statements);
     },
 
@@ -330,6 +403,27 @@ export function createRepo(db: D1Database): Repo {
         .first<{ currency: string | null; lowest: number | null; week_ago: number | null }>();
       if (!row || row.currency === null) return null;
       return { currency: row.currency, weekAgoAmount: row.week_ago ?? null, lowestAmount: row.lowest ?? null };
+    },
+
+    async priceHistory(pairs, since, limitPerPair) {
+      // One D1 query for all pairs: a UNION ALL of per-pair subqueries, each an exact prefix of idx_prices_route plus a range on
+      // checked_at, newest first with its own LIMIT, so the rows read are at most pairs x limit whatever the history holds.
+      const sinceMs = since.getTime();
+      const limit = Math.min(HISTORY_MAX_PER_PAIR, Math.max(0, Math.floor(limitPerPair)));
+      const valid = pairs
+        .filter((p) => isRecord(p) && typeof p.origin === "string" && typeof p.destination === "string" && ISO_DATE.test(p.departDate) && ISO_DATE.test(p.returnDate))
+        .slice(0, HISTORY_MAX_PAIRS);
+      if (valid.length === 0 || !(limit > 0) || !Number.isFinite(sinceMs)) return [];
+      const cutoff = new Date(sinceMs).toISOString();
+      const one =
+        "SELECT * FROM (SELECT origin, destination, depart_date, return_date, price_amount, price_currency, checked_at " +
+        "FROM prices INDEXED BY idx_prices_route " +
+        "WHERE origin = ? AND destination = ? AND depart_date = ? AND return_date = ? AND checked_at > ? " +
+        "ORDER BY checked_at DESC LIMIT ?)";
+      const binds: Bind[] = [];
+      for (const p of valid) binds.push(p.origin, p.destination, p.departDate, p.returnDate, cutoff, limit);
+      const { results } = await db.prepare(valid.map(() => one).join(" UNION ALL ")).bind(...binds).all<PriceHistoryRow>();
+      return results.filter((r) => typeof r.price_amount === "number" && typeof r.price_currency === "string" && typeof r.checked_at === "string");
     },
 
     async saveSearch(req: SearchRequest, searchKey, now) {
@@ -478,6 +572,24 @@ export function createRepo(db: D1Database): Repo {
           .all<{ count: number }>();
         const count = res.results.length === 1 ? res.results[0]?.count : undefined;
         return typeof count === "number" && Number.isInteger(count) && count >= 1 && count <= cap;
+      } catch {
+        return false;
+      }
+    },
+
+    async claimWindowLock(key, windowSeconds, now) {
+      // Fixed window, not the sliding-window limiter: that one counts refused attempts and weights the previous window, so a
+      // key asked every few minutes would never be granted again. Old windows go with the daily rate_limits cleanup.
+      try {
+        const windowSec = Math.floor(windowSeconds);
+        const nowSec = Math.floor(now.getTime() / 1000);
+        if (typeof key !== "string" || key === "" || !Number.isSafeInteger(windowSec) || windowSec < 1 || !Number.isSafeInteger(nowSec)) return false;
+        const windowStart = Math.floor(nowSec / windowSec) * windowSec;
+        const res = await db
+          .prepare("INSERT INTO rate_limits (key, window_start, count) VALUES (?, ?, 1) ON CONFLICT(key, window_start) DO NOTHING RETURNING count")
+          .bind(key, windowStart)
+          .all<{ count: number }>();
+        return res.results.length === 1;
       } catch {
         return false;
       }

@@ -10,8 +10,8 @@ import bagFeesJson from "../../config/bag_fees.json";
 import scoringJson from "../../config/scoring.json";
 import { applyExtrasAndFx } from "../src/extras";
 import { BAG_FEES, SCORING } from "../src/scoring.config";
-import { fastestByDirection, matchesTimes, recommend, valueScore } from "../src/scoring";
-import type { FxRates, Offer, RecKind, SearchRequest } from "../src/types";
+import { fastestByDirection, matchesTimes, recommend, recommendationsMeta, valueScore } from "../src/scoring";
+import type { FxRates, Offer, RecKind, RecommendationsMeta, SearchRequest } from "../src/types";
 
 const TOL = 0.01;
 
@@ -23,6 +23,7 @@ interface Scenario {
     offers: { totalIls: number | null; extrasAmountIls: number; tags: string[]; score: number | null; matchesTimes: boolean }[];
     fastest: [number | null, number | null];
     cards: { offerIndex: number; kinds: RecKind[]; savingsVsRoundtripIls: number | null }[];
+    recommendations: RecommendationsMeta;
   };
 }
 
@@ -102,6 +103,7 @@ describe("Python parity", () => {
         expect(c.kinds, `card ${i} kinds`).toEqual(e.kinds);
         near(c.savingsVsRoundtripIls, e.savingsVsRoundtripIls, `card ${i} savings`);
       });
+      expect(recommendationsMeta(offers, req, cards), "meta.recommendations").toEqual(exp.recommendations);
     });
   }
 });

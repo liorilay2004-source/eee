@@ -40,9 +40,31 @@ const SUPPORTED_CABIN: Cabin = "economy";
 
 export type ValidationCode = "invalid_request" | "destination_required";
 
+/**
+ * ADDITIVE (WEB_APP_SPEC §7.5, §7.8 Δ2): a stable machine code per invalid field, beside the English `fields` sentence.
+ * `fieldCodes` has exactly the keys of `fields` (the request's own field names, or "body"), so the UI maps a code to Hebrew
+ * copy and never string-matches the sentence. New codes may be added; an existing code keeps its meaning.
+ */
+export type FieldErrorCode =
+  | "required"
+  | "invalid_format"
+  | "out_of_range"
+  | "place_not_found"
+  | "same_place"
+  | "start_after_end"
+  | "past_date"
+  | "window_too_long"
+  | "stay_range_invalid"
+  | "stay_too_long"
+  | "too_many_pairs"
+  | "too_many_passengers"
+  | "infants_exceed_adults"
+  | "hours_invalid"
+  | "not_supported";
+
 export type ParseResult =
   | { ok: true; req: SearchRequest }
-  | { ok: false; code: ValidationCode; fields: Record<string, string> };
+  | { ok: false; code: ValidationCode; fields: Record<string, string>; fieldCodes: Record<string, FieldErrorCode> };
 
 export interface ValidateDeps {
   resolver: Resolver;
@@ -61,11 +83,16 @@ function field(body: Record<string, unknown>, name: string): unknown {
 const missing = (v: unknown): boolean => v === undefined || v === null;
 
 export function parseSearchBody(body: unknown, deps: ValidateDeps): ParseResult {
-  if (!isRecord(body)) return { ok: false, code: "invalid_request", fields: { body: "must be a JSON object" } };
+  if (!isRecord(body)) return { ok: false, code: "invalid_request", fields: { body: "must be a JSON object" }, fieldCodes: { body: "invalid_format" } };
 
   const errors: Record<string, string> = {};
-  const fail = (name: string, message: string): void => {
-    if (!Object.hasOwn(errors, name)) errors[name] = message;
+  const codes: Record<string, FieldErrorCode> = {};
+  /** The first problem of a field wins, for its sentence and its code alike (the two always describe the same problem). */
+  const fail = (name: string, message: string, code: FieldErrorCode): void => {
+    if (!Object.hasOwn(errors, name)) {
+      errors[name] = message;
+      codes[name] = code;
+    }
   };
   const failed = (...names: string[]): boolean => names.some((n) => Object.hasOwn(errors, n));
 
@@ -74,11 +101,11 @@ export function parseSearchBody(body: unknown, deps: ValidateDeps): ParseResult 
     const v = field(body, name);
     if (missing(v)) return dflt;
     if (typeof v !== "number" || !Number.isInteger(v)) {
-      fail(name, "must be an integer");
+      fail(name, "must be an integer", "invalid_format");
       return dflt;
     }
     if (v < min || v > max) {
-      fail(name, `must be between ${min} and ${max}`);
+      fail(name, `must be between ${min} and ${max}`, "out_of_range");
       return dflt;
     }
     return v;
@@ -88,7 +115,7 @@ export function parseSearchBody(body: unknown, deps: ValidateDeps): ParseResult 
     const v = field(body, name);
     if (missing(v)) return dflt;
     if (typeof v !== "boolean") {
-      fail(name, "must be true or false");
+      fail(name, "must be true or false", "invalid_format");
       return dflt;
     }
     return v;
@@ -99,20 +126,20 @@ export function parseSearchBody(body: unknown, deps: ValidateDeps): ParseResult 
     const v = field(body, name);
     if (missing(v)) return null;
     if (!Array.isArray(v) || v.length !== 2) {
-      fail(name, "must be [startHour, endHour]");
+      fail(name, "must be [startHour, endHour]", "invalid_format");
       return null;
     }
     const [a, b] = v as unknown[];
     if (typeof a !== "number" || typeof b !== "number" || !Number.isInteger(a) || !Number.isInteger(b)) {
-      fail(name, "hours must be integers");
+      fail(name, "hours must be integers", "invalid_format");
       return null;
     }
     if (a < 0 || a > MAX_HOUR || b < 0 || b > MAX_HOUR) {
-      fail(name, `hours must be between 0 and ${MAX_HOUR}`);
+      fail(name, `hours must be between 0 and ${MAX_HOUR}`, "out_of_range");
       return null;
     }
     if (a === b) {
-      fail(name, "start and end hour must differ");
+      fail(name, "start and end hour must differ", "hours_invalid");
       return null;
     }
     return [a, b];
@@ -126,7 +153,7 @@ export function parseSearchBody(body: unknown, deps: ValidateDeps): ParseResult 
    */
   const place = (name: string, text: string): { code: string; city: string } | null => {
     if (text.length > MAX_PLACE_TEXT_LEN) {
-      fail(name, `must be at most ${MAX_PLACE_TEXT_LEN} characters`);
+      fail(name, `must be at most ${MAX_PLACE_TEXT_LEN} characters`, "invalid_format");
       return null;
     }
     const match = deps.resolver.resolvePlace(text);
@@ -138,15 +165,15 @@ export function parseSearchBody(body: unknown, deps: ValidateDeps): ParseResult 
       const code = text.toUpperCase();
       return { code, city: code };
     }
-    fail(name, "no matching city or airport");
+    fail(name, "no matching city or airport", "place_not_found");
     return null;
   };
 
   // --- places ---------------------------------------------------------------------------------------
   let origin: { code: string; city: string } | null = null;
   const rawOrigin = field(body, "origin");
-  if (missing(rawOrigin) || (typeof rawOrigin === "string" && rawOrigin.trim() === "")) fail("origin", "is required");
-  else if (typeof rawOrigin !== "string") fail("origin", "must be a string");
+  if (missing(rawOrigin) || (typeof rawOrigin === "string" && rawOrigin.trim() === "")) fail("origin", "is required", "required");
+  else if (typeof rawOrigin !== "string") fail("origin", "must be a string", "invalid_format");
   else origin = place("origin", rawOrigin.trim());
 
   let destination: { code: string; city: string } | null = null;
@@ -155,21 +182,21 @@ export function parseSearchBody(body: unknown, deps: ValidateDeps): ParseResult 
   if (missing(rawDest) || (typeof rawDest === "string" && rawDest.trim() === "")) {
     // TODO(Phase 2, SPEC §9): an empty destination becomes spontaneous mode ("where is cheapest?") instead of an error.
     destinationEmpty = true;
-    fail("destination", "is required");
-  } else if (typeof rawDest !== "string") fail("destination", "must be a string");
+    fail("destination", "is required", "required");
+  } else if (typeof rawDest !== "string") fail("destination", "must be a string", "invalid_format");
   else destination = place("destination", rawDest.trim());
 
-  if (origin && destination && origin.city === destination.city) fail("destination", "must differ from origin");
+  if (origin && destination && origin.city === destination.city) fail("destination", "must differ from origin", "same_place");
 
   // --- dates ----------------------------------------------------------------------------------------
   const dateField = (name: string): string | null => {
     const v = field(body, name);
     if (missing(v)) {
-      fail(name, "is required");
+      fail(name, "is required", "required");
       return null;
     }
     if (typeof v !== "string" || dayNumber(v) === null) {
-      fail(name, "must be a real date formatted YYYY-MM-DD");
+      fail(name, "must be a real date formatted YYYY-MM-DD", "invalid_format");
       return null;
     }
     return v;
@@ -180,27 +207,27 @@ export function parseSearchBody(body: unknown, deps: ValidateDeps): ParseResult 
   const stayMin = int("stayMin", MIN_STAY_NIGHTS, MAX_STAY_NIGHTS, 0);
   const stayMax = int("stayMax", MIN_STAY_NIGHTS, MAX_STAY_NIGHTS, 0);
   for (const name of ["stayMin", "stayMax"] as const) {
-    if (missing(field(body, name))) fail(name, "is required");
+    if (missing(field(body, name))) fail(name, "is required", "required");
   }
   const stayValid = !failed("stayMin", "stayMax");
-  if (stayValid && stayMin > stayMax) fail("stayMax", "must be at least stayMin");
+  if (stayValid && stayMin > stayMax) fail("stayMax", "must be at least stayMin", "stay_range_invalid");
 
   const today = Math.floor(deps.now.getTime() / 86_400_000); // UTC day
   const startDay = windowStart === null ? null : dayNumber(windowStart);
   const endDay = windowEnd === null ? null : dayNumber(windowEnd);
   if (startDay !== null) {
-    if (startDay < today) fail("windowStart", "must not be in the past");
-    else if (startDay > today + MAX_ADVANCE_DAYS) fail("windowStart", `must be within ${MAX_ADVANCE_DAYS} days from today`);
+    if (startDay < today) fail("windowStart", "must not be in the past", "past_date");
+    else if (startDay > today + MAX_ADVANCE_DAYS) fail("windowStart", `must be within ${MAX_ADVANCE_DAYS} days from today`, "out_of_range");
   }
   if (startDay !== null && endDay !== null) {
     const span = endDay - startDay;
-    if (span < MIN_WINDOW_DAYS) fail("windowEnd", "must be after windowStart");
-    else if (span > MAX_WINDOW_DAYS) fail("windowEnd", `window must not exceed ${MAX_WINDOW_DAYS} days`);
+    if (span < MIN_WINDOW_DAYS) fail("windowEnd", "must be after windowStart", "start_after_end");
+    else if (span > MAX_WINDOW_DAYS) fail("windowEnd", `window must not exceed ${MAX_WINDOW_DAYS} days`, "window_too_long");
     else if (stayValid && !failed("stayMax")) {
       const pairs = countValidPairs(windowStart as string, windowEnd as string, stayMin, stayMax);
-      if (pairs === 0) fail("stayMin", "no trip of this length fits inside the window");
+      if (pairs === 0) fail("stayMin", "no trip of this length fits inside the window", "stay_too_long");
       else if (pairs > MAX_VALID_PAIRS) {
-        fail("windowEnd", `too many date combinations (${pairs}, max ${MAX_VALID_PAIRS}): shorten the window or narrow the stay range`);
+        fail("windowEnd", `too many date combinations (${pairs}, max ${MAX_VALID_PAIRS}): shorten the window or narrow the stay range`, "too_many_pairs");
       }
     }
   }
@@ -210,17 +237,17 @@ export function parseSearchBody(body: unknown, deps: ValidateDeps): ParseResult 
   const children = int("children", 0, MAX_PASSENGERS, 0);
   const infants = int("infants", 0, MAX_PASSENGERS, 0);
   if (!failed("adults", "children", "infants")) {
-    if (adults + children + infants > MAX_PASSENGERS) fail("adults", `at most ${MAX_PASSENGERS} passengers in total`);
-    else if (infants > adults) fail("infants", "at most one infant per adult");
+    if (adults + children + infants > MAX_PASSENGERS) fail("adults", `at most ${MAX_PASSENGERS} passengers in total`, "too_many_passengers");
+    else if (infants > adults) fail("infants", "at most one infant per adult", "infants_exceed_adults");
   }
 
   let cabin: Cabin = "economy";
   const rawCabin = field(body, "cabin");
   if (!missing(rawCabin)) {
-    if (typeof rawCabin !== "string" || !(CABINS as readonly string[]).includes(rawCabin)) fail("cabin", `must be one of ${CABINS.join(", ")}`);
+    if (typeof rawCabin !== "string" || !(CABINS as readonly string[]).includes(rawCabin)) fail("cabin", `must be one of ${CABINS.join(", ")}`, "invalid_format");
     // The fare source (Travelpayouts cached prices) cannot be asked for a cabin, so a business or first search would
     // silently show economy fares under the wrong label. Refuse it until a source can price the cabin.
-    else if (rawCabin !== SUPPORTED_CABIN) fail("cabin", `only ${SUPPORTED_CABIN} fares are available at the moment`);
+    else if (rawCabin !== SUPPORTED_CABIN) fail("cabin", `only ${SUPPORTED_CABIN} fares are available at the moment`, "not_supported");
     else cabin = rawCabin as Cabin;
   }
 
@@ -232,7 +259,7 @@ export function parseSearchBody(body: unknown, deps: ValidateDeps): ParseResult 
   const nearbyAirports = bool("nearbyAirports", false);
 
   if (Object.keys(errors).length > 0 || !origin || !destination || windowStart === null || windowEnd === null) {
-    return { ok: false, code: destinationEmpty ? "destination_required" : "invalid_request", fields: errors };
+    return { ok: false, code: destinationEmpty ? "destination_required" : "invalid_request", fields: errors, fieldCodes: codes };
   }
 
   return {
