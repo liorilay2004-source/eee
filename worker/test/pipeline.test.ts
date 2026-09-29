@@ -15,14 +15,18 @@ import {
   MAX_PERSISTED_PRICES,
   MAX_TP_REQUESTS,
   PipelineError,
+  REFRESH_LOCK_SECONDS,
   runSearch,
   sanitizeOffers,
   sanitizeOneWayPairs,
+  STALE_MAX_AGE_HOURS,
+  staleInfo,
   type SearchDeps,
 } from "../src/pipeline";
 import { BAG_FEES, SCORING } from "../src/scoring.config";
 import { buildSplits, countValidPairs, pairOk, validPairs } from "../src/splits";
 import { monthsBetween, TravelpayoutsError } from "../src/travelpayouts";
+import type { FareQuoteSource } from "../src/quotes";
 import type { FxRates, Leg, Offer, OneWayFare, OneWayPair, SearchRequest, SearchResponse, TravelpayoutsClient } from "../src/types";
 import { createTestD1 } from "./helpers/d1";
 
@@ -711,19 +715,36 @@ describe("failure handling (SPEC §6 source reliability)", () => {
   });
 
   it("a pair Travelpayouts rejects with HTTP 400 is a note, not a failure: the sibling airport still answers", async () => {
-    // Eilat has two airports in the bundled table; Aviasales serves Ramon (ETM) but answers 400 for Ovda (VDA).
+    // London has six airports in the bundled table; here Aviasales answers 400 for one of them (LGW).
     const tp = mockTp({
       rt: (o) => {
-        if (o === "VDA") throw new TravelpayoutsError("HTTP 400: bad request", 400);
-        return o === "ETM" ? [offer(120, { origin: "ETM" })] : [];
+        if (o === "LGW") throw new TravelpayoutsError("HTTP 400: bad request", 400);
+        return o === "LHR" ? [offer(120, { origin: "LHR" })] : [];
       },
     });
     const { deps } = setup({ tp });
-    const res = await runSearch(deps, req({ origin: "ETM" }));
+    const res = await runSearch(deps, req({ origin: "LON" }));
     expect(res.cards).toHaveLength(1);
-    expect(res.cards[0]?.offer.origin).toBe("ETM");
+    expect(res.cards[0]?.offer.origin).toBe("LHR");
     expect(res.meta.sources[0]).toMatchObject({ ok: true });
-    expect(res.meta.sources[0]?.error).toContain("not searchable at Travelpayouts: VDA-BCN");
+    expect(res.meta.sources[0]?.error).toContain("not searchable at Travelpayouts: LGW-BCN");
+  });
+
+  it("Eilat searches Ramon (ETM) only: Ovda (VDA) has no scheduled service, so no request is spent on it", async () => {
+    const tp = mockTp({ rt: (o) => (o === "ETM" ? [offer(120, { origin: "ETM" })] : []) });
+    const { deps } = setup({ tp });
+    const res = await runSearch(deps, req({ origin: "ETM" }));
+    expect(res.cards[0]?.offer.origin).toBe("ETM");
+    expect(tp.log.some((l) => l.includes("VDA"))).toBe(false);
+    expect(tp.log).toEqual(["rt:ETM-BCN", "ow:ETM-BCN", "ow:BCN-ETM"]);
+    expect(res.meta.sources[0]?.error).toBeNull();
+  });
+
+  it("an airport without scheduled service is still searched when the user asked for it and nothing else is left", async () => {
+    const tp = mockTp();
+    const { deps } = setup({ tp });
+    await runSearch(deps, req({ origin: "VDA" }));
+    expect(tp.log).toEqual(["rt:VDA-BCN", "ow:VDA-BCN", "ow:BCN-VDA"]);
   });
 
   it("when every pair is rejected with HTTP 400 the answer is an empty result, not source_unavailable", async () => {
@@ -788,6 +809,27 @@ describe("airports, nearby airports and the request budget (SPEC §7 step 1)", (
 
   it("an airport code searches just that airport", () => {
     expect(airportPairs(defaultResolver, req({ origin: "LHR", destination: "CDG" }))).toEqual([{ origin: "LHR", dest: "CDG" }]);
+  });
+
+  it("route hints: pairs with a direct TLV flight seen go ahead of the rest, the primary pair stays first", () => {
+    // Milan's bundled order is MXP, LIN, BGY; the IAA board snapshot shows direct TLV flights to MXP and BGY, not LIN.
+    expect(airportPairs(defaultResolver, req({ destination: "MIL" })).map((p) => p.dest)).toEqual(["MXP", "BGY", "LIN"]);
+    // Also when TLV is the destination (the hint is direction-free).
+    expect(airportPairs(defaultResolver, req({ origin: "MIL", destination: "TLV" })).map((p) => p.origin)).toEqual(["MXP", "BGY", "LIN"]);
+    // London: LHR, LGW, STN, LTN all had direct flights and keep their order; LCY and SEN follow.
+    expect(airportPairs(defaultResolver, req({ destination: "LON" })).map((p) => p.dest)).toEqual(["LHR", "LGW", "STN", "LTN", "LCY", "SEN"]);
+  });
+
+  it("route hints never add, drop or reorder pairs away from Israel (no hint data there)", () => {
+    const pairs = airportPairs(defaultResolver, req({ origin: "LON", destination: "PAR" }));
+    expect(pairs.slice(0, 3)).toEqual([{ origin: "LHR", dest: "CDG" }, { origin: "LHR", dest: "ORY" }, { origin: "LGW", dest: "CDG" }]);
+  });
+
+  it("the primary pair stays first even when it has no direct flight seen", () => {
+    // LIN is the user's own airport choice; with nearby airports the Milan siblings follow it, direct ones first.
+    const pairs = airportPairs(defaultResolver, req({ destination: "LIN", nearbyAirports: true })).map((p) => p.dest);
+    expect(pairs[0]).toBe("LIN");
+    expect(pairs.slice(1)).toEqual(["MXP", "BGY"]);
   });
 
   it("an unknown code is passed through rather than dropped", () => {
@@ -1343,5 +1385,187 @@ describe("sanitizeOneWayPairs", () => {
     expect(out[0]?.backs).toHaveLength(1);
     expect(sanitizeOneWayPairs("nope")).toEqual([]);
     expect(sanitizeOneWayPairs([{ ...good, outs: "x", backs: undefined }])).toEqual([{ origin: "TLV", destination: "BCN", outs: [], backs: [] }]);
+  });
+});
+
+describe("stale-while-revalidate (SearchDeps.staleWhileRevalidate)", () => {
+  const later = (h: number) => new Date(NOW.getTime() + h * HOUR);
+  /** Fills the cache at NOW with one round trip at `price`, then returns deps for a search `hours` later. */
+  async function staleSetup(hours: number, over: Partial<SearchDeps> = {}) {
+    const pending: Promise<unknown>[] = [];
+    const tp = mockTp({ rt: rtFor([offer(164)]) });
+    const base = setup({ tp });
+    await runSearch(base.deps, req());
+    const deps: SearchDeps = { ...base.deps, now: later(hours), staleWhileRevalidate: true, waitUntil: (p) => void pending.push(p), ...over };
+    return { ...base, tp, deps, pending };
+  }
+
+  /** A Travelpayouts client whose every request waits until release() is called. */
+  function gatedTp() {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const inner = mockTp({ rt: rtFor([offer(170)]) });
+    const tp: TravelpayoutsClient = {
+      ...inner,
+      roundTrips: async (...a) => (await gate, inner.roundTrips(...a)),
+      oneWays: async (...a) => (await gate, inner.oneWays(...a)),
+    };
+    return { tp, release, inner };
+  }
+
+  it("bounds are what the SPEC states: 24h stale bound, 10 min lock", () => {
+    expect(STALE_MAX_AGE_HOURS).toBe(24);
+    expect(REFRESH_LOCK_SECONDS).toBe(600);
+  });
+
+  it("off by default (the scheduled snapshot path): a row past the TTL is a miss and the scan runs in the request", async () => {
+    const { deps, tp } = await staleSetup(7);
+    const before = tp.callCount();
+    const res = await runSearch({ ...deps, staleWhileRevalidate: undefined }, req());
+    expect(res.meta.fromCache).toBe(false);
+    expect(res.meta.stale).toBeUndefined();
+    expect(tp.callCount()).toBeGreaterThan(before);
+  });
+
+  it("needs waitUntil: without it a stale row is not served", async () => {
+    const { deps } = await staleSetup(7);
+    const res = await runSearch({ ...deps, waitUntil: undefined }, req());
+    expect(res.meta.fromCache).toBe(false);
+    expect(res.meta.stale).toBeUndefined();
+  });
+
+  it("answers from the stale row WITHOUT waiting for the rescan, which runs in waitUntil and rewrites the row", async () => {
+    const { deps, pending, db } = await staleSetup(7);
+    const g = gatedTp();
+    const res = await runSearch({ ...deps, tp: g.tp }, req()); // resolves while every upstream request is still blocked
+    expect(res.meta.fromCache).toBe(true);
+    expect(res.meta.stale).toMatchObject({ cachedAt: NOW.toISOString(), ageHours: 7, revalidating: true });
+    expect(res.cards[0]?.offer.priceAmount).toBe(164); // the old fare, not the rescan's 170
+    expect(res.cards[0]?.ageHours).toBe(7); // the card's own age is the old scan's
+    expect(g.inner.log).toEqual([]); // no upstream request has completed
+    g.release();
+    await Promise.all(pending);
+    expect(g.inner.log.length).toBeGreaterThan(0);
+    const [row] = await rows<{ created_at: string }>(db, "SELECT created_at FROM search_cache");
+    expect(row?.created_at).toBe(later(7).toISOString());
+    expect(await count(db, "searches")).toBe(2); // the stale answer's log row only, not one more for the rescan
+  });
+
+  it("a row inside the TTL is an ordinary hit: no stale mark, no rescan", async () => {
+    const { deps, tp, pending } = await staleSetup(5);
+    const before = tp.callCount();
+    const res = await runSearch(deps, req());
+    expect(res.meta.fromCache).toBe(true);
+    expect(res.meta.stale).toBeUndefined();
+    await Promise.all(pending);
+    expect(tp.callCount()).toBe(before);
+  });
+
+  it("Travelpayouts not configured: stale answer, revalidating false, no background job", async () => {
+    const { deps, pending } = await staleSetup(7);
+    const res = await runSearch({ ...deps, tp: mockTp({ configured: false }) }, req());
+    expect(res.meta.stale?.revalidating).toBe(false);
+    expect(pending).toHaveLength(1); // only the search-log write
+  });
+
+  it("the lock storage failing means no rescan (fail closed), and the answer says so", async () => {
+    const { deps, tp, pending, repo } = await staleSetup(7);
+    const broken = new Proxy(repo, { get: (t, k) => (k === "claimWindowLock" ? async () => { throw new Error("D1 down"); } : Reflect.get(t, k)) });
+    const before = tp.callCount();
+    const res = await runSearch({ ...deps, repo: broken as typeof repo }, req());
+    expect(res.meta.fromCache).toBe(true);
+    expect(res.meta.stale?.revalidating).toBe(false);
+    await Promise.all(pending);
+    expect(tp.callCount()).toBe(before);
+  });
+
+  it("the global scan budget is asked only after the per-key lock is won", async () => {
+    const budget = vi.fn(async () => true);
+    const { deps } = await staleSetup(7, { scanBudget: budget });
+    const g = gatedTp(); // the first rescan stays in flight, so the row is still stale for the second search
+    await runSearch({ ...deps, tp: g.tp }, req());
+    expect(budget).toHaveBeenCalledTimes(1);
+    const second = await runSearch({ ...deps, tp: g.tp }, req()); // lock held now
+    expect(second.meta.stale?.revalidating).toBe(false);
+    expect(budget).toHaveBeenCalledTimes(1);
+  });
+
+  it("a failed background scan leaves the stale row untouched and never rejects", async () => {
+    const { deps, pending, db } = await staleSetup(7);
+    const failing: TravelpayoutsClient = { ...mockTp(), roundTrips: async () => { throw new TravelpayoutsError("HTTP 502"); }, oneWays: async () => { throw new TravelpayoutsError("HTTP 502"); } };
+    const res = await runSearch({ ...deps, tp: failing }, req());
+    expect(res.meta.stale?.revalidating).toBe(true);
+    await expect(Promise.all(pending)).resolves.toBeDefined();
+    const [row] = await rows<{ created_at: string }>(db, "SELECT created_at FROM search_cache");
+    expect(row?.created_at).toBe(NOW.toISOString());
+  });
+
+  /** A configured stand-in quote vendor that answers every date pair with one fare a little below the cached one. */
+  function quoteVendor(seenAt: Date = later(7)) {
+    const asked: string[] = [];
+    const src: FareQuoteSource = {
+      name: "serpapi",
+      configured: true,
+      quota: { period: "monthly", cap: 100, allowance: 250 },
+      callCount: () => asked.length,
+      quote: async (q) => {
+        asked.push(`${q.departDate}|${q.returnDate}`);
+        return [offer(160, { source: "serpapi", departDate: q.departDate, returnDate: q.returnDate, checkedAt: seenAt.toISOString() })];
+      },
+    };
+    return { src, asked };
+  }
+  const extraOf = async (db: D1Database) =>
+    JSON.parse((await db.prepare("SELECT extra_json FROM search_cache").first<string>("extra_json")) ?? "{}") as { quotes?: Offer[] };
+
+  it("carried quotes expired + a quote source configured: the rescan runs the whole pipeline, so the key gets live quotes again", async () => {
+    const { deps, pending, db } = await staleSetup(7);
+    const v = quoteVendor();
+    const res = await runSearch({ ...deps, quoteSources: [v.src] }, req());
+    expect(res.meta.stale?.revalidating).toBe(true);
+    expect(v.asked).toEqual([]); // not before the answer
+    await Promise.all(pending);
+    expect(v.asked.length).toBeGreaterThan(0);
+    expect((await extraOf(db)).quotes?.length).toBeGreaterThan(0);
+    expect(await count(db, "searches")).toBe(2); // the background pipeline did not log a search of its own
+    // The next identical search is an in-TTL hit that ranks the refreshed quotes.
+    const again = await runSearch({ ...deps, quoteSources: [v.src] }, req());
+    expect(again.meta.fromCache).toBe(true);
+    expect(again.meta.stale).toBeUndefined();
+    expect(again.cards.some((c) => c.offer.source === "serpapi")).toBe(true);
+  });
+
+  it("the whole-pipeline rescan takes no second unit of the global scan budget", async () => {
+    const budget = vi.fn(async () => true);
+    const { deps, pending } = await staleSetup(7, { scanBudget: budget });
+    await runSearch({ ...deps, quoteSources: [quoteVendor().src] }, req());
+    await Promise.all(pending);
+    expect(budget).toHaveBeenCalledTimes(1);
+  });
+
+  it("still-live carried quotes: the lean rescan asks no vendor and keeps them on the rewritten row", async () => {
+    const { deps, pending, db } = await staleSetup(7);
+    const live = offer(160, { source: "serpapi", checkedAt: later(5).toISOString() }); // 2h old at the stale hit
+    const extra = await extraOf(db);
+    await db.prepare("UPDATE search_cache SET extra_json = ?").bind(JSON.stringify({ ...extra, quotes: [live] })).run();
+    const v = quoteVendor();
+    const res = await runSearch({ ...deps, quoteSources: [v.src] }, req());
+    expect(res.meta.stale?.revalidating).toBe(true);
+    await Promise.all(pending);
+    expect(v.asked).toEqual([]);
+    const [row] = await rows<{ created_at: string }>(db, "SELECT created_at FROM search_cache");
+    expect(row?.created_at).toBe(later(7).toISOString());
+    expect((await extraOf(db)).quotes).toEqual([JSON.parse(JSON.stringify(live))]);
+  });
+
+  it("staleInfo: Hebrew hour forms, and the 'search again' line only while revalidating", () => {
+    const at = (h: number) => new Date(NOW.getTime() + h * HOUR);
+    expect(staleInfo(NOW.toISOString(), at(1.5), false).messageHe).toContain("לפני שעה,");
+    expect(staleInfo(NOW.toISOString(), at(2.2), false).messageHe).toContain("לפני שעתיים,");
+    const s = staleInfo(NOW.toISOString(), at(13.26), true);
+    expect(s).toMatchObject({ ageHours: 13.3, revalidating: true, cachedAt: NOW.toISOString() });
+    expect(s.messageHe).toContain("לפני 13 שעות");
+    expect(s.messageHe).toContain("חפשו שוב");
+    expect(staleInfo(NOW.toISOString(), at(13), false).messageHe).not.toContain("חפשו שוב");
   });
 });

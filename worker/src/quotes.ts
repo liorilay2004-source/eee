@@ -21,7 +21,7 @@ import type { Leg, Offer, Repo, SearchRequest, SourceName, SourceStatus } from "
 
 /** Date pairs asked per search: the cheapest ones only. */
 export const MAX_QUOTE_PAIRS = 4;
-/** Vendor requests per search. Free Workers: 50 subrequests = Travelpayouts 30 + FX 1-2 + this 12 + 6 spare. */
+/** Vendor requests per search. Free Workers: 50 subrequests = Travelpayouts 30 + FX 1-3 + this 12 + 5 spare. */
 export const MAX_QUOTE_CALLS = 12;
 /** One vendor request, headers and body included. The phase costs at most ceil(MAX_QUOTE_CALLS / QUOTE_CONCURRENCY) waves of this. */
 export const QUOTE_TIMEOUT_MS = 5_000;

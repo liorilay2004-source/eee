@@ -515,6 +515,28 @@ function cheapestFirst(a: Snap, b: Snap): number {
  * per bucket).
  */
 export function detectDeals(rows: readonly DealPriceRow[], ratesToIls: RatesToIls, now: Date, config: Partial<DealConfig> = {}): DealReport {
+  const { deals, stats } = assessBuckets(rows, ratesToIls, now, config);
+  return { deals, stats };
+}
+
+/** One live (not stale) bucket as detectDeals judged it: its candidate date pair and how much evidence that pair has. */
+export interface BucketSummary {
+  bucket: string;
+  departDate: string;
+  returnDate: string;
+  /** checked_at of the candidate row (the newest instant of the bucket). */
+  checkedAt: string;
+  verdict: DealVerdict;
+  sampleSize: number;
+  spanDays: number;
+}
+
+/**
+ * detectDeals plus one summary per live bucket (sorted by bucket). ADDITIVE: detectDeals is exactly this without
+ * `buckets`, so both always agree. The candidate of a bucket depends only on the rows of its newest instant, which is
+ * what lets a caller find the candidate date pairs from recent rows alone and then load the history of just those pairs.
+ */
+export function assessBuckets(rows: readonly DealPriceRow[], ratesToIls: RatesToIls, now: Date, config: Partial<DealConfig> = {}): DealReport & { buckets: BucketSummary[] } {
   const nowMs = now.getTime();
   if (!Number.isFinite(nowMs)) throw new RangeError("detectDeals: now must be a valid Date");
   const cfg = resolveConfig(config);
@@ -553,6 +575,7 @@ export function detectDeals(rows: readonly DealPriceRow[], ratesToIls: RatesToIl
   stats.buckets = buckets.size;
 
   const deals: Deal[] = [];
+  const summaries: BucketSummary[] = [];
   for (const [bucket, snaps] of buckets) {
     const newest = snaps.reduce((m, s) => (s.ms > m ? s.ms : m), -Infinity);
     if (nowMs - newest > cfg.liveWithinHours * HOUR_MS) {
@@ -566,6 +589,15 @@ export function detectDeals(rows: readonly DealPriceRow[], ratesToIls: RatesToIl
       { priceIls: candidate.priceIls, checkedAt: candidate.row.checked_at },
       cfg,
     );
+    summaries.push({
+      bucket,
+      departDate: candidate.row.depart_date,
+      returnDate: candidate.row.return_date,
+      checkedAt: candidate.row.checked_at,
+      verdict: a.verdict,
+      sampleSize: a.sampleSize,
+      spanDays: a.spanDays,
+    });
     if (a.verdict === "insufficient_data") {
       stats.insufficientBuckets++;
       continue;
@@ -594,5 +626,6 @@ export function detectDeals(rows: readonly DealPriceRow[], ratesToIls: RatesToIl
 
   // one deal per bucket, so the bucket already makes the order total
   deals.sort((a, b) => cmp(b.dropPct, a.dropPct) || cmp(a.priceIls, b.priceIls) || cmp(a.bucket, b.bucket));
-  return { deals, stats };
+  summaries.sort((a, b) => cmp(a.bucket, b.bucket));
+  return { deals, stats, buckets: summaries };
 }
