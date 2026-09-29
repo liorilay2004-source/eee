@@ -975,8 +975,13 @@ describe("the quote phase has one deadline", () => {
   const dates4: Array<[string, string]> = [["2026-11-10", "2026-11-16"], ["2026-11-11", "2026-11-17"], ["2026-11-12", "2026-11-18"], ["2026-11-13", "2026-11-19"]];
   const never = () => new Promise<Offer[]>(() => {});
   /** Real event-loop turns, for work fake timers cannot see (crypto.subtle). */
-  const until = async (cond: () => boolean): Promise<void> => {
-    for (let i = 0; i < 500 && !cond(); i++) await new Promise((r) => setImmediate(r));
+  /** Bounded by real wall time, not by a count of turns: a slow CI runner needs more turns for the same work. */
+  const until = async (cond: () => boolean, maxMs = 10_000): Promise<void> => {
+    const start = performance.now();
+    while (!cond()) {
+      if (performance.now() - start > maxMs) throw new Error(`condition not met within ${maxMs} ms`);
+      await new Promise((r) => setImmediate(r));
+    }
   };
   const withFakeTimers = async (body: () => Promise<void>): Promise<void> => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
