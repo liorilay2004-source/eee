@@ -12,6 +12,7 @@ import { createRepo, pruneHistory } from "./db";
 import { getFxRates } from "./fx";
 import { defaultResolver, PipelineError, runSearch, sha256Hex } from "./pipeline";
 import { clientIdentity, createMemoryLimiter, limiterSalt } from "./ratelimit";
+import { runSnapshot } from "./snapshots";
 import { createTravelpayoutsClient, marketForCountry } from "./travelpayouts";
 import type { Env } from "./types";
 import { GLOBAL_SCAN_LIMIT, GLOBAL_SCAN_WINDOW_SECONDS, MAX_BODY_BYTES, parseSearchBody, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_SECONDS } from "./validate";
@@ -20,6 +21,9 @@ import { GLOBAL_SCAN_LIMIT, GLOBAL_SCAN_WINDOW_SECONDS, MAX_BODY_BYTES, parseSea
 // else (the limits live in validate.ts, the limiter helpers in ratelimit.ts for that reason).
 const AIRPORTS_DEFAULT_LIMIT = 8;
 const AIRPORTS_MAX_LIMIT = 10;
+
+/** Must equal the hourly entry of `crons` in wrangler.toml (a test pins that). */
+const SNAPSHOT_CRON = "43 * * * *";
 
 /**
  * Used only while the D1-backed limiter is failing (e.g. the free-tier write quota is spent, when every D1 write
@@ -226,8 +230,24 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
 }
 
 export default {
-  /** Daily retention job (see wrangler.toml `[triggers]`): the append-only tables must not grow without bound. */
+  /**
+   * Two cron triggers (wrangler.toml `[triggers]`): the daily retention job (the append-only tables must not grow without
+   * bound), and the hourly price snapshot of one watchlist route (src/snapshots.ts).
+   */
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    if (controller.cron === SNAPSHOT_CRON) {
+      const now = new Date(controller.scheduledTime);
+      const fetchFn: typeof fetch = (input, init) => globalThis.fetch(input, init);
+      const repo = createRepo(env.DB);
+      const tp = createTravelpayoutsClient({
+        token: env.TRAVELPAYOUTS_TOKEN,
+        marker: env.TRAVELPAYOUTS_MARKER,
+        fetchFn,
+        marketFor: (origin) => marketForCountry(defaultResolver.countryOfAirport(origin)),
+      });
+      ctx.waitUntil(runSnapshot({ repo, tp, fx: () => getFxRates(repo, fetchFn, now), now, resolver: defaultResolver }).then(() => undefined));
+      return;
+    }
     ctx.waitUntil(
       pruneHistory(env.DB, new Date(controller.scheduledTime)).then(
         () => undefined,
