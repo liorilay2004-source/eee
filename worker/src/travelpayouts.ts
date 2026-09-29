@@ -7,6 +7,7 @@
  * error message (every message is scrubbed of it), so it cannot leak through logs or API responses.
  */
 
+import { vendorTimestamp } from "./freshness";
 import type { Leg, Offer, OneWayFare, TravelpayoutsClient } from "./types";
 
 export const API = "https://api.travelpayouts.com/aviasales/v3/prices_for_dates";
@@ -200,6 +201,16 @@ function leg(departAt: unknown, stops: unknown, durationMin: number | null, airl
   return { departTime: hhmm(departAt), arriveTime: null, stops: stopCount(stops), durationMin, airlines };
 }
 
+/**
+ * Source-stated fare timestamps. The v3 endpoint does not send them today; v2 endpoints do (`found_at`, `expires_at`).
+ * Only set when present and valid, so rows without them look exactly as before. A `found_at` after our own fetch is not believed.
+ */
+function fareTimes(row: Row, fetchedAtMs: number): { fareFoundAt?: string; fareExpiresAt?: string } {
+  const found = vendorTimestamp(row.found_at, fetchedAtMs);
+  const expires = vendorTimestamp(row.expires_at);
+  return { ...(found ? { fareFoundAt: found } : {}), ...(expires ? { fareExpiresAt: expires } : {}) };
+}
+
 const str = (v: unknown, fallback: string): string => (typeof v === "string" && v.trim() ? v.trim() : fallback);
 
 // ---- client ------------------------------------------------------------------------------
@@ -324,6 +335,7 @@ export function createTravelpayoutsClient(opts: {
       deeplink: affiliateLink(typeof row.link === "string" ? row.link : null, marker) ?? fallbackLink(from, to, departDate, returnDate),
       verifyLink: null,
       checkedAt,
+      ...fareTimes(row, Date.parse(checkedAt)),
       extrasAmountIls: 0,
       totalIls: null,
       tags: [],
@@ -334,7 +346,10 @@ export function createTravelpayoutsClient(opts: {
     const price = positive(row.price);
     const date = dateOf(row.departure_at);
     if (price === null || !date) return null;
+    const { fareFoundAt, fareExpiresAt } = fareTimes(row, Date.now());
     return {
+      ...(fareFoundAt ? { foundAt: fareFoundAt } : {}),
+      ...(fareExpiresAt ? { expiresAt: fareExpiresAt } : {}),
       date,
       priceAmount: price,
       priceCurrency: currency,
