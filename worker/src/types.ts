@@ -174,6 +174,11 @@ export interface TravelpayoutsClient {
   callCount(): number;
   roundTrips(origin: string, destination: string, windowStart: string, windowEnd: string): Promise<Offer[]>;
   oneWays(origin: string, destination: string, windowStart: string, windowEnd: string): Promise<OneWayFare[]>;
+  /**
+   * ADDITIVE (optional so existing test doubles still type-check): one request for one (departure month, return month)
+   * pair, both "YYYY-MM". Used by the cheapest-dates calendar (src/calendar.ts). Prices are per ONE adult.
+   */
+  monthRoundTrips?(origin: string, destination: string, departMonth: string, returnMonth: string): Promise<{ offers: Offer[]; truncated: boolean }>;
 }
 
 export interface CachedOffers {
