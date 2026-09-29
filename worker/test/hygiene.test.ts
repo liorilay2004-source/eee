@@ -1,6 +1,6 @@
 /** Repository hygiene the SPEC asks for: no secrets in git (§14, §16) and a Workers-clean src/ tree. */
 import { readdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -31,7 +31,7 @@ describe("secrets stay out of git", () => {
 
   it("ships .dev.vars.example with every value empty and every secret the Worker reads listed", () => {
     const text = readFileSync(join(worker, ".dev.vars.example"), "utf8");
-    const assignments = text.split("\n").filter((l) => /^[A-Z_]+=/.test(l));
+    const assignments = text.split(/\r?\n/).filter((l) => /^[A-Z_]+=/.test(l));
     for (const line of assignments) expect(line, line).toMatch(/^[A-Z_]+=$/);
     const names = assignments.map((l) => l.split("=")[0]);
     expect(names).toEqual(expect.arrayContaining(["TRAVELPAYOUTS_TOKEN", "TRAVELPAYOUTS_MARKER", "RATE_LIMIT_SALT"]));
@@ -78,7 +78,7 @@ describe("src/ runs in the Workers runtime", () => {
   it("only quotes.ts and wego.ts can reach fetch: the other adapters describe a request and read an answer, nothing more", () => {
     const callsFetch = (file: string) => /\bfetch\s*\(/.test(readFileSync(file, "utf8"));
     const adapters = sourceFiles(join(worker, "src", "sources"));
-    expect(adapters.map((f) => f.split("/").pop()).sort()).toEqual(["ignav.ts", "searchapi.ts", "serpapi.ts", "wego.ts"]);
+    expect(adapters.map((f) => basename(f)).sort()).toEqual(["ignav.ts", "searchapi.ts", "serpapi.ts", "wego.ts"]);
     for (const file of adapters) expect(callsFetch(file), file).toBe(file.endsWith("wego.ts"));
     expect(callsFetch(join(worker, "src", "quotes.ts"))).toBe(true);
   });
