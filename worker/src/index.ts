@@ -294,7 +294,10 @@ async function handleExplore(request: Request, url: URL, env: Env, ctx: Executio
         now,
         resolver: defaultResolver,
         // The SAME global budget as /api/search: one unit per request that needs any upstream call.
-        scanBudget: () => scanBudgetLeft(repo, now),
+        scanBudget: async () => {
+          const verdict = await scanBudgetLeft(repo, now);
+          return typeof verdict === "boolean" ? verdict : verdict.allowed;
+        },
         fx: () => getFxRates(repo, fetchFn, now),
         waitUntil: (p) => ctx.waitUntil(p),
       },
