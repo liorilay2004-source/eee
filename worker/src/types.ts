@@ -88,6 +88,22 @@ export interface PriceContext {
   lowestAmount: number | null;
 }
 
+/**
+ * ADDITIVE (WEB_APP_SPEC §7.8 Δ21): why a source did not answer, as a machine code. `error` keeps its developer text.
+ *   no_token      the source has no API token configured, so it was not asked
+ *   scan_budget   the global upstream budget (GLOBAL_SCAN_LIMIT) is spent, so it was not asked
+ *   upstream_down it was asked and at least one request failed (network, HTTP error, auth or quota at the vendor)
+ */
+export type SourceUnavailableReason = "no_token" | "scan_budget" | "upstream_down";
+
+/** ADDITIVE: how much of the planned Travelpayouts scan was made (the request cap can cut a long window short). */
+export interface SourceCoverage {
+  /** Upstream requests the scan planned for this search. */
+  plannedRequests: number;
+  /** Planned requests not made because of the per-search request cap. 0 = the scan covered everything it planned. */
+  skippedRequests: number;
+}
+
 export interface SourceStatus {
   name: SourceName;
   enabled: boolean;
@@ -95,11 +111,25 @@ export interface SourceStatus {
   calls: number;
   offers: number;
   error: string | null;
+  /**
+   * ADDITIVE (travelpayouts entry only): true when the scan behind these results skipped part of its planned requests, so
+   * some dates or airport pairs were not searched. Also true on a cache hit of such a scan. Replaces parsing `error`.
+   */
+  truncated?: boolean;
+  /** ADDITIVE (travelpayouts entry only): the scan's request counts, or null when not known (no scan, or a cache hit of a complete scan). */
+  coverage?: SourceCoverage | null;
+  /** ADDITIVE (travelpayouts entry only): why the source did not answer, or null when it did (see SourceUnavailableReason). */
+  reason?: SourceUnavailableReason | null;
 }
 
 export interface CardView extends Card {
   priceContext: PriceContext | null;
   ageHours: number;
+  /**
+   * ADDITIVE (WEB_APP_SPEC §7.2, §7.7 gap 7): IATA code -> Hebrew airline name for the codes on this card's legs that the bundled
+   * table knows (src/airlines.ts). A code missing here has no known name: the UI prints the code, never a guess.
+   */
+  airlineNames: Record<string, string>;
 }
 
 export interface SearchResponse {
