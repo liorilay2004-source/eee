@@ -18,6 +18,7 @@
  */
 import { airlineFieldsFor } from "./airlines/lookup";
 import * as airportData from "./airports/resolve";
+import { orderPairsByService } from "./airports/served";
 import type { Resolver } from "./airports/types";
 import { applyExtrasAndFx, paxCount, round2 } from "./extras";
 import { toIls } from "./money";
@@ -39,6 +40,15 @@ import {
   type QuoteSourceName,
   type QuoteStat,
 } from "./quotes";
+import {
+  applyPriceGuard,
+  createPriceGuard,
+  HISTORY_LOOKBACK_DAYS,
+  HISTORY_ROWS_PER_PAIR,
+  historyTargets,
+  type PriceGuard,
+} from "./priceguard";
+import { fareExpired, fareFreshness, vendorTimestamp } from "./freshness";
 import { buildSplits, dayNumber, pairOk } from "./splits";
 import { monthsBetween, TravelpayoutsError, withPartySize, type Party } from "./travelpayouts";
 import type {
@@ -239,6 +249,16 @@ function parseLeg(v: unknown): Leg | null {
   };
 }
 
+/** Source-stated fare times read back from a cache row: kept only when valid, absent otherwise (as before the fields existed). */
+function vendorTimes<F extends string, E extends string>(found: unknown, expires: unknown, fKey: F, eKey: E): Partial<Record<F | E, string>> {
+  const out: Partial<Record<F | E, string>> = {};
+  const f = vendorTimestamp(found);
+  const e = vendorTimestamp(expires);
+  if (f) out[fKey] = f as never;
+  if (e) out[eKey] = e as never;
+  return out;
+}
+
 /**
  * The cache is JSON written by an earlier version of this code: rebuild every offer from known fields and drop
  * anything malformed, so a bad row can never crash ranking. Derived fields are reset (the cache is RAW).
@@ -277,6 +297,7 @@ export function sanitizeOffers(raw: unknown, sources: readonly string[] = SOURCE
       ...(returnDeeplink !== null ? { returnDeeplink } : {}),
       verifyLink: strOrNull(v.verifyLink),
       checkedAt: v.checkedAt,
+      ...vendorTimes(v.fareFoundAt, v.fareExpiresAt, "fareFoundAt", "fareExpiresAt"),
       extrasAmountIls: 0,
       totalIls: null,
       tags: [],
@@ -292,7 +313,7 @@ function parseFare(v: unknown): OneWayFare | null {
   if (!leg || typeof v.date !== "string" || dayNumber(v.date) === null) return null;
   if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0) return null;
   if (typeof v.priceCurrency !== "string" || v.priceCurrency === "") return null;
-  return { date: v.date, priceAmount: amount, priceCurrency: v.priceCurrency, leg, deeplink: strOrNull(v.deeplink) };
+  return { date: v.date, priceAmount: amount, priceCurrency: v.priceCurrency, leg, deeplink: strOrNull(v.deeplink), ...vendorTimes(v.foundAt, v.expiresAt, "foundAt", "expiresAt") };
 }
 
 /** Same defensive rebuild as sanitizeOffers, for the one-way fares kept in the cache row. */
@@ -328,14 +349,19 @@ function airportsOf(resolver: Resolver, code: string, nearby: boolean): string[]
   return list;
 }
 
-/** All origin x destination airport pairs, the primary pair first, then by distance from it. */
+/**
+ * All origin x destination airport pairs, the primary pair first, then by distance from it. Route hints from public
+ * data (airports/served.ts) then drop pairs touching an airport without scheduled service (when others remain) and
+ * move pairs with a direct flight seen ahead of the rest, before the cap: a truncated scan spends its budget on the
+ * pairs most likely to have fares (TLV-BGY before TLV-LIN). The primary pair always stays first.
+ */
 export function airportPairs(resolver: Resolver, req: SearchRequest): Pair[] {
   const origins = airportsOf(resolver, req.origin, req.nearbyAirports);
   const dests = airportsOf(resolver, req.destination, req.nearbyAirports);
   const ranked: Array<{ pair: Pair; rank: number; i: number }> = [];
   origins.forEach((origin, i) => dests.forEach((dest, j) => ranked.push({ pair: { origin, dest }, rank: i + j, i })));
   ranked.sort((a, b) => a.rank - b.rank || a.i - b.i);
-  return ranked.slice(0, MAX_AIRPORT_PAIRS).map((r) => r.pair);
+  return orderPairsByService(ranked.map((r) => r.pair)).slice(0, MAX_AIRPORT_PAIRS);
 }
 
 // --- step 3: Travelpayouts wide scan --------------------------------------------------------------------
@@ -519,9 +545,12 @@ function capOneWayPairs(pairs: OneWayPair[], fx: FxRates, max: number): OneWayPa
 }
 
 /** Price-history rows for a fresh scan: the cheapest fare per (pair, source, structure), per passenger. */
-function historyRows(live: Offer[], fx: FxRates, pax: number): Offer[] {
+function historyRows(live: Offer[], fx: FxRates, pax: number, now: Date): Offer[] {
   const best = new Map<string, { o: Offer; ils: number }>();
   for (const o of live) {
+    // A source-expired fare is not ranked, so it must not reach the history either: the `prices` table keeps no expiry,
+    // and a fallback read of it could not tell it apart from a valid fare.
+    if (fareExpired(o, now)) continue;
     const key = [o.origin, o.destination, o.departDate, o.returnDate, o.source, o.ticketStructure].join("|");
     const ils = baseIls(fx, o);
     const cur = best.get(key);
@@ -694,8 +723,11 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
 
   // Split tickets are built per request, from the raw one-way fares, so the request's own hour windows, max stops
   // and bag choice decide which legs get combined: a cache hit answers exactly like a fresh scan would.
+  // A fare whose source-stated expiry has passed is never ranked (the vendor advises against using expired prices). One-way
+  // legs are dropped BEFORE pairing, so an expired cheap leg cannot hide a valid pair behind it.
+  const unexpiredLeg = (f: OneWayFare): boolean => !fareExpired({ fareExpiresAt: f.expiresAt }, now);
   const splits = oneWayPairs.flatMap((p) =>
-    buildSplits(p.origin, p.destination, req, p.outs, p.backs, "travelpayouts", fx, pax, splitsCheckedAt),
+    buildSplits(p.origin, p.destination, req, p.outs.filter(unexpiredLeg), p.backs.filter(unexpiredLeg), "travelpayouts", fx, pax, splitsCheckedAt),
   );
   // Ranking sees everything the scan found. Only what is cached is cut down (capOffers), never what is ranked.
   const live = [...rts, ...splits];
@@ -754,7 +786,7 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   }
 
   // Steps 7-8: extras + FX on copies (`live` stays raw for the cache), then rank.
-  const working = [...live.map(cloneOffer), ...fromDb];
+  const working = [...live.map(cloneOffer), ...fromDb].filter((o) => !fareExpired(o, now));
   const party: Party = { adults: req.adults, children: req.children, infants: req.infants };
   for (const o of working) linkParty(o, party);
   applyExtrasAndFx(working, req, fx);
@@ -813,8 +845,16 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   }
   // A live price replaces the cached one for the same flight; the same flight seen by two sources counts once.
   const ranking = mergeQuoted(working);
+  // Price guard (priceguard.ts): a cached fare far below its neighbouring dates or its own recent history is tagged; when both
+  // signals agree it is kept out of the cards while anything else is priced. One indexed D1 read (the cheapest date pairs' history); storage trouble = no history.
+  const since = new Date(now.getTime() - HISTORY_LOOKBACK_DAYS * 86_400_000);
+  const targets = historyTargets(ranking, fx, pax);
+  const history =
+    targets.length > 0 && repo.priceHistory ? ((await attempt(() => repo.priceHistory!(targets, since, HISTORY_ROWS_PER_PAIR))) ?? []) : [];
+  const guard = createPriceGuard(ranking, history, fx, pax);
   // ...but a quote that does not state its return flight cannot pass the user's return-hour window or max stops: the cached fare it replaced stays a 🎯 candidate.
-  const cards = recommend(ranking, req, SCORING, timeCandidates(working, ranking, req));
+  const guarded = applyPriceGuard(ranking, timeCandidates(working, ranking, req), guard);
+  const cards = recommend(guarded.pool, req, SCORING, guarded.timeOnly);
 
   // Step 4 bookkeeping: how many date pairs are candidates for the deep search (top N cheapest pairs).
   const pairsWithPrice = new Set<string>();
@@ -826,13 +866,14 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
       priceContext: await contextFor(repo, card.offer, pax, now),
       ageHours: ageHours(card.offer.checkedAt, now),
       ...airlineFieldsFor(card.offer),
+      ...fareFreshness(card.offer, now),
     })),
   );
 
   // History and vendor health come last: the ranking above has read its price context before this search's own prices are written.
   // After the scan's own write, never beside it: both may write the cache row, and the one with the quotes must be the last.
-  const rest = jobOf({ logSearch: false, fresh: fromCache ? [] : live, quotes: quotedRaw, quoteHealth: quoteHealth(), cache: quotedRaw.length > 0 ? cacheRow(quotedRaw) : null });
-  await write(scanStored ? scanStored.then(() => persist(rest)) : persist(wholeJob()));
+  const rest = jobOf({ logSearch: false, fresh: fromCache ? [] : live, quotes: quotedRaw, guard, quoteHealth: quoteHealth(), cache: quotedRaw.length > 0 ? cacheRow(quotedRaw) : null });
+  await write(scanStored ? scanStored.then(() => persist(rest)) : persist({ ...wholeJob(), guard }));
 
   return {
     cards: views,
@@ -845,6 +886,8 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
       sources: [tpStatus, gfStatus, ...quoters.map((s) => quoteStatus(s, quoteStats.get(s.name), fromDb.filter((o) => o.source === s.name).length))],
       candidatePairs: Math.min(SCORING.topNCandidates, pairsWithPrice.size),
       generatedAt: now.toISOString(),
+      // Only when something was flagged: an ordinary answer keeps exactly the fields it had before the guard.
+      ...(guarded.suspicious.size > 0 ? { priceGuard: { suspicious: guarded.suspicious.size, excluded: guarded.excluded } } : {}),
       recommendations: recommendationsMeta(ranking, req, cards),
     },
   };
@@ -868,6 +911,12 @@ interface PersistJob {
   /** What to keep for the next identical search, or null when this scan must not be reused. */
   cache: { offers: Offer[]; oneWayPairs: OneWayPair[]; notes: string[]; quotes: Offer[] } | null;
   health: { ok: boolean; error: string | null } | null;
+  /**
+   * Set once the ranking has run: fresh fares BOTH guard signals reject are not written to the price history, so a stale cached
+   * fare cannot become the "lowest we have seen" of a price context or the baseline of the next check. A fare only one signal
+   * doubts is written, so the history can learn that a new low level is real.
+   */
+  guard?: PriceGuard;
 }
 
 /** Best effort and never rejects: a storage hiccup must not turn a good answer into an error. */
@@ -875,8 +924,9 @@ async function persist(job: PersistJob): Promise<void> {
   const { repo, now } = job;
   const work: Array<Promise<unknown>> = [];
   if (job.logSearch) work.push(attempt(() => repo.saveSearch(job.req, job.searchKey, now)));
-  if (job.fresh.length > 0) work.push(attempt(() => repo.savePrices(historyRows(job.fresh, job.fx, job.pax))));
-  if (job.quotes.length > 0) work.push(attempt(() => repo.savePrices(historyRows(job.quotes, job.fx, job.pax))));
+  const fresh = job.guard ? job.fresh.filter((o) => !job.guard!.check(o)?.exclude) : job.fresh;
+  if (fresh.length > 0) work.push(attempt(() => repo.savePrices(historyRows(fresh, job.fx, job.pax, job.now))));
+  if (job.quotes.length > 0) work.push(attempt(() => repo.savePrices(historyRows(job.quotes, job.fx, job.pax, job.now))));
   for (const h of job.quoteHealth) work.push(attempt(() => repo.recordSourceHealth(h.name, h.ok, h.error, now)));
   if (job.cache) {
     const { offers, oneWayPairs, notes, quotes } = job.cache;

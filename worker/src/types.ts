@@ -44,10 +44,17 @@ export interface Offer {
   returnDeeplink?: string | null;
   verifyLink: string | null;
   checkedAt: string;
+  /**
+   * ADDITIVE: when the SOURCE says it saw this fare (Travelpayouts `found_at`), canonical UTC ISO. Absent/null = the source
+   * did not say (every Travelpayouts v3 row today). Never filled with our own scan time: that is `checkedAt`.
+   */
+  fareFoundAt?: string | null;
+  /** ADDITIVE: when the SOURCE says the fare expires (Travelpayouts `expires_at`). An expired fare is never ranked. */
+  fareExpiresAt?: string | null;
   // Filled by the pipeline (SPEC §7 step 7):
   extrasAmountIls: number;
   totalIls: number | null;
-  tags: string[]; // "bonus_checked_bag" | "bag_fee_unknown"
+  tags: string[]; // "bonus_checked_bag" | "bag_fee_unknown" | "price_suspicious" (ADDITIVE, priceguard.ts)
 }
 
 export interface SearchRequest {
@@ -77,8 +84,19 @@ export interface Card {
 
 export interface FxRates {
   date: string; // YYYY-MM-DD the rates were fetched for
-  source: string; // "bank_of_israel" | "open.er-api.com"
+  source: string; // "bank_of_israel" | "open.er-api.com" | "ecb", with ":stale" when served from an older day
   ratesToIls: Record<string, number>; // 1 unit of CURRENCY = N ILS; always includes ILS: 1
+}
+
+/** ADDITIVE: one stored price snapshot as the price guard reads it (prices table columns, amount PER PASSENGER). */
+export interface PriceHistoryRow {
+  origin: string;
+  destination: string;
+  depart_date: string;
+  return_date: string;
+  price_amount: number;
+  price_currency: string;
+  checked_at: string;
 }
 
 /** History line from the shared DB, in the ORIGINAL currency (SPEC §4.2, §8). */
@@ -127,8 +145,19 @@ export interface SourceStatus {
   reason?: SourceUnavailableReason | null;
 }
 
+/**
+ * ADDITIVE: how the fare's age is known. "live" = our own scrape of the live site at checkedAt; "source" = vendor timestamp;
+ * "bounded" = a documented vendor cache, only an upper bound (fareAgeMaxMinutes) is known; "unknown" = not stated.
+ */
+export type FareAgeBasis = "live" | "source" | "bounded" | "unknown";
+/** ADDITIVE: fresh < 24h, aging < 72h, stale >= 72h or vendor-expired; "unknown" when the fare's age is not known. */
+export type Freshness = "fresh" | "aging" | "stale" | "unknown";
+/** ADDITIVE: which sentence CardView.ageLabelHe is. */
+export type AgeLabelKey = "fare_found_ago" | "fare_found_within" | "quote_unknown_age" | "cached_fare_unknown_age" | "fare_expired";
+
 export interface CardView extends Card {
   priceContext: PriceContext | null;
+  /** Hours since OUR check of the fare (checkedAt). For a cached source this is NOT the fare's age: see fareAgeHours. */
   ageHours: number;
   /**
    * ADDITIVE (WEB_APP_SPEC 7.2 `airlineNames`, gap 7): IATA code -> Hebrew display name for the airlines this card's legs
@@ -137,6 +166,22 @@ export interface CardView extends Card {
   airlineNames: Record<string, string>;
   /** ADDITIVE: the same codes with both names and the low-cost flag (see airlines.json for what `lowCost` means). */
   airlines: Record<string, { nameHe: string; nameEn: string; lowCost: boolean }>;
+  /** ADDITIVE (freshness.ts): when the fare itself was seen; null = unknown. */
+  fareFoundAt: string | null;
+  /** ADDITIVE: hours (one decimal) since fareFoundAt; null = unknown. */
+  fareAgeHours: number | null;
+  /** ADDITIVE: whole minutes since fareFoundAt; null = unknown. */
+  fareAgeMinutes: number | null;
+  /** ADDITIVE: upper bound on the fare's age in minutes (= fareAgeMinutes when known; the documented bound for "bounded"); null = unknown. */
+  fareAgeMaxMinutes: number | null;
+  /** ADDITIVE: whole minutes since our own check (checkedAt). */
+  scanAgeMinutes: number;
+  fareAgeBasis: FareAgeBasis;
+  freshness: Freshness;
+  /** ADDITIVE: which sentence ageLabelHe is (AgeLabelKey). */
+  ageLabelKey: AgeLabelKey;
+  /** ADDITIVE: ready Hebrew sentence for the age line (never implies a live check for a cached fare). */
+  ageLabelHe: string;
 }
 
 /**
@@ -162,6 +207,13 @@ export interface SearchResponse {
     sources: SourceStatus[];
     candidatePairs: number;
     generatedAt: string;
+    /**
+     * ADDITIVE (price guard): Travelpayouts fares found `suspicious` (far below every neighbouring date, or below their own recent
+     * history; tagged "price_suspicious"), and how many were kept out of the cards (`excluded`: only those BOTH signals agree on;
+     * a fare one signal doubts can still win a card, and carries the tag). `excluded` is 0 when nothing else was priced.
+     * Absent when nothing was flagged.
+     */
+    priceGuard?: { suspicious: number; excluded: number };
     /** ADDITIVE: bag-cost pool gating of the 💰/⚖️ cards (see RecommendationsMeta). */
     recommendations: RecommendationsMeta;
   };
@@ -173,6 +225,9 @@ export interface OneWayFare {
   priceCurrency: string;
   leg: Leg;
   deeplink: string | null;
+  /** ADDITIVE: source-stated `found_at` / `expires_at` (canonical UTC ISO); absent = not stated. */
+  foundAt?: string | null;
+  expiresAt?: string | null;
 }
 
 /** Travelpayouts / Aviasales Data API client (SPEC §6: the core engine). Prices are per ONE adult. */
@@ -181,6 +236,11 @@ export interface TravelpayoutsClient {
   callCount(): number;
   roundTrips(origin: string, destination: string, windowStart: string, windowEnd: string): Promise<Offer[]>;
   oneWays(origin: string, destination: string, windowStart: string, windowEnd: string): Promise<OneWayFare[]>;
+  /**
+   * ADDITIVE (optional so existing test doubles still type-check): one request for one (departure month, return month)
+   * pair, both "YYYY-MM". Used by the cheapest-dates calendar (src/calendar.ts). Prices are per ONE adult.
+   */
+  monthRoundTrips?(origin: string, destination: string, departMonth: string, returnMonth: string): Promise<{ offers: Offer[]; truncated: boolean }>;
 }
 
 export interface CachedOffers {
@@ -223,6 +283,15 @@ export interface Repo {
     sources?: SourceName[],
   ): Promise<Offer[]>;
   priceContext(origin: string, destination: string, departDate: string, returnDate: string, now: Date): Promise<PriceContext | null>;
+  /**
+   * ADDITIVE (price guard, priceguard.ts): the newest stored snapshots (per passenger) of each given date pair checked after
+   * `since`, at most `limitPerPair` per pair, in ONE indexed query. Optional: a repo without it simply gives the guard no history.
+   */
+  priceHistory?(
+    pairs: ReadonlyArray<{ origin: string; destination: string; departDate: string; returnDate: string }>,
+    since: Date,
+    limitPerPair: number,
+  ): Promise<PriceHistoryRow[]>;
   saveSearch(req: SearchRequest, searchKey: string, now: Date): Promise<void>;
   getFxRates(date: string): Promise<FxRates | null>;
   saveFxRates(fx: FxRates): Promise<void>;

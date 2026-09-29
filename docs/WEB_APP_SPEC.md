@@ -247,6 +247,7 @@ Each card carries `flags` (NEW): a list of stable codes computed by the API from
 | `split_ticket` | `ticketStructure == "split"` | **warning** | "שני כרטיסים נפרדים — מזמינים כל אחד בנפרד" (§5.6) |
 | `airline_unknown` | no airline codes | info | "חברת תעופה לא ידועה" |
 | `stale_price` | `ageHours ≥ 12` (configurable) | warning | "המחיר נבדק לפני X שעות ועשוי להשתנות" |
+| `price_suspicious` | tag `price_suspicious` (worker/src/priceguard.ts: a cached Travelpayouts fare at ≤ 50% of its cheapest neighbouring date, or of its own recent history). One signal only tags (the card may still show it, with this warning); when both agree the offer is kept out of the cards unless nothing else is priced; `meta.priceGuard` (present only when something was flagged) counts both | **warning** | "המחיר נמוך בהרבה מהרגיל ועשוי להיות לא עדכני — כדאי לאמת באתר ההזמנה לפני שמתכננים" |
 
 Rules: severity is conveyed by **icon + text + style**, never color alone. Notices collapse behind one "פרטים על הנתונים" toggle per card on mobile, with a count; warnings stay visible. No flag is ever silently dropped.
 
@@ -369,7 +370,18 @@ interface CardView {
   priceContext: { currency: string; weekAgoAmount: number | null; lowestAmount: number | null;
                   weekAgoIls: number | null; lowestIls: number | null   // NEW — converted by the API at today's rate
                 } | null;
-  ageHours: number;
+  ageHours: number;                  // age of OUR check (checkedAt), NOT of the fare — see the fare* fields
+  // ADDED (worker/src/freshness.ts) — the fare's own age, only when known (never our scan time in disguise):
+  fareFoundAt: string | null;        //   when the fare was seen: vendor `found_at` (Travelpayouts v3 sends none today) or, for the Google Flights monitor only, checkedAt; else null
+  fareAgeHours: number | null;       //   null = unknown
+  fareAgeMinutes: number | null;     //   null = unknown
+  fareAgeMaxMinutes: number | null;  //   upper bound: = fareAgeMinutes when known; SerpApi ("bounded") = scan age + its documented 1h cache
+  scanAgeMinutes: number;            //   minutes since our own check
+  fareAgeBasis: "live" | "source" | "bounded" | "unknown";   // Ignav / Wego / SearchApi promise no freshness → "unknown"
+  freshness: "fresh" | "aging" | "stale" | "unknown";   // <24h / <72h / >=72h or source-expired; "unknown" = cached fare, age not stated
+  ageLabelKey: "fare_found_ago" | "fare_found_within" | "quote_unknown_age" | "cached_fare_unknown_age" | "fare_expired";
+  ageLabelHe: string;                //   ready sentence, e.g. "המחיר נמצא לפני 5 דקות" or "מחיר שמור ממאגר מחירים, נשלף לפני 5 דקות. מתי נמצא המחיר עצמו לא ידוע, וייתכן שהשתנה."
+                                     //   A fare whose source-stated `expires_at` has passed is never ranked nor written to the price history.
   flags: string[];                   // NEW — §5.4 codes
   links: {                           // NEW — the client never reads offer.deeplink directly
     book: string;                    //   always non-null (SPEC G5); for splits: the outbound one-way ticket

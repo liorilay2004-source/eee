@@ -711,19 +711,36 @@ describe("failure handling (SPEC §6 source reliability)", () => {
   });
 
   it("a pair Travelpayouts rejects with HTTP 400 is a note, not a failure: the sibling airport still answers", async () => {
-    // Eilat has two airports in the bundled table; Aviasales serves Ramon (ETM) but answers 400 for Ovda (VDA).
+    // London has six airports in the bundled table; here Aviasales answers 400 for one of them (LGW).
     const tp = mockTp({
       rt: (o) => {
-        if (o === "VDA") throw new TravelpayoutsError("HTTP 400: bad request", 400);
-        return o === "ETM" ? [offer(120, { origin: "ETM" })] : [];
+        if (o === "LGW") throw new TravelpayoutsError("HTTP 400: bad request", 400);
+        return o === "LHR" ? [offer(120, { origin: "LHR" })] : [];
       },
     });
     const { deps } = setup({ tp });
-    const res = await runSearch(deps, req({ origin: "ETM" }));
+    const res = await runSearch(deps, req({ origin: "LON" }));
     expect(res.cards).toHaveLength(1);
-    expect(res.cards[0]?.offer.origin).toBe("ETM");
+    expect(res.cards[0]?.offer.origin).toBe("LHR");
     expect(res.meta.sources[0]).toMatchObject({ ok: true });
-    expect(res.meta.sources[0]?.error).toContain("not searchable at Travelpayouts: VDA-BCN");
+    expect(res.meta.sources[0]?.error).toContain("not searchable at Travelpayouts: LGW-BCN");
+  });
+
+  it("Eilat searches Ramon (ETM) only: Ovda (VDA) has no scheduled service, so no request is spent on it", async () => {
+    const tp = mockTp({ rt: (o) => (o === "ETM" ? [offer(120, { origin: "ETM" })] : []) });
+    const { deps } = setup({ tp });
+    const res = await runSearch(deps, req({ origin: "ETM" }));
+    expect(res.cards[0]?.offer.origin).toBe("ETM");
+    expect(tp.log.some((l) => l.includes("VDA"))).toBe(false);
+    expect(tp.log).toEqual(["rt:ETM-BCN", "ow:ETM-BCN", "ow:BCN-ETM"]);
+    expect(res.meta.sources[0]?.error).toBeNull();
+  });
+
+  it("an airport without scheduled service is still searched when the user asked for it and nothing else is left", async () => {
+    const tp = mockTp();
+    const { deps } = setup({ tp });
+    await runSearch(deps, req({ origin: "VDA" }));
+    expect(tp.log).toEqual(["rt:VDA-BCN", "ow:VDA-BCN", "ow:BCN-VDA"]);
   });
 
   it("when every pair is rejected with HTTP 400 the answer is an empty result, not source_unavailable", async () => {
@@ -788,6 +805,27 @@ describe("airports, nearby airports and the request budget (SPEC §7 step 1)", (
 
   it("an airport code searches just that airport", () => {
     expect(airportPairs(defaultResolver, req({ origin: "LHR", destination: "CDG" }))).toEqual([{ origin: "LHR", dest: "CDG" }]);
+  });
+
+  it("route hints: pairs with a direct TLV flight seen go ahead of the rest, the primary pair stays first", () => {
+    // Milan's bundled order is MXP, LIN, BGY; the IAA board snapshot shows direct TLV flights to MXP and BGY, not LIN.
+    expect(airportPairs(defaultResolver, req({ destination: "MIL" })).map((p) => p.dest)).toEqual(["MXP", "BGY", "LIN"]);
+    // Also when TLV is the destination (the hint is direction-free).
+    expect(airportPairs(defaultResolver, req({ origin: "MIL", destination: "TLV" })).map((p) => p.origin)).toEqual(["MXP", "BGY", "LIN"]);
+    // London: LHR, LGW, STN, LTN all had direct flights and keep their order; LCY and SEN follow.
+    expect(airportPairs(defaultResolver, req({ destination: "LON" })).map((p) => p.dest)).toEqual(["LHR", "LGW", "STN", "LTN", "LCY", "SEN"]);
+  });
+
+  it("route hints never add, drop or reorder pairs away from Israel (no hint data there)", () => {
+    const pairs = airportPairs(defaultResolver, req({ origin: "LON", destination: "PAR" }));
+    expect(pairs.slice(0, 3)).toEqual([{ origin: "LHR", dest: "CDG" }, { origin: "LHR", dest: "ORY" }, { origin: "LGW", dest: "CDG" }]);
+  });
+
+  it("the primary pair stays first even when it has no direct flight seen", () => {
+    // LIN is the user's own airport choice; with nearby airports the Milan siblings follow it, direct ones first.
+    const pairs = airportPairs(defaultResolver, req({ destination: "LIN", nearbyAirports: true })).map((p) => p.dest);
+    expect(pairs[0]).toBe("LIN");
+    expect(pairs.slice(1)).toEqual(["MXP", "BGY"]);
   });
 
   it("an unknown code is passed through rather than dropped", () => {

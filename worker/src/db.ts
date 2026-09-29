@@ -1,4 +1,4 @@
-import type { CachedOffers, FxRates, Leg, Offer, OneWayPair, PriceContext, Repo, SearchRequest, SourceName } from "./types";
+import type { CachedOffers, FxRates, Leg, Offer, OneWayPair, PriceContext, PriceHistoryRow, Repo, SearchRequest, SourceName } from "./types";
 
 /**
  * D1 persistence (SPEC §12). Every statement is prepared and bound: values never reach the SQL text, only
@@ -12,6 +12,9 @@ const BATCH_CHUNK = 50; // statements per db.batch call
 const LOAD_LIMIT = 5000; // newest rows read by loadRecentOffers, a guard against unbounded history
 const CACHE_RETENTION_MS = 7 * DAY_MS; // search_cache rows older than this are garbage under any sane TTL
 const ERROR_MAX_LEN = 300;
+/** priceHistory bounds (D1 allows 100 bound parameters per query: 6 per pair). */
+const HISTORY_MAX_PAIRS = 10;
+const HISTORY_MAX_PER_PAIR = 100;
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 /** The only period keys a quota row may have: a one-off allowance, or a UTC month (see quotaPeriodKey in quotes.ts). */
@@ -330,6 +333,27 @@ export function createRepo(db: D1Database): Repo {
         .first<{ currency: string | null; lowest: number | null; week_ago: number | null }>();
       if (!row || row.currency === null) return null;
       return { currency: row.currency, weekAgoAmount: row.week_ago ?? null, lowestAmount: row.lowest ?? null };
+    },
+
+    async priceHistory(pairs, since, limitPerPair) {
+      // One D1 query for all pairs: a UNION ALL of per-pair subqueries, each an exact prefix of idx_prices_route plus a range on
+      // checked_at, newest first with its own LIMIT, so the rows read are at most pairs x limit whatever the history holds.
+      const sinceMs = since.getTime();
+      const limit = Math.min(HISTORY_MAX_PER_PAIR, Math.max(0, Math.floor(limitPerPair)));
+      const valid = pairs
+        .filter((p) => isRecord(p) && typeof p.origin === "string" && typeof p.destination === "string" && ISO_DATE.test(p.departDate) && ISO_DATE.test(p.returnDate))
+        .slice(0, HISTORY_MAX_PAIRS);
+      if (valid.length === 0 || !(limit > 0) || !Number.isFinite(sinceMs)) return [];
+      const cutoff = new Date(sinceMs).toISOString();
+      const one =
+        "SELECT * FROM (SELECT origin, destination, depart_date, return_date, price_amount, price_currency, checked_at " +
+        "FROM prices INDEXED BY idx_prices_route " +
+        "WHERE origin = ? AND destination = ? AND depart_date = ? AND return_date = ? AND checked_at > ? " +
+        "ORDER BY checked_at DESC LIMIT ?)";
+      const binds: Bind[] = [];
+      for (const p of valid) binds.push(p.origin, p.destination, p.departDate, p.returnDate, cutoff, limit);
+      const { results } = await db.prepare(valid.map(() => one).join(" UNION ALL ")).bind(...binds).all<PriceHistoryRow>();
+      return results.filter((r) => typeof r.price_amount === "number" && typeof r.price_currency === "string" && typeof r.checked_at === "string");
     },
 
     async saveSearch(req: SearchRequest, searchKey, now) {
