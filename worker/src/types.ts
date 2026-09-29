@@ -208,6 +208,11 @@ export interface SearchResponse {
     candidatePairs: number;
     generatedAt: string;
     /**
+     * ADDITIVE, present ONLY when the answer came from a cache row older than the cache TTL (stale-while-revalidate): the
+     * fares are from an older scan. Absent on every other answer, fresh scans and in-TTL cache hits alike.
+     */
+    stale?: StaleInfo;
+    /**
      * ADDITIVE (price guard): Travelpayouts fares found `suspicious` (far below every neighbouring date, or below their own recent
      * history; tagged "price_suspicious"), and how many were kept out of the cards (`excluded`: only those BOTH signals agree on;
      * a fare one signal doubts can still win a card, and carries the tag). `excluded` is 0 when nothing else was priced.
@@ -217,6 +222,18 @@ export interface SearchResponse {
     /** ADDITIVE: bag-cost pool gating of the 💰/⚖️ cards (see RecommendationsMeta). */
     recommendations: RecommendationsMeta;
   };
+}
+
+/** How old a stale-while-revalidate answer is, and whether a background refresh was started for it. */
+export interface StaleInfo {
+  /** When the scan behind this answer ran (the cache row's time), canonical UTC ISO. */
+  cachedAt: string;
+  /** Age of that scan in hours, one decimal. */
+  ageHours: number;
+  /** True only when this request started a background rescan; the next identical search then gets the fresh fares. */
+  revalidating: boolean;
+  /** User-facing Hebrew notice saying the results are older (and, when revalidating, to search again shortly). */
+  messageHe: string;
 }
 
 export interface OneWayFare {
@@ -270,8 +287,13 @@ export interface Repo {
   getCachedOffers(searchKey: string, maxAgeHours: number, now: Date): Promise<CachedOffers | null>;
   /** `extra` is ADDITIVE (fix pass): one-way fares + scan notes stored beside the offers. */
   putCachedOffers(searchKey: string, offers: Offer[], now: Date, extra?: { oneWayPairs: OneWayPair[]; notes: string[]; quotes?: Offer[] }): Promise<void>;
-  /** Append to the shared price history (SPEC §12 `prices`). */
-  savePrices(offers: Offer[]): Promise<void>;
+  /**
+   * Append to the shared price history (SPEC §12 `prices`). ADDITIVE `opts.skipUnchangedSince` (canonical UTC ISO): a
+   * travelpayouts row is NOT written when the newest stored row of the same fare (route, dates, source, structure) is at
+   * or after that time and has the same amount and currency (a repeat look inside one deal-detection time bin). Other
+   * sources are always written. Without opts every row is written, as before.
+   */
+  savePrices(offers: Offer[], opts?: { skipUnchangedSince?: string }): Promise<void>;
   /** Recent offers already in the shared DB (e.g. written by the background monitor). */
   loadRecentOffers(
     origin: string,
@@ -310,6 +332,12 @@ export interface Repo {
    * the day's counter and the new value is <= cap; false when the share is spent AND on any error (fail closed). See withDailyShare.
    */
   reserveDaily(key: string, cap: number, now: Date): Promise<boolean>;
+  /**
+   * ADDITIVE: claims `key` for the fixed window of `windowSeconds` that `now` falls in (table rate_limits: key + the window's
+   * start). True only for the first claim of that window; false for every later one AND on any error (fail closed). A refused
+   * claim writes nothing, and the next window is always free again.
+   */
+  claimWindowLock(key: string, windowSeconds: number, now: Date): Promise<boolean>;
 }
 
 export interface Env {
