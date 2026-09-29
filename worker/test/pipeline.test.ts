@@ -268,6 +268,37 @@ describe("bag extras (SPEC §4.1, §16)", () => {
     expect(res.cards[0]?.offer.extrasAmountIls).toBe(0);
   });
 
+  it("bag-cost pool rule end to end: a cheaper unknown-fee fare loses 💰 and is counted in meta.recommendations", async () => {
+    const zz = offer(50, { outbound: leg({ airlines: ["ZZ"] }), inbound: leg({ airlines: ["ZZ"] }) }); // 150 ILS, fee unknown
+    const { deps } = setup({ tp: mockTp({ rt: rtFor([zz, lowcost()]) }) });
+    const res = await runSearch(deps, req({ checkedBag: true }));
+    expect(kindsOf(res.cards)).toEqual(["cheapest", "best_value"]);
+    expect(cardOf(res.cards, "cheapest")?.offer).toMatchObject({ totalIls: 615, tags: [] });
+    expect(res.meta.recommendations).toEqual({ cheapest: { status: "shown", excludedForUnknownBagFee: 1 }, bestValue: { status: "merged" } });
+
+    // Same fares without a bag: the ZZ fare is simply the cheapest again, nothing excluded (and a cache hit).
+    const noBag = await runSearch(deps, req());
+    expect(noBag.meta.fromCache).toBe(true);
+    expect(cardOf(noBag.cards, "cheapest")?.offer.priceAmount).toBe(50);
+    expect(noBag.meta.recommendations.cheapest.excludedForUnknownBagFee).toBe(0);
+  });
+
+  it("bag-cost pool rule end to end: no known fee at all -> 💰 shows the lower bound, no ⚖️, status bag_cost_unknown", async () => {
+    const zz = offer(50, { outbound: leg({ airlines: ["ZZ"] }), inbound: leg({ airlines: ["ZZ"] }) });
+    const { deps } = setup({ tp: mockTp({ rt: rtFor([zz]) }) });
+    const res = await runSearch(deps, req({ checkedBag: true }));
+    expect(kindsOf(res.cards)).toEqual(["cheapest"]);
+    expect(res.cards[0]?.offer.tags).toContain("bag_fee_unknown");
+    expect(res.meta.recommendations).toEqual({ cheapest: { status: "shown", excludedForUnknownBagFee: 0 }, bestValue: { status: "bag_cost_unknown" } });
+  });
+
+  it("meta.recommendations says no_offers when there is nothing to show", async () => {
+    const { deps } = setup({ tp: mockTp({ rt: rtFor([]) }) });
+    const res = await runSearch(deps, req({ checkedBag: true }));
+    expect(res.cards).toEqual([]);
+    expect(res.meta.recommendations).toEqual({ cheapest: { status: "no_offers", excludedForUnknownBagFee: 0 }, bestValue: { status: "no_offers" } });
+  });
+
   it("a different bag choice on cached data re-ranks correctly with zero Travelpayouts calls", async () => {
     const tp = mockTp({ rt: rtFor([lowcost(), full()]) });
     const { deps } = setup({ tp });
@@ -555,6 +586,33 @@ describe("buildSplits", () => {
     expect(build(outs, backs, req({ outHours: [7, 12], retHours: [15, 23] }))).toHaveLength(1);
   });
 
+  it("with a bag requested, also combines the cheapest legs whose fee is known (an unknown fee counts as 0 when picking)", () => {
+    const unknownOut = fare("2026-11-12", 50, { leg: leg({ airlines: ["LY"] }) }); // no table fee
+    const knownOut = fare("2026-11-12", 60, { leg: leg({ airlines: ["W6"] }) });
+    const backs = [fare("2026-11-18", 70)];
+    expect(build([unknownOut, knownOut], backs).map((s) => s.priceAmount)).toEqual([120]); // no bag: unchanged
+    const withBag = build([unknownOut, knownOut], backs, req({ checkedBag: true }));
+    expect(withBag.map((s) => [s.priceAmount, s.outbound.airlines[0]])).toEqual([[120, "LY"], [130, "W6"]]);
+  });
+
+  it("adds no known-fee variant when the cheapest legs already have known fees, or when none has one", () => {
+    const bag = req({ checkedBag: true });
+    expect(build([fare("2026-11-12", 60)], [fare("2026-11-18", 70)], bag)).toHaveLength(1);
+    const ly = (d: string, p: number) => fare(d, p, { leg: leg({ airlines: ["LY"] }) });
+    expect(build([ly("2026-11-12", 60)], [ly("2026-11-18", 70)], bag)).toHaveLength(1);
+  });
+
+  it("combines known-fee legs inside the hour windows too", () => {
+    const timed = req({ checkedBag: true, outHours: [7, 12] });
+    const outs = [
+      fare("2026-11-12", 40, { leg: leg({ departTime: "09:00", airlines: ["LY"] }) }),
+      fare("2026-11-12", 55, { leg: leg({ departTime: "09:30", airlines: ["W6"] }) }),
+      fare("2026-11-12", 45, { leg: leg({ departTime: "20:00", airlines: ["W6"] }) }),
+    ];
+    const got = build(outs, [fare("2026-11-18", 70)], timed).map((s) => `${s.outbound.airlines[0]}@${s.outbound.departTime}`);
+    expect(got.sort()).toEqual(["LY@09:00", "W6@09:30", "W6@20:00"]);
+  });
+
   it("skips fares whose currency has no rate", () => {
     expect(build([fare("2026-11-12", 60, { priceCurrency: "XXX" })], [fare("2026-11-18", 70)])).toEqual([]);
   });
@@ -657,19 +715,36 @@ describe("failure handling (SPEC §6 source reliability)", () => {
   });
 
   it("a pair Travelpayouts rejects with HTTP 400 is a note, not a failure: the sibling airport still answers", async () => {
-    // Eilat has two airports in the bundled table; Aviasales serves Ramon (ETM) but answers 400 for Ovda (VDA).
+    // London has six airports in the bundled table; here Aviasales answers 400 for one of them (LGW).
     const tp = mockTp({
       rt: (o) => {
-        if (o === "VDA") throw new TravelpayoutsError("HTTP 400: bad request", 400);
-        return o === "ETM" ? [offer(120, { origin: "ETM" })] : [];
+        if (o === "LGW") throw new TravelpayoutsError("HTTP 400: bad request", 400);
+        return o === "LHR" ? [offer(120, { origin: "LHR" })] : [];
       },
     });
     const { deps } = setup({ tp });
-    const res = await runSearch(deps, req({ origin: "ETM" }));
+    const res = await runSearch(deps, req({ origin: "LON" }));
     expect(res.cards).toHaveLength(1);
-    expect(res.cards[0]?.offer.origin).toBe("ETM");
+    expect(res.cards[0]?.offer.origin).toBe("LHR");
     expect(res.meta.sources[0]).toMatchObject({ ok: true });
-    expect(res.meta.sources[0]?.error).toContain("not searchable at Travelpayouts: VDA-BCN");
+    expect(res.meta.sources[0]?.error).toContain("not searchable at Travelpayouts: LGW-BCN");
+  });
+
+  it("Eilat searches Ramon (ETM) only: Ovda (VDA) has no scheduled service, so no request is spent on it", async () => {
+    const tp = mockTp({ rt: (o) => (o === "ETM" ? [offer(120, { origin: "ETM" })] : []) });
+    const { deps } = setup({ tp });
+    const res = await runSearch(deps, req({ origin: "ETM" }));
+    expect(res.cards[0]?.offer.origin).toBe("ETM");
+    expect(tp.log.some((l) => l.includes("VDA"))).toBe(false);
+    expect(tp.log).toEqual(["rt:ETM-BCN", "ow:ETM-BCN", "ow:BCN-ETM"]);
+    expect(res.meta.sources[0]?.error).toBeNull();
+  });
+
+  it("an airport without scheduled service is still searched when the user asked for it and nothing else is left", async () => {
+    const tp = mockTp();
+    const { deps } = setup({ tp });
+    await runSearch(deps, req({ origin: "VDA" }));
+    expect(tp.log).toEqual(["rt:VDA-BCN", "ow:VDA-BCN", "ow:BCN-VDA"]);
   });
 
   it("when every pair is rejected with HTTP 400 the answer is an empty result, not source_unavailable", async () => {
@@ -734,6 +809,27 @@ describe("airports, nearby airports and the request budget (SPEC §7 step 1)", (
 
   it("an airport code searches just that airport", () => {
     expect(airportPairs(defaultResolver, req({ origin: "LHR", destination: "CDG" }))).toEqual([{ origin: "LHR", dest: "CDG" }]);
+  });
+
+  it("route hints: pairs with a direct TLV flight seen go ahead of the rest, the primary pair stays first", () => {
+    // Milan's bundled order is MXP, LIN, BGY; the IAA board snapshot shows direct TLV flights to MXP and BGY, not LIN.
+    expect(airportPairs(defaultResolver, req({ destination: "MIL" })).map((p) => p.dest)).toEqual(["MXP", "BGY", "LIN"]);
+    // Also when TLV is the destination (the hint is direction-free).
+    expect(airportPairs(defaultResolver, req({ origin: "MIL", destination: "TLV" })).map((p) => p.origin)).toEqual(["MXP", "BGY", "LIN"]);
+    // London: LHR, LGW, STN, LTN all had direct flights and keep their order; LCY and SEN follow.
+    expect(airportPairs(defaultResolver, req({ destination: "LON" })).map((p) => p.dest)).toEqual(["LHR", "LGW", "STN", "LTN", "LCY", "SEN"]);
+  });
+
+  it("route hints never add, drop or reorder pairs away from Israel (no hint data there)", () => {
+    const pairs = airportPairs(defaultResolver, req({ origin: "LON", destination: "PAR" }));
+    expect(pairs.slice(0, 3)).toEqual([{ origin: "LHR", dest: "CDG" }, { origin: "LHR", dest: "ORY" }, { origin: "LGW", dest: "CDG" }]);
+  });
+
+  it("the primary pair stays first even when it has no direct flight seen", () => {
+    // LIN is the user's own airport choice; with nearby airports the Milan siblings follow it, direct ones first.
+    const pairs = airportPairs(defaultResolver, req({ destination: "LIN", nearbyAirports: true })).map((p) => p.dest);
+    expect(pairs[0]).toBe("LIN");
+    expect(pairs.slice(1)).toEqual(["MXP", "BGY"]);
   });
 
   it("an unknown code is passed through rather than dropped", () => {

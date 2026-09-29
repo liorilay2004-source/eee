@@ -88,6 +88,19 @@ const T_SUBSTRING = 4;
 /** Strict resolution only: the query is a run of whole words of a longer name ("heathrow" in "london heathrow"). */
 const T_TOKENS = 1.5;
 
+/**
+ * Generic Hebrew words (directions, "city", "international", "airport"...) that sit inside airport names. Typed on their
+ * own they name no place, so in strict resolution a query made only of these words never matches by whole words:
+ * "צפון" must be a validation error, not Tenerife North. Exact names and aliases are unaffected.
+ */
+const GENERIC_HE_WORDS: ReadonlySet<string> = new Set(
+  [
+    "צפון", "דרום", "מערב", "מזרח", "מרכז", "עיר", "העיר", "סיטי", "קפיטל", "בינלאומי", "הבינלאומי", "בינלאומית",
+    "נמל", "התעופה", "תעופה", "שדה", "של", "החדש", "הישן", "טרמינל", "מסוף",
+  ].map((w) => normalizeQuery(w)),
+);
+const onlyGenericWords = (q: string): boolean => q.split(" ").every((w) => GENERIC_HE_WORDS.has(w));
+
 interface CityInfo {
   code: string;
   nameEn: string;
@@ -275,11 +288,12 @@ export function createResolver(cities: CityRecord[]): Resolver {
     if (airportHit) offer(airportHit.city, iataTier, 1, airportHit.airport);
 
     const wordQ = " " + q;
+    const genericOnly = strict && onlyGenericWords(q);
     for (const e of entries) {
       let tier: number;
       if (e.text === q) tier = T_EXACT;
       else if (strict) {
-        if (!(e.padded + " ").includes(wordQ + " ")) continue;
+        if (genericOnly || !(e.padded + " ").includes(wordQ + " ")) continue;
         tier = T_TOKENS;
       } else if (e.text.startsWith(q)) tier = T_PREFIX;
       else if (e.padded.includes(wordQ)) tier = T_WORD;

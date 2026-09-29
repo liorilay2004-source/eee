@@ -13,7 +13,7 @@ from tpe import report  # noqa: E402
 from tpe.fx import FxRates  # noqa: E402
 from tpe.models import Leg, Offer, SearchRequest  # noqa: E402
 from tpe.pipeline import TAG_BAG_UNKNOWN, TAG_BONUS_BAG, apply_extras_and_fx, build_splits, run_search  # noqa: E402
-from tpe.scoring import BEST_VALUE, CHEAPEST, MY_TIMES, recommend  # noqa: E402
+from tpe.scoring import BEST_VALUE, CHEAPEST, MY_TIMES, recommend, recommendations_meta  # noqa: E402
 from tpe.sources.travelpayouts import Travelpayouts, aviasales_search_link  # noqa: E402
 
 FX = FxRates({"USD": 3.0, "EUR": 3.5}, "test")
@@ -189,3 +189,39 @@ def test_valid_pairs_respect_window_and_stay():
         (date(2026, 11, 10), date(2026, 11, 15)), (date(2026, 11, 10), date(2026, 11, 16)),
         (date(2026, 11, 11), date(2026, 11, 16)),
     ]
+
+
+# --- WEB_APP_SPEC §5.3 bag-cost pool rule (AC-R7) -----------------------------
+
+def _w6(price):
+    return offer(price, out=Leg("10:00", stops=0, duration_min=300, airlines=["W6"]),
+                 inb=Leg("18:00", stops=0, duration_min=300, airlines=["W6"]))
+
+
+def test_unknown_bag_fee_does_not_win_cheapest_or_best_value():
+    r = req(checked_bag=True)
+    unknown, known = offer(100), _w6(200)  # LY has no table fee
+    apply_extras_and_fx([unknown, known], r, FX)
+    assert TAG_BAG_UNKNOWN in unknown.tags
+    cards = recommend([unknown, known], r)
+    assert [c.kinds for c in cards] == [[CHEAPEST, BEST_VALUE]] and cards[0].offer is known
+    assert recommendations_meta([unknown, known], r, cards) == {
+        "cheapest": {"status": "shown", "excludedForUnknownBagFee": 1}, "bestValue": {"status": "merged"}}
+
+
+def test_all_unknown_bag_fees_show_lower_bound_and_hide_best_value():
+    r = req(checked_bag=True)
+    a, b = offer(300), offer(100)
+    apply_extras_and_fx([a, b], r, FX)
+    cards = recommend([a, b], r)
+    assert [c.kinds for c in cards] == [[CHEAPEST]] and cards[0].offer is b
+    assert recommendations_meta([a, b], r, cards)["bestValue"] == {"status": "bag_cost_unknown"}
+    assert recommendations_meta([a, b], r, cards)["cheapest"]["excludedForUnknownBagFee"] == 0
+
+
+def test_my_times_prefers_known_bag_cost():
+    r = req(checked_bag=True, out_hours=(8, 12))
+    unknown, known = offer(100), _w6(200)
+    apply_extras_and_fx([unknown, known], r, FX)
+    mine = [c for c in recommend([unknown, known], r) if MY_TIMES in c.kinds][0]
+    assert mine.offer is known
