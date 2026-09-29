@@ -3,12 +3,14 @@
  *   POST /api/search    the search pipeline (rate limited)
  *   GET  /api/airports  autocomplete over the Hebrew/English city dataset
  *   GET  /api/health    D1 liveness
+ *   GET  /api/deals     unusual fares per watched route, precomputed by the hourly snapshot cron (dealreports.ts)
  *
  * Every response is JSON, `Cache-Control: no-store`, `nosniff`. Errors are { error: { code, message, fields? } }
  * and never carry stack traces, upstream response bodies or secrets. CORS is opt-in for exactly one origin
  * (env.ALLOWED_ORIGIN) and is never a wildcard.
  */
 import { createRepo, pruneHistory } from "./db";
+import { loadDeals, refreshDealReport } from "./dealreports";
 import { getFxRates } from "./fx";
 import { defaultResolver, PipelineError, runSearch, sha256Hex } from "./pipeline";
 import { withDailyShare, type FareQuoteSource } from "./quotes";
@@ -17,7 +19,7 @@ import { createIgnavSource } from "./sources/ignav";
 import { createSearchApiSource } from "./sources/searchapi";
 import { createSerpApiSource } from "./sources/serpapi";
 import { createWegoSource } from "./sources/wego";
-import { runSnapshot } from "./snapshots";
+import { pickSnapshotRoute, runSnapshot } from "./snapshots";
 import { createTravelpayoutsClient, marketForCountry } from "./travelpayouts";
 import type { Env } from "./types";
 import { GLOBAL_SCAN_LIMIT, GLOBAL_SCAN_WINDOW_SECONDS, MAX_BODY_BYTES, parseSearchBody, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_SECONDS } from "./validate";
@@ -237,6 +239,15 @@ function handleAirports(url: URL): ApiResult {
   return { status: 200, body: { results: defaultResolver.resolveLocation(q, limit) } };
 }
 
+/** Precomputed by the hourly cron (dealreports.ts): one small bounded D1 read, cached per isolate, no external calls. */
+async function handleDeals(env: Env): Promise<ApiResult> {
+  try {
+    return { status: 200, body: await loadDeals(env.DB, new Date()) };
+  } catch {
+    return errorResult(503, "deals_unavailable", "Deals are temporarily unavailable");
+  }
+}
+
 async function handleHealth(env: Env): Promise<ApiResult> {
   try {
     await env.DB.prepare("SELECT 1 AS ok").first();
@@ -246,7 +257,7 @@ async function handleHealth(env: Env): Promise<ApiResult> {
   }
 }
 
-const ROUTES: Record<string, string> = { "/api/search": "POST", "/api/airports": "GET", "/api/health": "GET" };
+const ROUTES: Record<string, string> = { "/api/search": "POST", "/api/airports": "GET", "/api/health": "GET", "/api/deals": "GET" };
 
 async function route(request: Request, env: Env, ctx: ExecutionContext): Promise<ApiResult> {
   const url = new URL(request.url);
@@ -270,6 +281,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
 
   if (path === "/api/search") return handleSearch(request, env, ctx);
   if (path === "/api/airports") return handleAirports(url);
+  if (path === "/api/deals") return handleDeals(env);
   return handleHealth(env);
 }
 
@@ -289,7 +301,14 @@ export default {
         fetchFn,
         marketFor: (origin) => marketForCountry(defaultResolver.countryOfAirport(origin)),
       });
-      ctx.waitUntil(runSnapshot({ repo, tp, fx: () => getFxRates(repo, fetchFn, now), now, resolver: defaultResolver }).then(() => undefined));
+      const [origin, destination] = pickSnapshotRoute(now);
+      // Then the route's deal report, as of AFTER the scan (a fresh Date, not the scheduled time: see detectDeals).
+      // Only D1 reads and one upsert; it runs even when the scan was skipped or failed (user searches add history too).
+      ctx.waitUntil(
+        runSnapshot({ repo, tp, fx: () => getFxRates(repo, fetchFn, now), now, resolver: defaultResolver })
+          .then(() => refreshDealReport(env.DB, origin, destination, new Date()))
+          .then(() => undefined),
+      );
       return;
     }
     ctx.waitUntil(
