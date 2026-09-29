@@ -22,6 +22,8 @@ ALTER TABLE watches ADD COLUMN last_checked_at TEXT;
 ALTER TABLE watches ADD COLUMN baseline_ils REAL;
 -- Whole-party total in ILS of the last alert sent: the same price level is not announced again.
 ALTER TABLE watches ADD COLUMN last_alert_ils REAL;
+-- When the fare behind last_price_amount was fetched (its prices.checked_at): the age shown next to that cached price.
+ALTER TABLE watches ADD COLUMN last_price_at TEXT;
 
 ALTER TABLE alerts ADD COLUMN sent_telegram INTEGER NOT NULL DEFAULT 0;
 

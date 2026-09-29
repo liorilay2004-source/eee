@@ -24,6 +24,7 @@ import { assessPrice, type DealAssessment, type PriceSnapshot } from "./deals";
 import { PRICE_COLUMNS, rowToOffer, type PriceRow } from "./db";
 import { applyExtrasAndFx, paxCount, round2 } from "./extras";
 import { toIls } from "./money";
+import { QUOTE_MAX_AGE_HOURS, QUOTE_SOURCE_NAMES } from "./quotes";
 import { airportPairs, computeSearchKey, defaultResolver, sha256Hex } from "./pipeline";
 import { clientIdentity, limiterSalt } from "./ratelimit";
 import { hasTimePrefs, matchesTimes } from "./scoring";
@@ -38,7 +39,12 @@ import { parseSearchBody } from "./validate";
 // --- limits (tunable, all well inside the free tiers) --------------------------------------------------------
 
 export const WATCH_MAX_PER_CLIENT = 3;
-export const WATCH_MAX_TOTAL = 500;
+/**
+ * Kept well under what the hourly job can check in a day: a run affords about 18 history-priced watches (RUN_SUBREQUEST_BUDGET
+ * over ~2.25 subrequests each), x 24 runs = ~430/day, so 300 watches are each really checked about once a day, with room for
+ * alerts and live scans.
+ */
+export const WATCH_MAX_TOTAL = 300;
 export const WATCH_MAX_PER_CHAT = 5;
 export const WATCH_TTL_DAYS = 60;
 /** A watch nobody linked to Telegram within this time is deleted (it would hold a place under the caps for nothing). */
@@ -65,15 +71,25 @@ export const WATCH_ALERT_MIN_GAP_HOURS = 24;
 export const WATCH_REALERT_DROP_PCT = 3;
 /** ...unless the last alert is this old. */
 export const WATCH_REALERT_AFTER_DAYS = 7;
-/** Stored fares at most this old count as "current" for a watch (they are the fare source's cached prices anyway). */
-export const WATCH_HISTORY_MAX_AGE_HOURS = 36;
-/** History rows read per watch: a guard against a route with a huge history. */
-export const WATCH_HISTORY_ROWS = 200;
+/**
+ * Stored fares at most this old count as "current" for a watch (they are the fare source's cached prices anyway). A day plus
+ * a little: the daily check then sees what the last day's searches and snapshots stored, and nothing older.
+ */
+export const WATCH_HISTORY_MAX_AGE_HOURS = 26;
+/**
+ * Rows handed to JavaScript per watch and currency: SQL already keeps only the newest fare of each date pair, source and
+ * ticket structure, and then the cheapest of those (the CPU limit is 10 ms per run, so little JSON is parsed here).
+ */
+export const WATCH_HISTORY_ROWS = 20;
+/** The same with hour windows or max stops set: the cheapest fares may not fit them, so a few more are looked at. */
+export const WATCH_HISTORY_ROWS_STRICT = 50;
 /** The deal detector's look-back for the candidate's own date pair. */
 export const WATCH_DEAL_LOOKBACK_DAYS = 60;
 
-/** Watches taken per scheduled run (the budget below usually ends a run first). 24 runs x 25 >= WATCH_MAX_TOTAL. */
-export const WATCHES_PER_RUN = 25;
+/** Watches taken per scheduled run (the budget below may end a run first). 24 runs x 20 >= WATCH_MAX_TOTAL. */
+export const WATCHES_PER_RUN = 20;
+/** The checked state is written every this many statements (and at the end): a run cut short keeps most of its progress. */
+export const WRITE_FLUSH_EVERY = 4;
 /** Counted D1 queries + outbound requests per run: below the 50 subrequests of a Workers Free invocation. */
 export const RUN_SUBREQUEST_BUDGET = 45;
 export const LIVE_SCANS_PER_RUN = 2;
@@ -92,7 +108,7 @@ export const TARGET_MAX_ILS = 200_000;
 export const DROP_MIN_PCT = 1;
 export const DROP_MAX_PCT = 90;
 
-/** The placeholder owner row of every anonymous watch (migration 0005). */
+/** The placeholder owner row of every anonymous watch (migration 0006). */
 export const ANON_USER_EMAIL = "anonymous-watches@watches.invalid";
 
 const HOUR_MS = 3_600_000;
@@ -229,6 +245,14 @@ function placeName(resolver: Resolver, code: string): string {
   }
 }
 
+/** "מחיר שמור אחרון: ₪X (נבדק לפני N שעות, ייתכן שהשתנה)": a stored price is never shown without its age and the caveat. */
+export function cachedPriceText(amount: number, checkedAt: string | null, now: Date): string {
+  const ms = checkedAt === null ? NaN : Date.parse(checkedAt);
+  const hours = Number.isFinite(ms) ? Math.max(0, Math.floor((now.getTime() - ms) / HOUR_MS)) : null;
+  const age = hours === null ? "זמן הבדיקה לא ידוע" : hours === 0 ? "נבדק לפני פחות משעה" : hours === 1 ? "נבדק לפני שעה" : `נבדק לפני ${hours} שעות`;
+  return `מחיר שמור אחרון: ${formatIls(amount)} (${age}, ייתכן שהשתנה)`;
+}
+
 const partyText = (pax: number): string => (pax === 1 ? "לנוסע אחד" : `ל-${pax} נוסעים`);
 
 export function routeText(req: SearchRequest, resolver: Resolver = defaultResolver): string {
@@ -307,24 +331,36 @@ export function alertMessage(a: AlertContent, resolver: Resolver = defaultResolv
 
 // --- pricing a watch from stored fares ---------------------------------------------------------------------
 
-const flightKey = (o: Offer): string =>
-  JSON.stringify([o.origin, o.destination, o.departDate, o.returnDate, o.source, o.ticketStructure, o.outbound.departTime, o.inbound.departTime]);
+/**
+ * The granularity at which a newer fare replaces an older one: a date pair, per source and ticket structure (the price history
+ * keeps one fare per such group and scan, see historyRows in pipeline.ts). Not per flight: Travelpayouts' cheapest fare of a
+ * date pair can be a different flight on the next scan, and the older, cheaper one is then simply gone.
+ */
+const pairKey = (o: Offer): string => [o.origin, o.destination, o.departDate, o.returnDate, o.source, o.ticketStructure].join("|");
 
 /**
  * The cheapest fare for the watch, priced like a card (whole party, extras, ILS). `offers` are per passenger (history rows,
- * or a live scan's per-adult fares). Only the newest row of each flight counts (an older, cheaper row of the same flight is
- * a price that is gone). With hour windows or max stops set, only fares that verifiably fit them count, like the 🎯 card.
+ * or a live scan's per-adult fares). Only the newest scan of each date pair counts (see pairKey; within one scan every fare
+ * counts), and a live quote only while it is younger than QUOTE_MAX_AGE_HOURS, like in the pipeline. With hour windows or
+ * max stops set, only fares that verifiably fit them count, like the 🎯 card.
  */
-export function cheapestForWatch(offers: Offer[], req: SearchRequest, fx: FxRates): Offer | null {
+export function cheapestForWatch(offers: Offer[], req: SearchRequest, fx: FxRates, now?: Date): Offer | null {
   const pax = paxCount(req);
-  const newest = new Map<string, Offer>();
-  for (const o of offers) {
-    if (!pairOk(req, o.departDate, o.returnDate)) continue;
-    const k = flightKey(o);
-    const cur = newest.get(k);
-    if (!cur || Date.parse(o.checkedAt) > Date.parse(cur.checkedAt)) newest.set(k, o);
+  const newestAt = new Map<string, number>();
+  const usable = offers.filter((o) => {
+    if (!pairOk(req, o.departDate, o.returnDate)) return false;
+    const at = Date.parse(o.checkedAt);
+    if (!Number.isFinite(at)) return false;
+    if (now && (QUOTE_SOURCE_NAMES as readonly string[]).includes(o.source) && now.getTime() - at > QUOTE_MAX_AGE_HOURS * HOUR_MS) return false;
+    return true;
+  });
+  for (const o of usable) {
+    const k = pairKey(o);
+    const at = Date.parse(o.checkedAt);
+    if (!(at <= (newestAt.get(k) ?? -Infinity))) newestAt.set(k, at);
   }
-  const priced = [...newest.values()].map((o) => ({
+  const newest = usable.filter((o) => Date.parse(o.checkedAt) === newestAt.get(pairKey(o)));
+  const priced = newest.map((o) => ({
     ...o,
     outbound: { ...o.outbound, airlines: [...o.outbound.airlines] },
     inbound: { ...o.inbound, airlines: [...o.inbound.airlines] },
@@ -345,28 +381,38 @@ export function cheapestForWatch(offers: Offer[], req: SearchRequest, fx: FxRate
   return best;
 }
 
-/** Stored fares of the watch's airport pairs, checked within WATCH_HISTORY_MAX_AGE_HOURS. One query. */
+/**
+ * Stored fares of the watch's airport pairs, checked within WATCH_HISTORY_MAX_AGE_HOURS. One query, and most of the work is
+ * done by SQLite, not by the Worker's 10 ms of CPU: only the newest row of each (airport pair, date pair, source, ticket
+ * structure) is kept (the same rule as cheapestForWatch), live quotes past QUOTE_MAX_AGE_HOURS are dropped, and of the rest
+ * only the cheapest WATCH_HISTORY_ROWS per currency (prices of different currencies cannot be ordered in SQL) come back.
+ */
 export async function loadWatchHistory(db: D1Database, req: SearchRequest, now: Date, resolver: Resolver = defaultResolver): Promise<Offer[]> {
   const pairs = airportPairs(resolver, req);
   if (pairs.length === 0) return [];
   const origins = [...new Set(pairs.map((p) => p.origin))];
   const dests = [...new Set(pairs.map((p) => p.dest))];
-  const wanted = new Set(pairs.map((p) => `${p.origin}|${p.dest}`));
+  const wanted = [...new Set(pairs.map((p) => `${p.origin}|${p.dest}`))];
   const cutoff = iso(now.getTime() - WATCH_HISTORY_MAX_AGE_HOURS * HOUR_MS);
+  const quoteCutoff = iso(now.getTime() - QUOTE_MAX_AGE_HOURS * HOUR_MS);
+  const perCurrency = hasTimePrefs(req) || req.maxStops !== null ? WATCH_HISTORY_ROWS_STRICT : WATCH_HISTORY_ROWS;
+  const list = (n: number) => new Array<string>(n).fill("?").join(", ");
   const sql =
-    `SELECT ${PRICE_COLUMNS} FROM prices INDEXED BY idx_prices_recent ` +
-    `WHERE origin IN (${origins.map(() => "?").join(", ")}) AND destination IN (${dests.map(() => "?").join(", ")}) ` +
+    `WITH recent AS (SELECT ${PRICE_COLUMNS}, ` +
+    "ROW_NUMBER() OVER (PARTITION BY origin, destination, depart_date, return_date, source, ticket_structure ORDER BY checked_at DESC, id DESC) AS rn " +
+    "FROM prices INDEXED BY idx_prices_recent " +
+    `WHERE origin IN (${list(origins.length)}) AND destination IN (${list(dests.length)}) AND (origin || '|' || destination) IN (${list(wanted.length)}) ` +
     "AND checked_at > ? AND depart_date >= ? AND return_date <= ? " +
-    // The stay length in SQL, so the row cap is spent on trips the watch can use (and less JSON is parsed: 10 ms of CPU).
-    "AND julianday(return_date) - julianday(depart_date) BETWEEN ? AND ? " +
-    "ORDER BY checked_at DESC, id DESC LIMIT ?";
+    "AND julianday(return_date) - julianday(depart_date) BETWEEN ? AND ?), " +
+    `newest AS (SELECT * FROM recent WHERE rn = 1 AND NOT (source IN (${list(QUOTE_SOURCE_NAMES.length)}) AND checked_at <= ?)), ` +
+    "ranked AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY price_currency ORDER BY price_amount, id) AS rc FROM newest) " +
+    `SELECT ${PRICE_COLUMNS} FROM ranked WHERE rc <= ? ORDER BY id`;
   const { results } = await db
     .prepare(sql)
-    .bind(...origins, ...dests, cutoff, req.windowStart, req.windowEnd, req.stayMin, req.stayMax, WATCH_HISTORY_ROWS)
+    .bind(...origins, ...dests, ...wanted, cutoff, req.windowStart, req.windowEnd, req.stayMin, req.stayMax, ...QUOTE_SOURCE_NAMES, quoteCutoff, perCurrency)
     .all<PriceRow>();
   const out: Offer[] = [];
   for (const row of results) {
-    if (!wanted.has(`${row.origin}|${row.destination}`)) continue;
     const o = rowToOffer(row);
     if (o) out.push(o);
   }
@@ -466,11 +512,12 @@ export interface WatchRow {
   last_checked_at: string | null;
   baseline_ils: number | null;
   last_alert_ils: number | null;
+  last_price_at: string | null;
 }
 
 const WATCH_COLUMNS =
   "id, search_key, threshold_ils, drop_pct, active, expires_at, last_price_amount, last_price_currency, last_alert_at, " +
-  "request_json, created_at, telegram_chat_id, last_checked_at, baseline_ils, last_alert_ils";
+  "request_json, created_at, telegram_chat_id, last_checked_at, baseline_ils, last_alert_ils, last_price_at";
 
 export interface WatchView {
   status: "pending" | "active" | "expired";
@@ -491,6 +538,8 @@ export interface WatchView {
   expiresAt: string;
   lastCheckedAt: string | null;
   lastPriceIls: number | null;
+  /** When the fare behind lastPriceIls was fetched from the fare source's cache (it may have changed since). */
+  lastPriceCheckedAt: string | null;
   baselinePriceIls: number | null;
   lastAlertAt: string | null;
 }
@@ -516,6 +565,7 @@ export function watchView(row: WatchRow, req: SearchRequest, now: Date): WatchVi
     expiresAt: row.expires_at,
     lastCheckedAt: row.last_checked_at,
     lastPriceIls: row.last_price_currency === "ILS" ? row.last_price_amount : null,
+    lastPriceCheckedAt: row.last_price_currency === "ILS" ? row.last_price_at : null,
     baselinePriceIls: row.baseline_ils,
     lastAlertAt: row.last_alert_at,
   };
@@ -552,7 +602,7 @@ export async function insertWatch(
     .prepare("SELECT (SELECT COUNT(*) FROM watches WHERE client_hash = ? AND active = 1 AND expires_at > ?) AS mine, (SELECT COUNT(*) FROM users WHERE email = ?) AS anon")
     .bind(w.clientHash, nowIso, ANON_USER_EMAIL)
     .first<{ mine: number; anon: number }>();
-  if (!row || row.anon === 0) return { ok: false, reason: "storage" }; // migration 0005 not applied
+  if (!row || row.anon === 0) return { ok: false, reason: "storage" }; // migration 0006 not applied
   return { ok: false, reason: row.mine >= WATCH_MAX_PER_CLIENT ? "client_limit" : "total_limit" };
 }
 
@@ -638,7 +688,7 @@ export async function handleCreateWatch(
   const row: WatchRow = {
     id: outcome.id, search_key: "", threshold_ils: parsed.value.targetPriceIls, drop_pct: parsed.value.dropPct, active: 1, expires_at: expiresAt,
     last_price_amount: null, last_price_currency: null, last_alert_at: null, request_json: "", created_at: now.toISOString(),
-    telegram_chat_id: null, last_checked_at: null, baseline_ils: null, last_alert_ils: null,
+    telegram_chat_id: null, last_checked_at: null, baseline_ils: null, last_alert_ils: null, last_price_at: null,
   };
   return {
     status: 201,
@@ -719,7 +769,7 @@ export async function handleBotUpdate(update: unknown, deps: BotDeps): Promise<R
       if (results.length === 0) return reply("אין לך התראות פעילות.");
       const lines = results.map((r) => {
         const req = parseStoredRequest(r.request_json);
-        const price = r.last_price_currency === "ILS" && r.last_price_amount !== null ? ` · מחיר אחרון: ${formatIls(r.last_price_amount)}` : "";
+        const price = r.last_price_currency === "ILS" && r.last_price_amount !== null ? ` · ${cachedPriceText(r.last_price_amount, r.last_price_at, now)}` : "";
         return `• ${req ? watchSummaryText(req, resolver) : "חיפוש"}${price} · עד ${formatDate(r.expires_at.slice(0, 10))} · להפסקה: /stop_${r.id}`;
       });
       return reply(`ההתראות הפעילות שלך:\n${lines.join("\n")}\n\nלהפסקת כולן: /stop`);
@@ -796,6 +846,8 @@ interface Pending {
   row: WatchRow;
   req: SearchRequest;
   price: number | null;
+  /** checked_at of the fare behind `price`. */
+  priceAt: string | null;
   retrySoon: boolean;
 }
 
@@ -841,16 +893,29 @@ async function runInner(deps: WatchRunDeps, budget: SubrequestBudget, out: Watch
 
   let fx: FxRates;
   if (typeof deps.fx === "function") {
-    if (!budget.take(FX_COST)) return;
-    try {
-      fx = await deps.fx();
-    } catch {
-      return; // without rates nothing can be compared in ILS
+    // Today's stored rates cost one query; the full loader (which may fetch and save) is only paid for when they are missing.
+    if (!budget.take(1)) return;
+    const stored = await deps.repo.getFxRates(now.toISOString().slice(0, 10)).catch(() => null);
+    if (stored && stored.ratesToIls.ILS === 1) fx = stored;
+    else {
+      if (!budget.take(FX_COST)) return;
+      try {
+        fx = await deps.fx();
+      } catch {
+        return; // without rates nothing can be compared in ILS
+      }
     }
   } else fx = deps.fx;
 
   const writes: D1PreparedStatement[] = [];
-  const pendingWrites = () => Math.ceil((writes.length + 2) / 50);
+  // One flush is always kept in reserve: flushes happen every WRITE_FLUSH_EVERY statements and at the end.
+  const pendingWrites = () => 1;
+  const flush = async (): Promise<void> => {
+    if (writes.length === 0) return;
+    budget.take(1);
+    const batch = writes.splice(0, writes.length);
+    await db.batch(batch);
+  };
   const memo = new Map<string, { best: Offer | null; deal: DealAssessment | null }>();
 
   for (const row of due) {
@@ -865,7 +930,7 @@ async function runInner(deps: WatchRunDeps, budget: SubrequestBudget, out: Watch
     let found = memo.get(row.request_json);
     if (!found) {
       budget.take(1);
-      let best = cheapestForWatch(await loadWatchHistory(db, req, now, resolver), req, fx);
+      let best = cheapestForWatch(await loadWatchHistory(db, req, now, resolver), req, fx, now);
       if (!best) best = await liveScan(deps, req, fx, budget, out, pendingWrites);
       let deal: DealAssessment | null = null;
       if (best && budget.has(1 + 3 + pendingWrites())) {
@@ -877,7 +942,7 @@ async function runInner(deps: WatchRunDeps, budget: SubrequestBudget, out: Watch
     }
     out.checked += 1;
     const best = found.best;
-    const pending: Pending = { row, req, price: best?.totalIls ?? null, retrySoon: best === null };
+    const pending: Pending = { row, req, price: best?.totalIls ?? null, priceAt: best?.checkedAt ?? null, retrySoon: best === null };
     if (best && best.totalIls !== null) {
       out.priced += 1;
       const reasons = alertReasons(
@@ -893,14 +958,9 @@ async function runInner(deps: WatchRunDeps, budget: SubrequestBudget, out: Watch
       }
     }
     writes.push(checkedWrite(db, pending, now));
+    if (writes.length >= WRITE_FLUSH_EVERY) await flush();
   }
-
-  if (writes.length > 0) {
-    for (let i = 0; i < writes.length; i += 50) {
-      budget.take(1);
-      await db.batch(writes.slice(i, i + 50));
-    }
-  }
+  await flush();
 }
 
 function checkedWrite(db: D1Database, p: Pending, now: Date): D1PreparedStatement {
@@ -908,8 +968,10 @@ function checkedWrite(db: D1Database, p: Pending, now: Date): D1PreparedStatemen
   const checkedAt = p.retrySoon ? iso(now.getTime() - (WATCH_CHECK_INTERVAL_HOURS - WATCH_RETRY_HOURS) * HOUR_MS) : now.toISOString();
   if (p.price === null) return db.prepare("UPDATE watches SET last_checked_at = ? WHERE id = ?").bind(checkedAt, p.row.id);
   return db
-    .prepare("UPDATE watches SET last_checked_at = ?, last_price_amount = ?, last_price_currency = 'ILS', baseline_ils = COALESCE(baseline_ils, ?) WHERE id = ?")
-    .bind(checkedAt, round2(p.price), round2(p.price), p.row.id);
+    .prepare(
+      "UPDATE watches SET last_checked_at = ?, last_price_amount = ?, last_price_currency = 'ILS', last_price_at = ?, baseline_ils = COALESCE(baseline_ils, ?) WHERE id = ?",
+    )
+    .bind(checkedAt, round2(p.price), p.priceAt, round2(p.price), p.row.id);
 }
 
 /**
@@ -964,7 +1026,7 @@ async function liveScan(
     budget.take(save);
     await deps.repo.savePrices(rows).catch(() => undefined);
   }
-  return cheapestForWatch(inWindow, req, fx);
+  return cheapestForWatch(inWindow, req, fx, deps.now);
 }
 
 async function sendAlert(

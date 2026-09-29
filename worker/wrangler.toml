@@ -25,4 +25,4 @@ crons = ["17 3 * * *", "43 * * * *", "29 * * * *"]
 # one has a hard request cap below its free allowance (src/sources/), counted in D1 by migration 0004.
 # OPTIONAL price alerts over the free Telegram Bot API (src/telegram.ts): secrets `TELEGRAM_BOT_TOKEN` and
 # `TELEGRAM_WEBHOOK_SECRET`, plus the plain variable `TELEGRAM_BOT_USERNAME` (dashboard: Settings -> Variables). Without all
-# three the alert channel is off: POST /api/watches answers 503 and the webhook 404. Needs migration 0005.
+# three the alert channel is off: POST /api/watches answers 503 and the webhook 404. Needs migration 0006.

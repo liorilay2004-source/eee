@@ -1,5 +1,5 @@
 /**
- * Price alerts (src/watches.ts, src/telegram.ts, migration 0005): the API, the Telegram webhook, the good-price rules and
+ * Price alerts (src/watches.ts, src/telegram.ts, migration 0006): the API, the Telegram webhook, the good-price rules and
  * the scheduled check, including its subrequest budget. Upstreams (Telegram, Travelpayouts) are stubs: nothing leaves.
  */
 import { readFileSync } from "node:fs";
@@ -24,11 +24,17 @@ import {
   WATCH_MAX_PER_CHAT,
   WATCH_MAX_PER_CLIENT,
   WATCH_MAX_TOTAL,
+  WATCH_HISTORY_ROWS,
+  WATCHES_PER_RUN,
+  WRITE_FLUSH_EVERY,
+  loadWatchHistory,
+  cachedPriceText,
   watchExpiry,
   type WatchRunDeps,
   type WatchState,
 } from "../src/watches";
 import { defaultResolver } from "../src/pipeline";
+import { QUOTE_MAX_AGE_HOURS } from "../src/quotes";
 import type { DealAssessment } from "../src/deals";
 import type { Env, FxRates, Offer, SearchRequest, TravelpayoutsClient } from "../src/types";
 import { createTestD1 } from "./helpers/d1";
@@ -110,7 +116,7 @@ afterEach(() => {
 
 // --- migration ---------------------------------------------------------------------------------------------
 
-describe("migration 0005", () => {
+describe("migration 0006", () => {
   it("adds the placeholder owner, the new columns and the token index", async () => {
     const db = createTestD1();
     expect(await rows(db, "SELECT email FROM users")).toEqual([{ email: ANON_USER_EMAIL }]);
@@ -123,7 +129,7 @@ describe("migration 0005", () => {
   });
 
   it("is named with the team id and has no semicolon inside a comment (D1 splits on them)", () => {
-    const text = readFileSync(join(__dirname, "..", "migrations", "0005_m11_price_alerts.sql"), "utf8");
+    const text = readFileSync(join(__dirname, "..", "migrations", "0006_m11_price_alerts.sql"), "utf8");
     for (const line of text.split("\n").filter((l) => l.trim().startsWith("--"))) expect(line).not.toContain(";");
   });
 });
@@ -286,6 +292,13 @@ describe("pricing a watch", () => {
 
   it("a currency without a rate is never guessed", () => {
     expect(cheapestForWatch([mkOffer({ priceCurrency: "XYZ" })], mkReq(), FX)).toBeNull();
+  });
+});
+
+describe("cached price text", () => {
+  it("always carries the age and the caveat", () => {
+    expect(cachedPriceText(900, new Date(NOW.getTime() - 30 * 60_000).toISOString(), NOW)).toBe("מחיר שמור אחרון: ₪900 (נבדק לפני פחות משעה, ייתכן שהשתנה)");
+    expect(cachedPriceText(900, null, NOW)).toContain("זמן הבדיקה לא ידוע");
   });
 });
 
@@ -477,8 +490,12 @@ describe("POST /api/telegram/webhook", () => {
     await linked(env, 42);
     await linked(env, 42);
     const other = await linked(env, 43);
+    await env.DB.prepare("UPDATE watches SET last_price_amount = 1234, last_price_currency = 'ILS', last_price_at = ? WHERE telegram_chat_id = '42'")
+      .bind(new Date(NOW.getTime() - 5 * HOUR).toISOString()).run();
     const list = (await replyText(webhook(env, tgText(42, "/list")))) as string;
     expect(list).toContain("ההתראות הפעילות שלך");
+    expect(list).toContain("מחיר שמור אחרון: ₪1,234 (נבדק לפני 5 שעות, ייתכן שהשתנה)");
+    expect(list).not.toMatch(/מחיר אחרון:/);
     expect(list.match(/\/stop_\d+/g)).toHaveLength(2);
     const otherId = (await rows<{ id: number }>(env, "SELECT id FROM watches WHERE telegram_chat_id = '43'"))[0]?.id;
     expect((await replyText(webhook(env, tgText(42, `/stop_${otherId}`))))).toContain("לא מצאנו");
@@ -711,15 +728,78 @@ describe("runWatchChecks", () => {
     expect((await rows(base, "SELECT id FROM watches WHERE last_checked_at IS NULL")).length).toBeGreaterThanOrEqual(30 - res.checked);
   });
 
-  it("with the history in place a run gets through many watches cheaply", async () => {
+  it("with the history and today's rates in place a run checks more than its share of the daily cap (the 'about once a day' promise)", async () => {
     const base = createTestD1();
     const { db, counter } = countingDb(base);
     await createRepo(base).savePrices([mkOffer()]);
-    for (let i = 0; i < 25; i++) await seedWatch(base, { drop: 10, chat: String(i + 1), req: mkReq({ stayMax: 7 + i }) });
-    const r = runDeps(db);
+    await createRepo(base).saveFxRates(FX);
+    for (let i = 0; i < WATCHES_PER_RUN; i++) await seedWatch(base, { drop: 10, chat: String(i + 1), req: mkReq({ stayMax: 7 + i }) });
+    const loader = vi.fn(async () => FX);
+    const r = runDeps(db, { fx: loader });
     const res = await runWatchChecks(r.deps);
-    expect(res.checked).toBeGreaterThanOrEqual(10);
+    expect(loader).not.toHaveBeenCalled(); // stored rates: the full loader's reserve is not paid
+    expect(res.checked).toBeGreaterThanOrEqual(Math.ceil(WATCH_MAX_TOTAL / 24) + 3);
+    expect(WATCHES_PER_RUN * 24).toBeGreaterThanOrEqual(WATCH_MAX_TOTAL);
     expect(counter.n + r.fetchFn.mock.calls.length).toBeLessThanOrEqual(RUN_SUBREQUEST_BUDGET);
+  });
+
+  it("an older, cheaper fare of the same date pair that a newer scan replaced never triggers an alert", async () => {
+    const db = createTestD1();
+    await seedWatch(db, { threshold: 400, drop: 0 });
+    const old = mkOffer({ priceAmount: 50, checkedAt: new Date(NOW.getTime() - 20 * HOUR).toISOString() }); // 180 ILS, gone
+    const fresh = mkOffer({ priceAmount: 120, outbound: { ...mkOffer().outbound, departTime: "15:00" } }); // 432 ILS, another flight
+    await createRepo(db).savePrices([old, fresh]);
+    expect((await loadWatchHistory(db, mkReq(), NOW)).map((o) => o.priceAmount)).toEqual([120]);
+    expect(cheapestForWatch([old, fresh], mkReq(), FX, NOW)?.priceAmount).toBe(120);
+    const r = runDeps(db);
+    expect(await runWatchChecks(r.deps)).toMatchObject({ priced: 1, alerts: 0 });
+    expect(r.sent).toEqual([]);
+  });
+
+  it("a live quote counts only while it is younger than the pipeline's quote age limit", async () => {
+    const db = createTestD1();
+    const quote = (h: number, amount: number) => mkOffer({ source: "serpapi", priceAmount: amount, checkedAt: new Date(NOW.getTime() - h * HOUR).toISOString() });
+    await createRepo(db).savePrices([quote(QUOTE_MAX_AGE_HOURS + 1, 40), mkOffer({ priceAmount: 100 })]);
+    expect((await loadWatchHistory(db, mkReq(), NOW)).map((o) => o.source)).toEqual(["travelpayouts"]);
+    expect(cheapestForWatch([quote(QUOTE_MAX_AGE_HOURS + 1, 40), mkOffer()], mkReq(), FX, NOW)?.source).toBe("travelpayouts");
+    expect(cheapestForWatch([quote(QUOTE_MAX_AGE_HOURS - 1, 40), mkOffer()], mkReq(), FX, NOW)?.source).toBe("serpapi");
+  });
+
+  it("SQL hands back only the cheapest few fares per currency, whatever the history size", async () => {
+    const db = createTestD1();
+    const many = Array.from({ length: 120 }, (_, i) => {
+      const dep = 10 + (i % 8);
+      return mkOffer({ departDate: `2026-11-${dep}`, returnDate: `2026-11-${dep + 5 + (i % 3)}`, priceAmount: 300 - i, source: i % 2 ? "travelpayouts" : "google_flights" });
+    });
+    await createRepo(db).savePrices([...many, mkOffer({ priceAmount: 500, priceCurrency: "EUR" })]);
+    const got = await loadWatchHistory(db, mkReq(), NOW);
+    const usd = got.filter((o) => o.priceCurrency === "USD");
+    expect(usd.length).toBeLessThanOrEqual(WATCH_HISTORY_ROWS);
+    expect(Math.min(...usd.map((o) => o.priceAmount))).toBe(Math.min(...many.slice(-48).map((o) => o.priceAmount)));
+    expect(got.filter((o) => o.priceCurrency === "EUR")).toHaveLength(1);
+    expect(cheapestForWatch(got, mkReq(), FX, NOW)?.priceAmount).toBe(181);
+  });
+
+  it("the checked state is written as the run goes: a run cut short (CPU limit) keeps the watches it finished", async () => {
+    const base = createTestD1();
+    await createRepo(base).savePrices([mkOffer()]);
+    for (let i = 0; i < 8; i++) await seedWatch(base, { chat: String(i + 1), req: mkReq({ stayMax: 7 + i }) });
+    let historyReads = 0;
+    const killing = new Proxy(base, {
+      get(target, prop, recv) {
+        if (prop === "prepare") {
+          return (sql: string) => {
+            if (sql.includes("WITH recent AS") && ++historyReads === 6) throw new Error("exceeded CPU");
+            return target.prepare(sql);
+          };
+        }
+        const v = Reflect.get(target, prop, recv) as unknown;
+        return typeof v === "function" ? (v as (...a: unknown[]) => unknown).bind(target) : v;
+      },
+    });
+    await runWatchChecks(runDeps(killing).deps);
+    const done = await rows(base, "SELECT id FROM watches WHERE last_checked_at IS NOT NULL");
+    expect(done.length).toBeGreaterThanOrEqual(WRITE_FLUSH_EVERY);
   });
 
   it("identical watches are priced once per run", async () => {
@@ -729,7 +809,7 @@ describe("runWatchChecks", () => {
     for (let i = 0; i < 5; i++) await seedWatch(base, { chat: String(i + 1) });
     const res = await runWatchChecks(runDeps(db).deps);
     expect(res.checked).toBe(5);
-    expect(counter.n).toBeLessThanOrEqual(1 + 1 + 1 + 1 + 1); // housekeeping, select, history, deal history, final write
+    expect(counter.n).toBeLessThanOrEqual(1 + 1 + 1 + 1 + 2); // housekeeping, select, history, deal history, two flushes (4 + 1)
   });
 
   it("a blocked bot forgets the chat's watches; a failed send is not retried and not recorded as sent", async () => {
@@ -772,7 +852,6 @@ describe("runWatchChecks", () => {
     const db = createTestD1();
     const short = Array.from({ length: 300 }, (_, i) => mkOffer({ departDate: "2026-11-12", returnDate: "2026-11-14", priceAmount: 50 + i })); // 2 nights
     await createRepo(db).savePrices([...short, mkOffer({ priceAmount: 120 })]);
-    const { loadWatchHistory } = await import("../src/watches");
     const got = await loadWatchHistory(db, mkReq(), NOW);
     expect(got.map((o) => o.priceAmount)).toEqual([120]);
   });
