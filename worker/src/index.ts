@@ -397,7 +397,10 @@ export default {
           fetchFn,
           fx: () => getFxRates(repo, fetchFn, now),
           telegram: telegramConfig(env),
-          scanBudget: () => scanBudgetLeft(repo, now),
+          scanBudget: async () => {
+            const verdict = await scanBudgetLeft(repo, now);
+            return typeof verdict === "boolean" ? verdict : verdict.allowed;
+          },
           resolver: defaultResolver,
         }).then(() => undefined),
       );
