@@ -159,6 +159,13 @@ export interface CardView extends Card {
   priceContext: PriceContext | null;
   /** Hours since OUR check of the fare (checkedAt). For a cached source this is NOT the fare's age: see fareAgeHours. */
   ageHours: number;
+  /**
+   * ADDITIVE (WEB_APP_SPEC 7.2 `airlineNames`, gap 7): IATA code -> Hebrew display name for the airlines this card's legs
+   * name. Only codes in the bundled table (src/airlines/airlines.json) appear; an unknown code is left out, never guessed.
+   */
+  airlineNames: Record<string, string>;
+  /** ADDITIVE: the same codes with both names and the low-cost flag (see airlines.json for what `lowCost` means). */
+  airlines: Record<string, { nameHe: string; nameEn: string; lowCost: boolean }>;
   /** ADDITIVE (freshness.ts): when the fare itself was seen; null = unknown. */
   fareFoundAt: string | null;
   /** ADDITIVE: hours (one decimal) since fareFoundAt; null = unknown. */

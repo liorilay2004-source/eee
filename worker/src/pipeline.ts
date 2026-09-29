@@ -16,6 +16,7 @@
  * Passenger convention: `Offer.priceAmount` is the total for the whole party (like Python), and the shared
  * `prices` history stores PER-PASSENGER amounts so searches with different party sizes stay comparable.
  */
+import { airlineFieldsFor } from "./airlines/lookup";
 import * as airportData from "./airports/resolve";
 import { orderPairsByService } from "./airports/served";
 import type { Resolver } from "./airports/types";
@@ -864,6 +865,7 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
       ...card,
       priceContext: await contextFor(repo, card.offer, pax, now),
       ageHours: ageHours(card.offer.checkedAt, now),
+      ...airlineFieldsFor(card.offer),
       ...fareFreshness(card.offer, now),
     })),
   );

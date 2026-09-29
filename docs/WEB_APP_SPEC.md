@@ -389,6 +389,7 @@ interface CardView {
     verify: string | null;           //   Google Flights check link, not rendered in v1 (D9)
   };
   airlineNames?: Record<string, string>; // NEW, optional — IATA code → display name (§7.7 gap 7)
+  airlines?: Record<string, { nameHe: string; nameEn: string; lowCost: boolean }>; // NEW, optional — same codes, both names + low-cost flag (Worker: worker/src/airlines/airlines.json; unknown codes are left out)
 }
 ```
 Invariants the client MAY rely on: `cards` is empty only with `meta.recommendations.cheapest.status = "no_offers"`; `cards`/`kinds` are post-gating (§5.3); a `my_times` kind never appears unless `outHours`/`retHours` was sent; every `flags` entry is a code from §5.4 (unknown codes are ignored by the client, not rendered raw); `links.book` is always non-null and passes the client's booking-link check (§5.6).
@@ -544,7 +545,7 @@ A read-only comparison of §7 with the merged Phase 1 Worker (`worker/`, run loc
 | 23 | `sources[]` entries | one per source used | always two; `google_flights` is `{ enabled: offers > 0, ok: offers > 0, calls: 0 }`, so `enabled: false` only means "no monitor rows" | Spec: the UI derives **Partial** from the `travelpayouts` entry until the Phase 3 monitor exists |
 | 24 | `validPairs`, `pairsWithOffers` | present | only `candidatePairs` = min(5, distinct priced pairs); helpers exist | **Worker** |
 | 25 | `priceContext` | ILS fields (`weekAgoIls`, `lowestIls`) | original currency only, scaled by party size; history is not filtered by ticket structure or source | **Worker** (gap 8) |
-| 26 | `airlineNames` | optional | absent | Spec: stays optional; bundled table in the web app (gap 7) |
+| 26 | `airlineNames` | optional | absent → **returned per card** (Hebrew name) together with `airlines` (Hebrew/English name, low-cost flag) from a bundled 90-carrier TLV/ETM table (`worker/src/airlines/airlines.json`, sources and licence inside); codes not in the table are left out, never guessed | Spec: stays optional for clients (gap 7) |
 | 27 | Example response (§7.2) | 2 cards | with the same fixtures the Worker composes a live split and returns 1 card (W6 out + VY back, ₪503.81, `savingsVsRoundtripIls` 76.8) | Spec: the example stays illustrative; W0(b) publishes fixture-derived examples |
 | 28 | Extra codes and routing | listed in §7.5 | also 404, 405 (+ `Allow`), 503 `fx_unavailable`; never 502 | Spec (§7.5) |
 | 29 | `RATE_LIMIT_SALT` | required; Worker refuses without it | optional: env, else derived from the Travelpayouts token, else random per isolate with an error log; health does not check it | **Decision D18** |
