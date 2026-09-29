@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BOI_URL, FALLBACK_URL, getFxRates } from "../src/fx";
+import { BOI_URL, ECB_URL, FALLBACK_URL, getFxRates, parseEcb } from "../src/fx";
 import { createRepo } from "../src/db";
 import { toIls } from "../src/money";
 import type { FxRates, Repo } from "../src/types";
@@ -26,20 +26,22 @@ const boom = (msg: string): Handler => () => {
 /** A body whose json() yields a value JSON text cannot carry (NaN, Infinity). */
 const raw = (value: unknown): Handler => () => ({ ok: true, status: 200, json: async () => value }) as unknown as Response;
 
-function fetchStub(boiHandler: Handler, erHandler: Handler) {
+/** The ECB is the last fresh source: by default it is down, so the older tests keep their two-source meaning. */
+function fetchStub(boiHandler: Handler, erHandler: Handler, ecbHandler: Handler = status(503)) {
   return vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
     const url = String(input);
     if (url === BOI_URL) return boiHandler();
     if (url === FALLBACK_URL) return erHandler();
+    if (url === ECB_URL) return ecbHandler();
     throw new Error(`unexpected URL ${url}`);
   });
 }
 const asFetch = (f: ReturnType<typeof fetchStub>) => f as unknown as typeof fetch;
 
-function setup(boiHandler: Handler = ok(BOI_OK), erHandler: Handler = ok(ER_OK)) {
+function setup(boiHandler: Handler = ok(BOI_OK), erHandler: Handler = ok(ER_OK), ecbHandler: Handler = status(503)) {
   const db = createTestD1();
   const repo = createRepo(db);
-  const fetchFn = fetchStub(boiHandler, erHandler);
+  const fetchFn = fetchStub(boiHandler, erHandler, ecbHandler);
   return { db, repo, fetchFn, get: (now = NOW) => getFxRates(repo, asFetch(fetchFn), now) };
 }
 
@@ -270,13 +272,13 @@ describe("cache", () => {
 describe("stale fallback", () => {
   const old: FxRates = { date: "2026-10-27", source: "bank_of_israel", ratesToIls: { USD: 3.5, EUR: 4.1, ILS: 1 } };
 
-  it("serves the newest stored day, marked :stale, when both sources fail", async () => {
+  it("serves the newest stored day, marked :stale, when all three sources fail", async () => {
     const { get, repo, fetchFn } = setup(boom("fetch failed"), status(503));
     await repo.saveFxRates({ ...old, date: "2026-10-20", ratesToIls: { USD: 3.3, ILS: 1 } });
     await repo.saveFxRates(old);
     const fx = await get();
     expect(fx).toEqual({ ...old, source: "bank_of_israel:stale" });
-    expect(urls(fetchFn)).toEqual([BOI_URL, FALLBACK_URL]);
+    expect(urls(fetchFn)).toEqual([BOI_URL, FALLBACK_URL, ECB_URL]);
   });
 
   it("also covers garbage payloads from both sources", async () => {
@@ -295,7 +297,7 @@ describe("stale fallback", () => {
 
   it("throws only when nothing exists anywhere", async () => {
     const { get } = setup(boom("fetch failed"), status(503));
-    await expect(get()).rejects.toThrow(/No FX rates available.*bank_of_israel.*fetch failed.*open\.er-api\.com.*HTTP 503/);
+    await expect(get()).rejects.toThrow(/No FX rates available.*bank_of_israel.*fetch failed.*open\.er-api\.com.*HTTP 503.*ecb.*HTTP 503/);
   });
 
   it("times out via AbortSignal.timeout(8000) on each source and then serves stale", async () => {
@@ -310,9 +312,10 @@ describe("stale fallback", () => {
     await repo.saveFxRates(old);
     const fx = await getFxRates(repo, hang as unknown as typeof fetch, NOW);
     expect(fx.source).toBe("bank_of_israel:stale");
-    expect(timeout).toHaveBeenCalledTimes(2);
+    expect(timeout).toHaveBeenCalledTimes(3);
     expect(timeout).toHaveBeenNthCalledWith(1, 8000);
     expect(timeout).toHaveBeenNthCalledWith(2, 8000);
+    expect(timeout).toHaveBeenNthCalledWith(3, 8000);
   });
 });
 
@@ -331,5 +334,73 @@ describe("storage failures", () => {
     const down = () => Promise.reject(new Error("D1 unavailable"));
     const repo = { ...createRepo(createTestD1()), getFxRates: down, getLatestFxRates: down } as unknown as Repo;
     await expect(getFxRates(repo, asFetch(fetchFn), NOW)).rejects.toThrow(/No FX rates available/);
+  });
+});
+
+// ECB euro reference rates: the third fresh source, asked only when the Bank of Israel and open.er-api.com both fail.
+const ECB_XML = `<?xml version="1.0" encoding="UTF-8"?>
+<gesmes:Envelope xmlns:gesmes="http://www.gesmes.org/xml/2002-08-01" xmlns="http://www.ecb.int/vocabulary/2002-08-01/eurofxref">
+	<gesmes:subject>Reference rates</gesmes:subject>
+	<Cube>
+		<Cube time='2026-09-29'>
+			<Cube currency='USD' rate='1.1355'/>
+			<Cube currency='JPY' rate='178.41'/>
+			<Cube currency='GBP' rate='0.85718'/>
+			<Cube currency='ILS' rate='3.4702'/>
+		</Cube>
+	</Cube>
+</gesmes:Envelope>`;
+const xml = (body: string): Handler => () => new Response(body, { status: 200, headers: { "content-type": "text/xml" } });
+
+describe("ECB euro reference rates (third source)", () => {
+  it("is asked only after both earlier sources fail, and converts per-EUR rates into ILS per unit", async () => {
+    const { get, fetchFn, repo } = setup(status(500), status(503), xml(ECB_XML));
+    const fx = await get();
+    expect(fx.source).toBe("ecb");
+    expect(fx.date).toBe(TODAY);
+    expect(urls(fetchFn)).toEqual([BOI_URL, FALLBACK_URL, ECB_URL]);
+    expect(fx.ratesToIls.ILS).toBe(1);
+    expect(fx.ratesToIls.EUR).toBe(3.4702);
+    expect(fx.ratesToIls.USD).toBeCloseTo(3.4702 / 1.1355, 10);
+    expect(fx.ratesToIls.GBP).toBeCloseTo(3.4702 / 0.85718, 10);
+    expect(fx.ratesToIls.JPY).toBeCloseTo(3.4702 / 178.41, 10);
+    expect(await repo.getFxRates(TODAY)).toEqual(fx);
+  });
+
+  it("is never asked on a normal day (one call, to the Bank of Israel)", async () => {
+    const { get, fetchFn } = setup(ok(BOI_OK), ok(ER_OK), xml(ECB_XML));
+    expect((await get()).source).toBe("bank_of_israel");
+    expect(urls(fetchFn)).toEqual([BOI_URL]);
+  });
+
+  it("accepts double quotes and attributes in either order", () => {
+    const rates = parseEcb(`<Cube rate="1.2" currency="USD"/><Cube currency="ILS" rate="3.6"/>`);
+    expect(rates?.USD).toBeCloseTo(3, 10);
+    expect(rates?.EUR).toBe(3.6);
+  });
+
+  it.each([
+    ["not a string", { rates: {} }],
+    ["no ILS rate", `<Cube currency='USD' rate='1.1'/>`],
+    ["no USD rate", `<Cube currency='ILS' rate='3.4'/><Cube currency='GBP' rate='0.8'/>`],
+    ["ILS rate zero", `<Cube currency='USD' rate='1.1'/><Cube currency='ILS' rate='0'/>`],
+    ["ILS rate text", `<Cube currency='USD' rate='1.1'/><Cube currency='ILS' rate='abc'/>`],
+    ["an HTML error page", "<html><body>Service unavailable</body></html>"],
+    ["empty", ""],
+  ])("rejects an unusable payload: %s", (_label, payload) => {
+    expect(parseEcb(payload)).toBeNull();
+  });
+
+  it("drops zero, negative and malformed per-EUR rates and bad codes instead of dividing by them", () => {
+    const rates = parseEcb(
+      `<Cube currency='USD' rate='1.1'/><Cube currency='ILS' rate='3.3'/><Cube currency='GBP' rate='0'/><Cube currency='CHF' rate='-1'/><Cube currency='usd1' rate='2'/><Cube currency='SEK' rate=''/>`,
+    );
+    expect(Object.keys(rates ?? {}).sort()).toEqual(["EUR", "USD"]);
+  });
+
+  it("a garbage ECB answer still ends in the stale day, never in invented rates", async () => {
+    const { get, repo } = setup(status(500), status(500), xml("<html>blocked</html>"));
+    await repo.saveFxRates({ date: "2026-10-27", source: "bank_of_israel", ratesToIls: { USD: 3.5, ILS: 1 } });
+    expect((await get()).source).toBe("bank_of_israel:stale");
   });
 });

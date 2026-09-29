@@ -77,7 +77,7 @@ export interface Card {
 
 export interface FxRates {
   date: string; // YYYY-MM-DD the rates were fetched for
-  source: string; // "bank_of_israel" | "open.er-api.com"
+  source: string; // "bank_of_israel" | "open.er-api.com" | "ecb", with ":stale" when served from an older day
   ratesToIls: Record<string, number>; // 1 unit of CURRENCY = N ILS; always includes ILS: 1
 }
 

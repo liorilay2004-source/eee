@@ -1,13 +1,16 @@
 import type { FxRates, Repo } from "./types";
 
 /**
- * FX to ILS (SPEC §4.2), mirroring engine/tpe/fx.py: Bank of Israel first, open.er-api.com as fallback,
- * cached in D1 per UTC date. If both sources fail the newest stored day is served, marked ":stale".
+ * FX to ILS (SPEC §4.2), mirroring engine/tpe/fx.py: Bank of Israel first, open.er-api.com as fallback, then the
+ * ECB euro reference rates (Worker only; official, free incl. commercial reuse with "Source: ECB statistics.",
+ * docs/FLIGHT_API_RESEARCH.md §16), cached in D1 per UTC date. If every source fails the newest stored day is
+ * served, marked ":stale". A later source is only asked when the earlier ones failed, so a normal day costs one call.
  * Original amounts are never touched here: rates are only used for comparison/display.
  */
 
 export const BOI_URL = "https://boi.org.il/PublicApi/GetExchangeRates";
 export const FALLBACK_URL = "https://open.er-api.com/v6/latest/ILS";
+export const ECB_URL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml";
 const TIMEOUT_MS = 8000;
 const CODE = /^[A-Z]{3}$/;
 
@@ -57,15 +60,44 @@ function parseFallback(payload: unknown): Rates | null {
   return rates.USD === undefined ? null : rates;
 }
 
-const SOURCES: { name: string; url: string; parse: (payload: unknown) => Rates | null }[] = [
-  { name: "bank_of_israel", url: BOI_URL, parse: parseBoi },
-  { name: "open.er-api.com", url: FALLBACK_URL, parse: parseFallback },
+/** One attribute of an XML start tag, single or double quoted. */
+const xmlAttr = (attrs: string, name: string): string | null => new RegExp(`\\b${name}\\s*=\\s*(?:'([^']*)'|"([^"]*)")`).exec(attrs)?.slice(1).find((v) => v !== undefined) ?? null;
+
+/**
+ * ECB eurofxref-daily.xml: <Cube currency='USD' rate='1.1355'/> = units of X per 1 EUR, including ILS.
+ * So 1 EUR = rate(ILS) ILS and 1 X = rate(ILS) / rate(X) ILS. Without an ILS or USD rate it is not a usable table.
+ */
+export function parseEcb(payload: unknown): Rates | null {
+  if (typeof payload !== "string") return null;
+  const perEur: Rates = {};
+  for (const m of payload.matchAll(/<(?:[\w-]+:)?Cube\b([^>]*)>/g)) {
+    const attrs = m[1] ?? "";
+    const code = xmlAttr(attrs, "currency")?.trim().toUpperCase() ?? "";
+    const rate = positive(xmlAttr(attrs, "rate"));
+    if (CODE.test(code) && rate !== null && perEur[code] === undefined) perEur[code] = rate;
+  }
+  const ils = perEur.ILS;
+  if (ils === undefined) return null;
+  const rates: Rates = { EUR: ils };
+  for (const [code, perEurRate] of Object.entries(perEur)) {
+    if (code === "ILS" || code === "EUR") continue;
+    const toIls = ils / perEurRate;
+    if (Number.isFinite(toIls) && toIls > 0) rates[code] = toIls;
+  }
+  return rates.USD === undefined ? null : rates;
+}
+
+const SOURCES: { name: string; url: string; format: "json" | "xml"; parse: (payload: unknown) => Rates | null }[] = [
+  { name: "bank_of_israel", url: BOI_URL, format: "json", parse: parseBoi },
+  { name: "open.er-api.com", url: FALLBACK_URL, format: "json", parse: parseFallback },
+  { name: "ecb", url: ECB_URL, format: "xml", parse: parseEcb },
 ];
 
-async function fetchJson(fetchFn: typeof fetch, url: string): Promise<unknown> {
-  const res = await fetchFn(url, { signal: AbortSignal.timeout(TIMEOUT_MS), headers: { accept: "application/json" } });
+async function fetchPayload(fetchFn: typeof fetch, url: string, format: "json" | "xml"): Promise<unknown> {
+  const accept = format === "json" ? "application/json" : "application/xml, text/xml";
+  const res = await fetchFn(url, { signal: AbortSignal.timeout(TIMEOUT_MS), headers: { accept } });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  return format === "json" ? res.json() : res.text();
 }
 
 /** Stored/served rates must have the basics or they are treated as missing. */
@@ -93,7 +125,7 @@ export async function getFxRates(repo: Repo, fetchFn: typeof fetch, now: Date): 
   const failures: string[] = [];
   for (const source of SOURCES) {
     try {
-      const rates = source.parse(await fetchJson(fetchFn, source.url));
+      const rates = source.parse(await fetchPayload(fetchFn, source.url, source.format));
       if (!rates) throw new Error("unexpected payload");
       const fx: FxRates = { date, source: source.name, ratesToIls: { ...rates, ILS: 1 } };
       await attempt(() => repo.saveFxRates(fx)); // a failed cache write must not lose fresh rates
