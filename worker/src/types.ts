@@ -47,7 +47,7 @@ export interface Offer {
   // Filled by the pipeline (SPEC §7 step 7):
   extrasAmountIls: number;
   totalIls: number | null;
-  tags: string[]; // "bonus_checked_bag" | "bag_fee_unknown"
+  tags: string[]; // "bonus_checked_bag" | "bag_fee_unknown" | "price_suspicious" (ADDITIVE, priceguard.ts)
 }
 
 export interface SearchRequest {
@@ -79,6 +79,17 @@ export interface FxRates {
   date: string; // YYYY-MM-DD the rates were fetched for
   source: string; // "bank_of_israel" | "open.er-api.com"
   ratesToIls: Record<string, number>; // 1 unit of CURRENCY = N ILS; always includes ILS: 1
+}
+
+/** ADDITIVE: one stored price snapshot as the price guard reads it (prices table columns, amount PER PASSENGER). */
+export interface PriceHistoryRow {
+  origin: string;
+  destination: string;
+  depart_date: string;
+  return_date: string;
+  price_amount: number;
+  price_currency: string;
+  checked_at: string;
 }
 
 /** History line from the shared DB, in the ORIGINAL currency (SPEC §4.2, §8). */
@@ -114,6 +125,12 @@ export interface SearchResponse {
     sources: SourceStatus[];
     candidatePairs: number;
     generatedAt: string;
+    /**
+     * ADDITIVE (price guard): Travelpayouts fares found `suspicious` (far below neighbouring dates or their own recent history;
+     * tagged "price_suspicious"), and how many of them were kept out of the cards. `excluded` is 0 when every priced offer was
+     * suspicious: they are then ranked as usual, and the card's offer carries the tag. Absent when nothing was flagged.
+     */
+    priceGuard?: { suspicious: number; excluded: number };
   };
 }
 
@@ -173,6 +190,15 @@ export interface Repo {
     sources?: SourceName[],
   ): Promise<Offer[]>;
   priceContext(origin: string, destination: string, departDate: string, returnDate: string, now: Date): Promise<PriceContext | null>;
+  /**
+   * ADDITIVE (price guard, priceguard.ts): the newest stored snapshots (per passenger) of each given date pair checked after
+   * `since`, at most `limitPerPair` per pair, in ONE indexed query. Optional: a repo without it simply gives the guard no history.
+   */
+  priceHistory?(
+    pairs: ReadonlyArray<{ origin: string; destination: string; departDate: string; returnDate: string }>,
+    since: Date,
+    limitPerPair: number,
+  ): Promise<PriceHistoryRow[]>;
   saveSearch(req: SearchRequest, searchKey: string, now: Date): Promise<void>;
   getFxRates(date: string): Promise<FxRates | null>;
   saveFxRates(fx: FxRates): Promise<void>;
