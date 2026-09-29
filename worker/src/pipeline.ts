@@ -17,6 +17,7 @@
  * `prices` history stores PER-PASSENGER amounts so searches with different party sizes stay comparable.
  */
 import * as airportData from "./airports/resolve";
+import { orderPairsByService } from "./airports/served";
 import type { Resolver } from "./airports/types";
 import { applyExtrasAndFx, paxCount, round2 } from "./extras";
 import { toIls } from "./money";
@@ -327,14 +328,19 @@ function airportsOf(resolver: Resolver, code: string, nearby: boolean): string[]
   return list;
 }
 
-/** All origin x destination airport pairs, the primary pair first, then by distance from it. */
+/**
+ * All origin x destination airport pairs, the primary pair first, then by distance from it. Route hints from public
+ * data (airports/served.ts) then drop pairs touching an airport without scheduled service (when others remain) and
+ * move pairs with a direct flight seen ahead of the rest, before the cap: a truncated scan spends its budget on the
+ * pairs most likely to have fares (TLV-BGY before TLV-LIN). The primary pair always stays first.
+ */
 export function airportPairs(resolver: Resolver, req: SearchRequest): Pair[] {
   const origins = airportsOf(resolver, req.origin, req.nearbyAirports);
   const dests = airportsOf(resolver, req.destination, req.nearbyAirports);
   const ranked: Array<{ pair: Pair; rank: number; i: number }> = [];
   origins.forEach((origin, i) => dests.forEach((dest, j) => ranked.push({ pair: { origin, dest }, rank: i + j, i })));
   ranked.sort((a, b) => a.rank - b.rank || a.i - b.i);
-  return ranked.slice(0, MAX_AIRPORT_PAIRS).map((r) => r.pair);
+  return orderPairsByService(ranked.map((r) => r.pair)).slice(0, MAX_AIRPORT_PAIRS);
 }
 
 // --- step 3: Travelpayouts wide scan --------------------------------------------------------------------
