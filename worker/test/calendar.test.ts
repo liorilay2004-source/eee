@@ -237,6 +237,32 @@ describe("groupMonth", () => {
     ]);
   });
 
+  it("keeps a dearer fare when it has fewer stops than every cheaper one (maxStops must still find it)", () => {
+    const withStops = (price: number, out: number | null, back: number | null) => {
+      const o = offer("2026-11-05", "2026-11-10", price);
+      o.outbound.stops = out;
+      o.inbound.stops = back;
+      return o;
+    };
+    const fares = groupMonth(
+      [
+        withStops(100, 1, 0), // cheapest, 1 stop
+        withStops(150, 0, 0), // direct: kept
+        withStops(120, 0, 1), // 1 stop, dearer than the 1-stop 100: dropped
+        withStops(90, null, 0), // unknown stops, cheapest overall: kept
+        withStops(200, 0, 0), // direct but dearer than the direct 150: dropped
+        withStops(95, 2, 2), // 2 stops: the only cheaper fare has unknown stops, so kept
+      ],
+      "2026-11",
+    );
+    expect(fares.map((f) => [f.price, f.stops, f.returnStops])).toEqual([
+      [90, null, 0],
+      [95, 2, 2],
+      [100, 1, 0],
+      [150, 0, 0],
+    ]);
+  });
+
   it("keeps only https booking links, like a cache read-back does", () => {
     const o = offer("2026-11-05", "2026-11-10", 200);
     o.deeplink = "http://www.aviasales.com/search/x";
@@ -348,6 +374,23 @@ describe("GET /api/calendar: happy path", () => {
     expect(day(direct.data, "2026-11-05")?.fare).toMatchObject({ priceAmount: 200, stops: 0 });
     expect(day(direct.data, "2026-11-20")?.fare).toBeNull(); // stops unknown
     expect(direct.data.meta.cheapest).toEqual({ date: "2026-11-12", priceIls: 540 });
+  });
+
+  it("maxStops=0 finds the direct fare of a date pair whose cheapest fare has a stop, also from the cache", async () => {
+    const up = stubUpstream(
+      tpResponder({
+        "2026-11|2026-11": [
+          { dep: "2026-11-09", ret: "2026-11-14", price: 100, transfers: 1 },
+          { dep: "2026-11-09", ret: "2026-11-14", price: 160, transfers: 0, returnTransfers: 0 },
+        ],
+      }),
+    );
+    const env = makeEnv();
+    const any = await cal(env, Q);
+    expect(day(any.data, "2026-11-09")?.fare).toMatchObject({ priceAmount: 100, stops: 1 });
+    const direct = await cal(env, `${Q}&maxStops=0`); // cache hit
+    expect(up.tpCalls()).toHaveLength(2);
+    expect(day(direct.data, "2026-11-09")).toMatchObject({ known: true, fare: { priceAmount: 160, stops: 0, returnStops: 0 } });
   });
 
   it("the current month lists only the days from today on", async () => {

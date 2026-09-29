@@ -13,7 +13,7 @@
  * (travelpayouts.github.io/slate) return one fare per day without a booking link, and month-matrix documents no
  * round-trip parameter, so they were not used: every price shown here comes with the link of the same fare.
  *
- * Cost and limits: each month is cached in D1 (table search_cache, key `calendar:v1:<o>:<d>:<YYYY-MM>`, so no
+ * Cost and limits: each month is cached in D1 (table search_cache, key `calendar:v2:<o>:<d>:<YYYY-MM>`, so no
  * migration and the existing retention covers it) for the search cache TTL (an empty month for EMPTY_RESULT_TTL_HOURS).
  * A request that needs any fresh month first takes one unit of the calendar's own global share and then one unit of the
  * global scan budget (both fail CLOSED: no unit, no upstream call). Calls run one at a time and the first failure stops
@@ -45,9 +45,15 @@ export const CALENDAR_RATE_LIMIT_WINDOW_SECONDS = 600;
  */
 export const CALENDAR_GLOBAL_LIMIT = 40;
 export const CALENDAR_GLOBAL_WINDOW_SECONDS = 600;
-/** Stored fares per month: one per (departure day, stay length) at most, 31 x 30. */
-export const MAX_ENTRIES_PER_MONTH = 930;
-export const CALENDAR_CACHE_PREFIX = "calendar:v1:";
+/**
+ * Stored fares per month. groupMonth keeps, per (departure day, return day), only fares that are cheaper than every fare
+ * with fewer stops (see there), so a pair holds one fare per stop count 0..MAX_STOPS at most. Real months hold far fewer
+ * (usually 1-2 per pair); this safety cap allows 3 per pair (31 days x 30 stays x 3). A month that hits it is marked
+ * truncated.
+ */
+export const MAX_ENTRIES_PER_MONTH = 31 * 30 * 3;
+/** v2: v1 rows kept only the cheapest fare per date pair, whatever its stops (wrong under maxStops); they are never read. */
+export const CALENDAR_CACHE_PREFIX = "calendar:v2:";
 /** A stored month older than this is not even a stale fallback (the search cache retention is 7 days too). */
 const STALE_MAX_HOURS = 7 * 24;
 const HOUR_MS = 3_600_000;
@@ -182,7 +188,19 @@ export const calendarCacheKey = (origin: string, destination: string, month: str
   `${CALENDAR_CACHE_PREFIX}${origin}:${destination}:${month}`;
 
 /**
- * Round trips of one departure month -> the cheapest fare per (departure day, return day), only stays of
+ * Stop class of a fare: the worse leg's stop count, or "u" when a leg's count is unknown or above MAX_STOPS (such a
+ * fare passes no maxStops filter, only "any stops").
+ */
+function stopClass(f: { stops: number | null; returnStops: number | null }): number | "u" {
+  if (f.stops === null || f.returnStops === null) return "u";
+  const worst = Math.max(f.stops, f.returnStops);
+  return worst <= MAX_STOPS ? worst : "u";
+}
+
+/**
+ * Round trips of one departure month -> per (departure day, return day), the cheapest fare of every stop class that
+ * some maxStops filter could pick: the cheapest overall, then each dearer fare only if it has strictly fewer stops than
+ * every cheaper one kept (so maxStops=0 still finds a direct fare that a cheaper 1-stop fare undercuts). Only stays of
  * MIN..MAX_STAY_NIGHTS and only departures inside `month`. Prices of different currencies are never compared.
  */
 export function groupMonth(offers: Offer[], month: string): CalendarFare[] {
@@ -195,7 +213,7 @@ export function groupMonth(offers: Offer[], month: string): CalendarFare[] {
     const nights = ret - dep;
     if (nights < MIN_STAY_NIGHTS || nights > MAX_STAY_NIGHTS) continue;
     if (!(Number.isFinite(o.priceAmount) && o.priceAmount > 0)) continue;
-    const key = `${o.departDate}|${o.returnDate}|${o.priceCurrency}`;
+    const key = `${o.departDate}|${o.returnDate}|${o.priceCurrency}|${stopClass({ stops: o.outbound.stops, returnStops: o.inbound.stops })}`;
     const prev = best.get(key);
     if (prev && prev.price <= o.priceAmount) continue;
     best.set(key, {
@@ -211,7 +229,18 @@ export function groupMonth(offers: Offer[], month: string): CalendarFare[] {
       deeplink: o.deeplink && /^https:\/\//.test(o.deeplink) ? o.deeplink : null, // same rule as a read-back (sanitizeFare)
     });
   }
-  return [...best.values()].sort((a, b) => a.price - b.price).slice(0, MAX_ENTRIES_PER_MONTH);
+  // Pareto cut per (dates, currency): walking cheapest first, keep a fare only if it has fewer stops than all kept so far.
+  const fewest = new Map<string, number>();
+  const kept: CalendarFare[] = [];
+  for (const f of [...best.values()].sort((a, b) => a.price - b.price)) {
+    const pair = `${f.departDate}|${f.returnDate}|${f.currency}`;
+    const cls = stopClass(f);
+    const min = fewest.get(pair);
+    if (min !== undefined && (cls === "u" || cls >= min)) continue;
+    fewest.set(pair, cls === "u" ? Number.POSITIVE_INFINITY : cls);
+    kept.push(f);
+  }
+  return kept.slice(0, MAX_ENTRIES_PER_MONTH);
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -394,7 +423,8 @@ export async function runCalendar(deps: CalendarDeps, q: CalendarQuery): Promise
         try {
           const same = await tp.monthRoundTrips(q.origin, q.destination, month, month);
           const next = await tp.monthRoundTrips(q.origin, q.destination, month, addMonths(month, 1));
-          const data: StoredMonth = { fares: groupMonth([...same.offers, ...next.offers], month), truncated: same.truncated || next.truncated, createdAt: now.toISOString() };
+          const fares = groupMonth([...same.offers, ...next.offers], month);
+          const data: StoredMonth = { fares, truncated: same.truncated || next.truncated || fares.length >= MAX_ENTRIES_PER_MONTH, createdAt: now.toISOString() };
           byMonth.set(month, { status: "fresh", data });
           written.push({ key: calendarCacheKey(q.origin, q.destination, month), month: data });
         } catch {
