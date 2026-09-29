@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import airlinesData from "../src/airlines/airlines.json";
 import { AIRLINE_COUNT, airlineFieldsFor, airlineInfo, offerAirlineCodes } from "../src/airlines/lookup";
 import citiesData from "../src/airports/cities.json";
-import { normalizeQuery, resolveLocation, resolvePlace } from "../src/airports/resolve";
+import { createResolver, normalizeQuery, resolveLocation, resolvePlace } from "../src/airports/resolve";
 import type { CityRecord } from "../src/airports/types";
 import bagFees from "../../config/bag_fees.json";
 import onewayFixture from "./fixtures/tp_oneway.json";
@@ -245,9 +245,9 @@ describe("cities.json: Hebrew airport names", () => {
   it("the new names resolve to their airport, and the city names still resolve to the whole city", () => {
     const airports: Array<[string, string, string]> = [
       ["זוונטם", "BRU", "BRU"],
-      ["ג'ורג' בסט", "BFS", "BHD"],
-      ["טנריף דרום", "TCI", "TFS"],
-      ["טנריף צפון", "TCI", "TFN"],
+      ["בלפסט סיטי", "BFS", "BHD"],
+      ["ריינה סופיה", "TCI", "TFS"],
+      ["לוס רודאוס", "TCI", "TFN"],
       ["דובאי הבינלאומי", "DXB", "DXB"],
       ["גרדרמואן", "OSL", "OSL"],
       ["טורפ", "OSL", "TRF"],
@@ -262,5 +262,52 @@ describe("cities.json: Hebrew airport names", () => {
       expect(resolveLocation(q)[0], q).toMatchObject({ code: city, kind: "city" });
       expect(resolvePlace(q), q).toMatchObject({ code: city, kind: "city" });
     }
+  });
+
+  /** The airports whose Hebrew name this branch added; with these names removed the dataset is main's. */
+  const ADDED = ["BFS", "BHD", "PEK", "BRU", "EZE", "AEP", "CTU", "TFU", "DFW", "DXB", "GOI", "GOX", "IST", "CGK", "HLP", "MPH", "KLO", "MCO", "SFB", "OSL", "TRF", "GIG", "SDU", "SHA", "VST", "TFS", "TFN"];
+  const withoutAdded = (): CityRecord[] =>
+    cities.map((c) => ({ ...c, airports: c.airports.map((a) => (ADDED.includes(a.iata) ? { iata: a.iata, nameEn: a.nameEn } : { ...a })) }));
+
+  it("common Hebrew words never resolve on their own at submit time (a direction or a first name is an error, not an airport)", () => {
+    const words = ["צפון", "דרום", "מערב", "מזרח", "מרכז", "עיר", "קפיטל", "ג'ורג'", "בינלאומי", "הבינלאומי", "נמל", "נמל התעופה", "שדה התעופה", "סיטי", "תעופה"];
+    for (const w of words) expect(resolvePlace(w), w).toBeNull();
+    // and with the words the new names are built from, whichever direction or suffix they carry
+    const r = createResolver(cities);
+    for (const w of words) expect(r.resolvePlace(w), w).toBeNull();
+  });
+
+  it("the generic-word guard only drops whole-word hits: exact names that happen to contain such words still resolve", () => {
+    expect(resolvePlace("בלפסט הבינלאומי")).toMatchObject({ code: "BFS", airportCode: "BFS" });
+    expect(resolvePlace("נמל התעופה איסטנבול")).toMatchObject({ code: "IST", airportCode: "IST" });
+    expect(resolvePlace("לונדון סיטי")).toMatchObject({ code: "LON", airportCode: "LCY" });
+    expect(resolvePlace("נמל התעופה בן גוריון")?.code).toBe("TLV");
+  });
+
+  it("no single word of an added name newly resolves compared with main, except these proper names of that very airport", () => {
+    // Each is (part of) the airport's own proper name, so resolving to that airport is the point of adding it.
+    const INTENDED: Record<string, string> = {
+      זוונטמ: "BRU", אסייסה: "EZE", אירופארקה: "AEP", שואנגליו: "CTU", טיאנפו: "TFU", וורת: "DFW", דבולימ: "GOI", מופה: "GOX",
+      סוקרנו: "CGK", האטה: "CGK", חלימ: "HLP", פרדנקוסומה: "HLP", קטיקלנ: "MPH", קליבו: "KLO", סנפורד: "SFB", גרדרמואנ: "OSL",
+      טורפ: "TRF", גלאאו: "GIG", סנטוס: "SDU", דומונט: "SDU", הונגציאו: "SHA", וסטרוס: "VST", ריינה: "TFS", רודאוס: "TFN",
+    };
+    const main = createResolver(withoutAdded());
+    const now = createResolver(cities);
+    const key = (m: ReturnType<typeof resolvePlace>) => (m ? `${m.code}/${m.kind}/${m.airportCode ?? ""}` : "null");
+    const seen = new Set<string>();
+    for (const c of cities) {
+      for (const a of c.airports) {
+        if (!ADDED.includes(a.iata)) continue;
+        expect(a.nameHe, a.iata).toBeTruthy();
+        for (const w of normalizeQuery(a.nameHe!).split(" ")) {
+          seen.add(w);
+          const before = key(main.resolvePlace(w));
+          const after = now.resolvePlace(w);
+          if (key(after) === before) continue;
+          expect(INTENDED[w], `${a.iata} "${w}": ${before} -> ${key(after)}`).toBe(after?.airportCode);
+        }
+      }
+    }
+    for (const w of Object.keys(INTENDED)) expect(seen.has(w), `stale allow-list entry ${w}`).toBe(true);
   });
 });
