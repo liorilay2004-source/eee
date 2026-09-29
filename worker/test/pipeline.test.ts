@@ -652,6 +652,36 @@ describe("failure handling (SPEC §6 source reliability)", () => {
     expect(h?.consecutive_failures).toBe(1);
   });
 
+  it("a pair Travelpayouts rejects with HTTP 400 is a note, not a failure: the sibling airport still answers", async () => {
+    // Eilat has two airports in the bundled table; Aviasales serves Ramon (ETM) but answers 400 for Ovda (VDA).
+    const tp = mockTp({
+      rt: (o) => {
+        if (o === "VDA") throw new TravelpayoutsError("HTTP 400: bad request", 400);
+        return o === "ETM" ? [offer(120, { origin: "ETM" })] : [];
+      },
+    });
+    const { deps } = setup({ tp });
+    const res = await runSearch(deps, req({ origin: "ETM" }));
+    expect(res.cards).toHaveLength(1);
+    expect(res.cards[0]?.offer.origin).toBe("ETM");
+    expect(res.meta.sources[0]).toMatchObject({ ok: true });
+    expect(res.meta.sources[0]?.error).toContain("not searchable at Travelpayouts: VDA-BCN");
+  });
+
+  it("when every pair is rejected with HTTP 400 the answer is an empty result, not source_unavailable", async () => {
+    const tp = mockTp({ rt: () => { throw new TravelpayoutsError("HTTP 400: bad request", 400); } });
+    const { deps } = setup({ tp });
+    const res = await runSearch(deps, req());
+    expect(res.cards).toEqual([]);
+    expect(res.meta.sources[0]).toMatchObject({ ok: true });
+    expect(res.meta.sources[0]?.error).toContain("not searchable at Travelpayouts");
+  });
+
+  it("carries the contract version", async () => {
+    const { deps } = setup({ tp: mockTp({ rt: rtFor([offer(164)]) }) });
+    expect((await runSearch(deps, req())).meta.apiVersion).toBe(1);
+  });
+
   it("records a healthy source after a successful scan", async () => {
     const { db, deps } = setup({ tp: mockTp({ rt: rtFor([offer(164)]) }) });
     await runSearch(deps, req());

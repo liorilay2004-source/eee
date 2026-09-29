@@ -34,9 +34,14 @@ interface ApiResult {
   headers?: Record<string, string>;
 }
 
-const errorResult = (status: number, code: string, message: string, extra: { fields?: Record<string, string>; headers?: Record<string, string> } = {}): ApiResult => ({
+const errorResult = (
+  status: number,
+  code: string,
+  message: string,
+  extra: { fields?: Record<string, string>; retryAfterSec?: number; headers?: Record<string, string> } = {},
+): ApiResult => ({
   status,
-  body: { error: { code, message, ...(extra.fields ? { fields: extra.fields } : {}) } },
+  body: { error: { code, message, ...(extra.fields ? { fields: extra.fields } : {}), ...(extra.retryAfterSec !== undefined ? { retryAfterSec: extra.retryAfterSec } : {}) } },
   headers: extra.headers,
 });
 
@@ -50,7 +55,11 @@ function corsHeaders(request: Request, env: Env): Record<string, string> {
   const allowed = allowedOrigin(env);
   if (!allowed) return {};
   const headers: Record<string, string> = { Vary: "Origin" }; // the answer depends on the Origin header
-  if (request.headers.get("Origin") === allowed) headers["Access-Control-Allow-Origin"] = allowed;
+  if (request.headers.get("Origin") === allowed) {
+    headers["Access-Control-Allow-Origin"] = allowed;
+    // Without this a cross-origin fetch cannot read Retry-After on a 429.
+    headers["Access-Control-Expose-Headers"] = "Retry-After";
+  }
   return headers;
 }
 
@@ -134,7 +143,10 @@ async function handleSearch(request: Request, env: Env, ctx: ExecutionContext): 
     limit = fallbackLimiter.check(key, now.getTime());
   }
   if (!limit.allowed) {
-    return errorResult(429, "rate_limited", "Too many searches, try again later", { headers: { "Retry-After": String(limit.retryAfterSec) } });
+    return errorResult(429, "rate_limited", "Too many searches, try again later", {
+      retryAfterSec: limit.retryAfterSec,
+      headers: { "Retry-After": String(limit.retryAfterSec) },
+    });
   }
 
   if (!isJsonContentType(request)) return errorResult(415, "unsupported_media_type", "Content-Type must be application/json");
