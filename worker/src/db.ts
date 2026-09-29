@@ -54,7 +54,7 @@ async function runChunked(db: D1Database, statements: D1PreparedStatement[]): Pr
 
 // --- prices <-> Offer -------------------------------------------------------------------------------
 
-interface PriceRow {
+export interface PriceRow {
   id: number;
   origin: string;
   destination: string;
@@ -72,7 +72,7 @@ interface PriceRow {
   checked_at: string;
 }
 
-const PRICE_COLUMNS =
+export const PRICE_COLUMNS =
   "id, origin, destination, depart_date, return_date, price_amount, price_currency, source, ticket_structure, " +
   "airlines_json, legs_json, includes_json, deeplink, verify_link, checked_at";
 
@@ -142,7 +142,8 @@ function priceParams(offer: Offer): Bind[] | null {
   ];
 }
 
-function rowToOffer(row: PriceRow): Offer | null {
+/** Exported for the price-alert job (watches.ts), which reads the same rows. */
+export function rowToOffer(row: PriceRow): Offer | null {
   if (!SOURCES.includes(row.source) || !STRUCTURES.includes(row.ticket_structure)) return null;
   if (!Number.isFinite(row.price_amount)) return null;
   const legs = parseJson(row.legs_json);
