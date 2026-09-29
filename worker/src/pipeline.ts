@@ -955,7 +955,12 @@ async function startRevalidation(deps: SearchDeps, req: SearchRequest, searchKey
   if (!waitUntil || !tp.configured) return false;
   const locked = await attempt(() => repo.claimWindowLock(`refresh:${searchKey}`, REFRESH_LOCK_SECONDS, now));
   if (locked !== true) return false;
-  if (deps.scanBudget && !(await attempt(deps.scanBudget))) return false;
+  if (deps.scanBudget) {
+    const verdict = await attempt(deps.scanBudget);
+    // A verdict is a boolean or { allowed } (#22): an object is truthy even when it refuses, so read `allowed`.
+    const allowed = typeof verdict === "object" && verdict !== null ? verdict.allowed : verdict === true;
+    if (!allowed) return false;
+  }
   const quoters = (deps.quoteSources ?? []).filter((s) => s.configured);
   if (carriedQuotes.length === 0 && quoters.length > 0) {
     // The budget unit above is this scan's: the pipeline must not take a second one.
