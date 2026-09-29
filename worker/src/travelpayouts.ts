@@ -13,6 +13,9 @@ export const API = "https://api.travelpayouts.com/aviasales/v3/prices_for_dates"
 export const AVIASALES = "https://www.aviasales.com";
 const REQUEST_CURRENCY = "usd";
 const TIMEOUT_MS = 15_000;
+/** Rows per request (the API's maximum): a page this full may have been cut off. */
+const PAGE_LIMIT = 1000;
+const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 /** Travelpayouts `market` by origin country (SPEC §7 step 3), same table as engine/tpe/config.py. */
 export const MARKET_BY_COUNTRY: Readonly<Record<string, string>> = {
@@ -239,7 +242,7 @@ export function createTravelpayoutsClient(opts: {
       sorting: "price",
       direct: "false",
       unique: "false",
-      limit: "1000",
+      limit: String(PAGE_LIMIT),
       page: "1",
     });
     let market: string | null = null;
@@ -382,6 +385,30 @@ export function createTravelpayoutsClient(opts: {
         }
       }
       return offers;
+    },
+
+    /**
+     * ADDITIVE (calendar, src/calendar.ts): ONE call for one (departure month, return month) pair, "YYYY-MM" each.
+     * Same request and parsing as roundTrips; `truncated` is true when the page came back full (limit 1000), so the
+     * caller can say the month may be incomplete. Throws TravelpayoutsError like every other call (no retries).
+     */
+    async monthRoundTrips(origin, destination, departMonth, returnMonth) {
+      requireConfigured();
+      if (!MONTH.test(departMonth) || !MONTH.test(returnMonth) || returnMonth < departMonth) {
+        throw new TravelpayoutsError("months must be YYYY-MM, the return month not before the departure month");
+      }
+      const params = base(origin, destination);
+      params.set("departure_at", departMonth);
+      params.set("return_at", returnMonth);
+      params.set("one_way", "false");
+      const checkedAt = new Date().toISOString();
+      const { rows, currency } = await get(params);
+      const offers: Offer[] = [];
+      for (const row of rows) {
+        const o = rowToRoundTrip(row, currency, origin, destination, checkedAt);
+        if (o) offers.push(o);
+      }
+      return { offers, truncated: rows.length >= PAGE_LIMIT };
     },
 
     /** One-way fares (per adult) for the split-ticket check: one call per departure month. */

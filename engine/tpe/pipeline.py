@@ -8,12 +8,11 @@ from datetime import date
 from .config import BAG_FEES, NEARBY_AIRPORTS, SCORING
 from .fx import FxRates
 from .models import Leg, Offer, SearchRequest
-from .scoring import Card, in_window, recommend
+from .scoring import TAG_BAG_UNKNOWN, Card, in_window, recommend
 from .sources.google_flights import GoogleFlights
 from .sources.travelpayouts import Travelpayouts, aviasales_search_link
 
 TAG_BONUS_BAG = "bonus_checked_bag"
-TAG_BAG_UNKNOWN = "bag_fee_unknown"
 
 
 @dataclass
