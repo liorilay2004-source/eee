@@ -1,0 +1,250 @@
+# אפיון העלאה ל-Cloudflare — מבוצע על ידי הבעלים
+
+> גרסה 1.0 · 2026-09-29 · היקף: ה-API של שלב 1 (Worker + מסד D1). הממשק (Pages) יגיע בשלב 2.
+> **את Cloudflare מבצע הבעלים.** המסמך הזה נכתב כדי שתוכל לעשות הכול בעצמך, בסדר הנכון ובלי ניחושים. כל פלט שמצוין כאן נבדק מול ה-Worker שרץ מקומית על מסד D1 מקומי, מאותם קבצי מיגרציה. עדיין לא נבדק מול Cloudflare עצמו, כי לא הועלה כלום.
+> **סודות (טוקנים, מפתחות) לעולם לא בצ'אט, לא בקוד ולא ב-Issue.** מכניסים אותם רק בדשבורד של Cloudflare או ב-GitHub Secrets.
+
+---
+
+## 1. מה כבר נעשה ומה לא
+
+| פריט | מצב |
+|---|---|
+| קוד ה-Worker (`worker/`) | כתוב ונבדק: `tsc` נקי, 807 בדיקות עוברות, 13 בדיקות פייתון עוברות. נמצא בענף `phase1-worker` (ה-PR שלו פתוח, וב-`main` רק אחרי המיזוג) |
+| מסד D1 בשם `eee-db` | **נוצר בחשבון שלך** ב-2026-09-29 (מזהה `fe66df0f-f5ea-48af-8ccb-ea4e99c17145`, מיקום EEUR). **ריק: 0 טבלאות** |
+| Worker בשם `eee-api` | **לא קיים.** לא הועלה |
+| מיגרציות | **לא הורצו** על המסד ב-Cloudflare |
+| סודות ומשתנים | **לא הוגדרו** |
+| Workers ומסדים אחרים שלך | לא נגעתי בהם. נעשו רק קריאות רשימה ותיעוד |
+
+## 2. רשימת המשאבים
+
+| משאב | שם / ערך | הערה |
+|---|---|---|
+| Worker | `eee-api` | השם מוגדר ב-`worker/wrangler.toml`. **אם תחבר Git (סעיף 5, דרך א'), השם בדשבורד חייב להיות זהה בדיוק, אחרת הבנייה נכשלת** |
+| מסד D1 | `eee-db` (binding בשם `DB`) | המזהה כבר כתוב ב-`wrangler.toml` |
+| Cron | `17 3 * * *` (UTC) | ניקוי יומי: מחיר טיסות שעברו, יומן חיפושים ישן, מטמון ומונה קצב. בשעון ישראל בערך 05:17–06:17 |
+| סוד `TRAVELPAYOUTS_TOKEN` | נדרש לחיפוש חי | בלעדיו `/api/search` מחזיר 503 (מוצג בסעיף 7) |
+| סוד `TRAVELPAYOUTS_MARKER` | אופציונלי | מוסיף את קוד השותף שלך לקישורי ההזמנה |
+| סוד `RATE_LIMIT_SALT` | **מומלץ בחוזקה** | מלח להצפנת כתובות לקוחות במונה הקצב. בלעדיו הקוד משתמש בגיבוי (נגזר מהטוקן, או אקראי לכל מופע) ורושם שגיאה ביומן |
+| משתנה `ALLOWED_ORIGIN` | **לא נדרש עכשיו** | כתובת הממשק המדויקת (ללא `*`). רלוונטי רק בשלב 2 |
+| כתובת ציבורית | `https://eee-api.<תת-דומיין-שלך>.workers.dev` | תוצג לך אחרי ההעלאה |
+
+## 3. תנאי קדם
+
+- גישה לחשבון Cloudflare ול-GitHub (יש לך).
+- ה-PR של שלב 1 ממוזג ל-`main` (לדרך א') או קוד הענף על המחשב (לדרך ב').
+- לדרך ב': Node.js 22 ומסוף. אין מחשב זמין? אפשר לעבוד מ-GitHub Codespaces דרך הדפדפן.
+- טוקן ו-Marker של Travelpayouts (לחיפוש חי; לא נדרש להעלאה עצמה).
+
+## 4. שלב א' — מיגרציות למסד (חובה לפני ההעלאה)
+
+**למה קודם:** הקוד משתמש בטבלאות ובאינדקס `idx_prices_recent` שנוצרים במיגרציות. במסד לא ממוגר, `/api/health` ו-`/api/search` נכשלים.
+
+**סדר וחוקים:** `0001_init.sql` ← `0002_seed_airports.sql` ← `0003_cache_extras_and_recent_index.sql`.
+- 0001 ו-0002 בטוחים להרצה חוזרת (`IF NOT EXISTS` / `INSERT OR REPLACE`).
+- **0003 מכיל `ALTER TABLE … ADD COLUMN` ולכן חייב לרוץ פעם אחת בלבד** (הרצה שנייה נכשלת עם "duplicate column name").
+
+**דרך 1 (מומלצת) — `wrangler` במסוף:**
+
+```bash
+git clone https://github.com/liorilay2004-source/eee
+cd eee/worker
+npm ci
+npx wrangler login          # נפתח דפדפן לאישור (במחשב אישי)
+npx wrangler d1 migrations apply eee-db --remote
+```
+
+ב-Codespaces או בכל סביבה מרוחקת `wrangler login` לא עובד (ה-callback מקומי). שם יוצרים טוקן API בהרשאות "Edit Cloudflare Workers" ו-"Account → D1 → Edit" ומגדירים אותו רק כמשתנה סביבה בטרמינל (`export CLOUDFLARE_API_TOKEN=…`, ללא כתיבה לקובץ), ואת ה-Account ID כ-`CLOUDFLARE_ACCOUNT_ID`.
+
+`wrangler` מתעד ב-D1 אילו מיגרציות הורצו (טבלת `d1_migrations`), ולכן הרצה חוזרת בטוחה: הוא מריץ רק את החסרות. פלט תקין (כך נראה מקומית):
+
+```
+🚣 3 commands executed successfully.
+│ 0001_init.sql                          │ ✅ │
+│ 0002_seed_airports.sql                 │ ✅ │
+│ 0003_cache_extras_and_recent_index.sql │ ✅ │
+```
+
+**דרך 2 — קונסולת D1 בדשבורד (בלי מסוף):** Storage & databases ← D1 ← `eee-db` ← Console; מדביקים כל קובץ לפי הסדר. הקובץ 0002 גדול (כ-127 KB), וייתכן שיידרש לפצל אותו. **אזהרה:** `wrangler` לא יידע שהמיגרציות הורצו, ומאוחר יותר `wrangler d1 migrations apply` ינסה להריץ שוב את 0003 ויכשל. לכן בדרך הזו לא מריצים אותו על 0001–0003.
+
+**דרך 3 — אני מריץ דרך המחבר ל-Cloudflare:** רק אם תיתן אישור מפורש (כי ביקשת לטפל ב-Cloudflare בעצמך). כ-10 שאילתות, ואני גם רושם אותן ב-`d1_migrations` כדי ש-`wrangler` יישאר עקבי.
+
+**אימות אחרי המיגרציה** (בקונסולת D1 או `npx wrangler d1 execute eee-db --remote --command "…"`):
+
+```sql
+SELECT count(*) FROM airports;                                   -- צפוי: 615
+SELECT count(DISTINCT city_iata) FROM airports;                  -- צפוי: 567
+SELECT group_concat(name, ', ') FROM sqlite_master
+  WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%';
+-- צפוי: d1_migrations, airports, fx_rates, bag_fees, searches, prices, users,
+--       watches, alerts, source_health, search_cache, rate_limits
+```
+
+## 5. שלב ב' — העלאה
+
+### דרך א' — Workers Builds (מהדשבורד, בלי מסוף; מומלץ אם אין מחשב)
+1. https://dash.cloudflare.com ← **Workers & Pages** ← **Create application** ← **Get started** ליד **Import a repository**.
+2. בוחרים חשבון Git (GitHub). אם מתבקש, מתקינים את אפליקציית Cloudflare על הריפו `eee`.
+3. בוחרים את `eee` ומגדירים:
+
+| שדה | ערך |
+|---|---|
+| Worker name | `eee-api` (**זהה ל-`name` ב-`wrangler.toml`**) |
+| Git branch (production) | `main` |
+| Root directory | `worker` |
+| Build command | ריק |
+| Deploy command | `npx wrangler deploy` (ברירת המחדל) |
+| API token | ברירת המחדל (Cloudflare יוצר טוקן לבנייה) |
+
+4. **Save and Deploy.** מהרגע הזה כל דחיפה ל-`main` מעלה גרסה חדשה אוטומטית.
+5. ב-Settings ← Builds לבדוק שבנייה לענפים שאינם ייצור **כבויה**. כשהיא דולקת, כל ענף ו-PR מקבלים בנייה נפרדת (`wrangler versions upload` / preview), וזה לא מה שרצוי כאן.
+
+שים לב: Workers Builds **לא מריץ מיגרציות**. את שלב א' עושים בנפרד, לפני ההעלאה הראשונה.
+
+### דרך ב' — `wrangler` במסוף
+
+```bash
+cd eee/worker
+npm ci
+npx wrangler deploy
+```
+
+בסוף מודפסת הכתובת `https://eee-api.<…>.workers.dev`.
+
+### דרך ג' — GitHub Actions
+לא נוצר workflow להעלאה: מערכת ההרשאות חסמה אותו כ"Production Deploy", וביקשת לטפל ב-Cloudflare בעצמך. אם תרצה אותו, תגיד. הוא ידרוש שני סודות ב-GitHub: `CLOUDFLARE_API_TOKEN` (התבנית "Edit Cloudflare Workers" בתוספת "Account → D1 → Edit") ו-`CLOUDFLARE_ACCOUNT_ID`.
+
+## 6. שלב ג' — סודות ומשתנים
+
+בדשבורד: Workers & Pages ← `eee-api` ← **Settings** ← **Variables and Secrets** ← **Add**. **בוחרים בסוג "Secret"**, לא "Text".
+
+או במסוף (הערך נשאל אינטראקטיבית ולא נשמר בהיסטוריית הפקודות):
+
+```bash
+cd eee/worker
+npx wrangler secret put TRAVELPAYOUTS_TOKEN
+npx wrangler secret put TRAVELPAYOUTS_MARKER
+npx wrangler secret put RATE_LIMIT_SALT      # מחרוזת אקראית של 32 תווים ומעלה. למשל: openssl rand -hex 32
+```
+
+- סודות (Secret) לא נמחקים בהעלאה חדשה.
+- **משתנים רגילים (Text) שהוגדרו רק בדשבורד עלולים להימחק בהעלאה הבאה**, כי `wrangler.toml` הוא מקור האמת שלהם. לכן `ALLOWED_ORIGIN` יוגדר בקובץ `wrangler.toml` (ב-`[vars]`) כשיהיה ממשק, ולא בדשבורד.
+
+## 7. שלב ד' — אימות (מחליפים `URL` בכתובת שלך)
+
+כל הפלטים כאן נבדקו מקומית; ב-Cloudflare הם אמורים להיות זהים.
+
+```bash
+URL=https://eee-api.<שלך>.workers.dev
+
+# 1) בריאות (כולל בדיקת D1)
+curl -i $URL/api/health
+#   HTTP 200, Cache-Control: no-store, X-Content-Type-Options: nosniff
+#   {"status":"ok","db":"ok"}
+
+# 2) השלמה אוטומטית בעברית
+curl -G $URL/api/airports --data-urlencode "q=ברצלונה"
+#   {"results":[{"code":"BCN","nameHe":"ברצלונה","nameEn":"Barcelona","countryCode":"ES","kind":"city","airports":["BCN"]}]}
+
+# 3) חיפוש בלי טוקן של Travelpayouts (מצב צפוי לפני שסעיף 6 הושלם)
+curl -i -X POST $URL/api/search -H 'content-type: application/json' \
+  -d '{"origin":"תל אביב","destination":"ברצלונה","windowStart":"2026-11-10","windowEnd":"2026-11-25","stayMin":5,"stayMax":7}'
+#   HTTP 503  {"error":{"code":"source_unavailable","message":"No fare source is available right now"}}
+#   אחרי שהוגדר TRAVELPAYOUTS_TOKEN: HTTP 200 עם "cards" ו-"meta" (מבנה מלא ב-docs/WEB_APP_SPEC.md §7.2)
+
+# 4) שגיאת קלט
+curl -i -X POST $URL/api/search -H 'content-type: application/json' \
+  -d '{"origin":"TLV","destination":"BCN","windowStart":"2020-01-01","windowEnd":"2020-01-05","stayMin":5,"stayMax":7}'
+#   HTTP 400  {"error":{"code":"invalid_request",...,"fields":{"windowStart":"must not be in the past",...}}}
+
+# 5) שיטה שגויה / נתיב לא קיים / גוף גדול מדי
+curl -i $URL/api/search            # 405 + Allow: POST, OPTIONS
+curl -i $URL/nope                  # 404
+#   גוף של יותר מ-8192 בתים ל-POST /api/search -> 413 {"error":{"code":"payload_too_large",...}}
+
+# 6) מגבלת קצב: 30 חיפושים ל-10 דקות ללקוח. הבקשה ה-31 נדחית
+for i in $(seq 1 31); do curl -s -o /dev/null -w "%{http_code} " -X POST $URL/api/search -H 'content-type: application/json' -d '{}'; done
+#   צפוי: 400 עד שהמכסה נגמרת, ואז 429 עם Retry-After ו-{"error":{"code":"rate_limited",...}}
+```
+
+בדיקות נוספות בדשבורד:
+- **Cron:** Workers & Pages ← `eee-api` ← Settings ← Trigger Events: רואים `17 3 * * *`.
+- **יומן חי:** `npx wrangler tail eee-api` (או לשונית Logs בדשבורד).
+- **אין CORS עד שמגדירים `ALLOWED_ORIGIN`:** תשובת OPTIONS היא 204 בלי כותרות `Access-Control-*`. זה מכוון.
+
+**כיסוי הנתונים (השער D1 באפיון):** אחרי שהטוקן מוגדר, מריצים את Phase 0 לכמה מסלולים מתל אביב ומאילת (GitHub ← Actions ← "Phase 0 - price proof" ← Run workflow) ובודקים ש-Travelpayouts מחזיר מחירים. זו השאלה הפתוחה החוסמת של הפרויקט.
+
+## 8. מגבלות ועלויות (מסלול חינמי)
+
+מהתיעוד הרשמי של Cloudflare, נכון ל-2026-09-29:
+
+| מגבלה | ערך | מה קורה בחריגה |
+|---|---|---|
+| בקשות ל-Workers | 100,000 ליום (מתאפס בחצות UTC) | שגיאה 1027 עד החצות |
+| זמן CPU לבקשה | 10 ms | שגיאה 1102 לאותה בקשה |
+| קריאות fetch יוצאות לבקשה | 50 (לשירותי Cloudflare כמו D1: 1,000) | הקוד מגביל את עצמו ל-30 קריאות ל-Travelpayouts |
+| D1: קריאות וכתיבות שורות ביום | מגבלה יומית, נאכפת מ-2026-09-01 | **שאילתות נכשלות עד חצות UTC**, הנתונים לא נפגעים, ואתה מקבל מייל התראה |
+
+- **אין חיוב אוטומטי במסלול החינמי.** מעבר למסלול בתשלום הוא פעולה ידנית שלך.
+- **הערכות של הקוד (לא נמדדו בייצור):** חיפוש חדש כותב בערך 190 שורות, והצלחה מהמטמון בערך 5. במגבלת הכתיבה היומית זה בערך 500 חיפושים חדשים ביום. מעבר לכך החיפושים ייכשלו עד חצות UTC.
+- **סיכון CPU:** לא נמדד בלי נתוני Travelpayouts אמיתיים. אם תראה שגיאות 1102 בדשבורד, האפשרויות: להקטין את `limit` בשאילתות ל-Travelpayouts (שינוי קוד שאעשה), או מסלול בתשלום. ההחלטה שלך.
+
+## 9. תפעול
+
+- **ניטור:** Workers & Pages ← `eee-api` ← Metrics (בקשות, שגיאות, זמן CPU); D1 ← `eee-db` ← Metrics.
+- **גיבוי גרסה קודמת (Rollback):** `eee-api` ← **Deployments** ← שלוש נקודות ליד גרסה קודמת ← **Rollback** (עד 100 גרסאות אחרונות). או `npx wrangler rollback`. **הנתונים ב-D1 לא חוזרים אחורה**, וההעלאה של קוד שתלוי במבנה מסד חדש דורשת זהירות.
+- **שחזור מסד:** ל-D1 יש שחזור לנקודת זמן (Time Travel). בדוק בדשבורד תחת `eee-db` מה תקופת השמירה במסלול שלך לפני שאתה מסתמך עליו.
+- **אל תמחק את `eee-db`:** בו נשמר היסטוריית המחירים והמטמון.
+
+## 10. אבטחה
+
+- אין סודות בריפו (נבדק בסריקה לפני כל דחיפה), וקובץ `worker/.dev.vars` מוחרג ב-`.gitignore`.
+- הריפו ציבורי: אם טוקן נחשף בטעות, **מבטלים אותו מיד** ויוצרים חדש.
+- טוקן API (אם תשתמש בדרך ג'): בהרשאות מינימום, בחשבון הספציפי, וניתן לביטול בכל רגע.
+- `RATE_LIMIT_SALT` חייב להיות סוד, ובכתובות לקוחות נשמרת רק גיבוב מולח (לא כתובת גולמית).
+- כתובת `workers.dev` היא ציבורית: כל אחד יכול לקרוא ל-API, ולכן מגבלת הקצב חשובה.
+
+## 11. קריטריוני קבלה — "העלאה הושלמה" כש:
+
+- [ ] ב-D1 יש 12 טבלאות (11 של המערכת + `d1_migrations`) ו-615 שדות תעופה.
+- [ ] `GET /api/health` מחזיר 200 עם `{"status":"ok","db":"ok"}`.
+- [ ] `GET /api/airports?q=ברצלונה` מחזיר את BCN.
+- [ ] `POST /api/search` מחזיר 503 `source_unavailable` לפני הגדרת הטוקן, ו-200 עם כרטיסים אחריה.
+- [ ] הבקשה ה-31 ברצף מחזירה 429 עם `Retry-After`.
+- [ ] ה-Cron `17 3 * * *` מופיע בדשבורד.
+- [ ] שלושת הסודות (Secret) מוגדרים, ואין אף אחד מהם בריפו.
+- [ ] יש דרך ל-Rollback (יש לפחות שתי גרסאות ב-Deployments).
+
+**פלט סופי (לפי סעיף 18 באפיון הראשי), כשתסיים:**
+
+```
+GitHub: https://github.com/liorilay2004-source/eee
+Commit: <SHA של הקומיט שהועלה>
+Cloudflare: Worker eee-api + D1 eee-db
+LIVE URL: <הכתובת המאומתת>
+```
+
+**מה אעשה בשבילך בלי לגעת ב-Cloudflare:** כשתשלח לי את הכתובת, אריץ עליה את בדיקות סעיף 7 (בקשות קריאה בלבד) ואדווח מה עבר.
+
+## 12. פתרון תקלות
+
+| תסמין | סיבה סבירה | פתרון |
+|---|---|---|
+| בנייה ב-Workers Builds נכשלת על שם | ה-Worker בדשבורד לא נקרא `eee-api` | לתקן את השם בדשבורד כך שיהיה זהה ל-`name` ב-`worker/wrangler.toml` |
+| `/api/health` מחזיר 503 `{"status":"degraded","db":"error"}` | המיגרציות לא הורצו, או ה-binding שגוי | להריץ שלב א'; לוודא ב-`wrangler.toml` שה-`database_id` נכון |
+| `wrangler d1 migrations apply` נכשל עם "duplicate column name" | מיגרציה 0003 הורצה כבר ידנית | לא להריץ אותה שוב (סעיף 4, דרך 2) |
+| `/api/search` מחזיר 503 `source_unavailable` | אין `TRAVELPAYOUTS_TOKEN`, או שהמקור נכשל | להגדיר את הסוד (סעיף 6); לבדוק `wrangler tail` |
+| שגיאה 1102 | חריגת CPU של 10 ms | ראה סעיף 8 |
+| שאילתות D1 נכשלות ב"exceeded free tier daily row" | חריגה ממכסת D1 היומית | ממתינים לחצות UTC, או מסלול בתשלום |
+| קריאה מהדפדפן נחסמת ב-CORS | `ALLOWED_ORIGIN` לא מוגדר (בכוונה) | נדרש רק בשלב 2: מגדירים ב-`wrangler.toml` |
+
+## 13. החלטות שלך
+
+| החלטה | המלצה |
+|---|---|
+| דרך העלאה: א' (Workers Builds), ב' (מסוף), או ג' (GitHub Actions, בהרשאתך) | א' אם אין מחשב זמין; ב' אם יש |
+| איך מריצים את המיגרציות: דרך 1 (מסוף), 2 (קונסולה), או 3 (אני, באישור מפורש) | דרך 1 |
+| מסלול חינמי או בתשלום אם יימצא סיכון CPU/כתיבות | להישאר בחינמי עד שנמדוד |
+| דומיין מותאם ושם מוצר | אחרי שלב 2 |
+| הזמן להעלות: לפני או אחרי בדיקת כיסוי הנתונים של Travelpayouts | אחרי שיש טוקן, כדי שאפשר יהיה לאמת מחירים אמיתיים |
