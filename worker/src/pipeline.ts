@@ -20,7 +20,7 @@ import * as airportData from "./airports/resolve";
 import type { Resolver } from "./airports/types";
 import { applyExtrasAndFx, paxCount, round2 } from "./extras";
 import { toIls } from "./money";
-import { departHour, recommend } from "./scoring";
+import { departHour, recommend, recommendationsMeta } from "./scoring";
 import { SCORING } from "./scoring.config";
 import {
   coverKey,
@@ -843,6 +843,7 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
       sources: [tpStatus, gfStatus, ...quoters.map((s) => quoteStatus(s, quoteStats.get(s.name), fromDb.filter((o) => o.source === s.name).length))],
       candidatePairs: Math.min(SCORING.topNCandidates, pairsWithPrice.size),
       generatedAt: now.toISOString(),
+      recommendations: recommendationsMeta(ranking, req, cards),
     },
   };
 }

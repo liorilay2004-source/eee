@@ -132,6 +132,17 @@ export interface CardView extends Card {
   ageHours: number;
 }
 
+/**
+ * ADDITIVE (WEB_APP_SPEC §7.2 `meta.recommendations`, bag-cost part only): drives the 💰/⚖️ gating notes (§5.3).
+ * `excludedForUnknownBagFee` = offers left out of 💰 because a bag was requested and their bag fee is unknown, counted only
+ * when their lower-bound total is below the shown 💰 total (0 when no offer has a known bag cost and the lower bound is shown).
+ * Not yet emitted: bestValue `insufficient_data` and the `myTimes` member.
+ */
+export interface RecommendationsMeta {
+  cheapest: { status: "shown" | "no_offers"; excludedForUnknownBagFee: number };
+  bestValue: { status: "shown" | "merged" | "bag_cost_unknown" | "no_offers" };
+}
+
 export interface SearchResponse {
   cards: CardView[];
   meta: {
@@ -144,6 +155,8 @@ export interface SearchResponse {
     sources: SourceStatus[];
     candidatePairs: number;
     generatedAt: string;
+    /** ADDITIVE: bag-cost pool gating of the 💰/⚖️ cards (see RecommendationsMeta). */
+    recommendations: RecommendationsMeta;
   };
 }
 
