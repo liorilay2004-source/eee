@@ -10,6 +10,7 @@ from .models import Leg, Offer, SearchRequest
 CHEAPEST = "cheapest"
 BEST_VALUE = "best_value"
 MY_TIMES = "my_times"
+TAG_BAG_UNKNOWN = "bag_fee_unknown"
 
 
 def _is_night(leg: Leg, cfg: dict) -> bool:
@@ -75,23 +76,41 @@ class Card:
     savings_vs_roundtrip_ils: float | None = None
 
 
+def bag_cost_known(o: Offer, req: SearchRequest) -> bool:
+    """False only when a checked bag was requested and the offer's bag fee is not fully known: its total is then
+    a lower bound (fare + known leg fees) that must not rank as a real price."""
+    return not req.checked_bag or TAG_BAG_UNKNOWN not in o.tags
+
+
+def bag_cost_pool(offers: list[Offer], req: SearchRequest) -> tuple[list[Offer], bool]:
+    """Bag-cost pool rule (WEB_APP_SPEC §5.3, AC-R7). Returns (pool, fallback); fallback = no offer has a known bag
+    cost, so all of them are returned and the cheapest lower bound is shown."""
+    if not req.checked_bag:
+        return offers, False
+    known = [o for o in offers if bag_cost_known(o, req)]
+    return (known, False) if known else (offers, bool(offers))
+
+
 def recommend(offers: list[Offer], req: SearchRequest, cfg: dict = SCORING) -> list[Card]:
     priced = [o for o in offers if o.total_ils is not None]
     if not priced:
         return []
 
     picks: list[tuple[str, Offer]] = []
-    cheapest = min(priced, key=lambda o: o.total_ils)
+    cheapest = min(bag_cost_pool(priced, req)[0], key=lambda o: o.total_ils)
     picks.append((CHEAPEST, cheapest))
 
+    # Fastest reference over every priced offer; only offers with a known bag cost are ranked (none -> no pick).
     fastest = fastest_by_direction(priced)
-    best = min(priced, key=lambda o: (value_score(o, fastest, cfg), o.total_ils))
-    picks.append((BEST_VALUE, best))
+    value_pool = [o for o in priced if bag_cost_known(o, req)]
+    if value_pool:
+        best = min(value_pool, key=lambda o: (value_score(o, fastest, cfg), o.total_ils))
+        picks.append((BEST_VALUE, best))
 
     if req.has_time_prefs:  # hidden otherwise (would duplicate Cheapest)
         matching = [o for o in priced if matches_times(o, req)]
         if matching:
-            picks.append((MY_TIMES, min(matching, key=lambda o: o.total_ils)))
+            picks.append((MY_TIMES, min(bag_cost_pool(matching, req)[0], key=lambda o: o.total_ils)))
 
     cards: list[Card] = []
     for kind, o in picks:
@@ -104,6 +123,25 @@ def recommend(offers: list[Offer], req: SearchRequest, cfg: dict = SCORING) -> l
     # Split ticket cheaper than any round trip -> show savings (SPEC §16).
     rts = [o.total_ils for o in priced if o.ticket_structure == "roundtrip"]
     for c in cards:
+        # A split with an unknown bag fee only has a lower-bound total: no savings claim.
+        if not bag_cost_known(c.offer, req):
+            continue
         if c.offer.ticket_structure == "split" and rts and c.offer.total_ils < min(rts):
             c.savings_vs_roundtrip_ils = min(rts) - c.offer.total_ils
     return cards
+
+
+def recommendations_meta(offers: list[Offer], req: SearchRequest, cards: list[Card]) -> dict:
+    """Mirror of the Worker's recommendationsMeta (bag-cost part of meta.recommendations)."""
+    priced = [o for o in offers if o.total_ils is not None]
+    if not priced:
+        return {"cheapest": {"status": "no_offers", "excludedForUnknownBagFee": 0}, "bestValue": {"status": "no_offers"}}
+    cheapest_card = next((c for c in cards if CHEAPEST in c.kinds), None)
+    shown = cheapest_card.offer.total_ils if cheapest_card else None
+    _, fallback = bag_cost_pool(priced, req)
+    excluded = 0
+    if req.checked_bag and not fallback and shown is not None:
+        excluded = sum(1 for o in priced if not bag_cost_known(o, req) and o.total_ils < shown)
+    best_card = next((c for c in cards if BEST_VALUE in c.kinds), None)
+    status = "bag_cost_unknown" if best_card is None else ("merged" if CHEAPEST in best_card.kinds else "shown")
+    return {"cheapest": {"status": "shown", "excludedForUnknownBagFee": excluded}, "bestValue": {"status": status}}
