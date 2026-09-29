@@ -247,7 +247,7 @@ Each card carries `flags` (NEW): a list of stable codes computed by the API from
 | `split_ticket` | `ticketStructure == "split"` | **warning** | "שני כרטיסים נפרדים — מזמינים כל אחד בנפרד" (§5.6) |
 | `airline_unknown` | no airline codes | info | "חברת תעופה לא ידועה" |
 | `stale_price` | `ageHours ≥ 12` (configurable) | warning | "המחיר נבדק לפני X שעות ועשוי להשתנות" |
-| `price_suspicious` | tag `price_suspicious` (worker/src/priceguard.ts: a cached Travelpayouts fare at ≤ 50% of its neighbouring dates or of its own recent history). Such offers are kept out of the cards unless nothing else is priced; `meta.priceGuard` (present only when something was flagged) counts them | **warning** | "המחיר נמוך בהרבה מהרגיל ועשוי להיות לא עדכני — כדאי לאמת באתר ההזמנה לפני שמתכננים" |
+| `price_suspicious` | tag `price_suspicious` (worker/src/priceguard.ts: a cached Travelpayouts fare at ≤ 50% of its cheapest neighbouring date, or of its own recent history). One signal only tags (the card may still show it, with this warning); when both agree the offer is kept out of the cards unless nothing else is priced; `meta.priceGuard` (present only when something was flagged) counts both | **warning** | "המחיר נמוך בהרבה מהרגיל ועשוי להיות לא עדכני — כדאי לאמת באתר ההזמנה לפני שמתכננים" |
 
 Rules: severity is conveyed by **icon + text + style**, never color alone. Notices collapse behind one "פרטים על הנתונים" toggle per card on mobile, with a count; warnings stay visible. No flag is ever silently dropped.
 

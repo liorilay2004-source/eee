@@ -126,9 +126,10 @@ export interface SearchResponse {
     candidatePairs: number;
     generatedAt: string;
     /**
-     * ADDITIVE (price guard): Travelpayouts fares found `suspicious` (far below neighbouring dates or their own recent history;
-     * tagged "price_suspicious"), and how many of them were kept out of the cards. `excluded` is 0 when every priced offer was
-     * suspicious: they are then ranked as usual, and the card's offer carries the tag. Absent when nothing was flagged.
+     * ADDITIVE (price guard): Travelpayouts fares found `suspicious` (far below every neighbouring date, or below their own recent
+     * history; tagged "price_suspicious"), and how many were kept out of the cards (`excluded`: only those BOTH signals agree on;
+     * a fare one signal doubts can still win a card, and carries the tag). `excluded` is 0 when nothing else was priced.
+     * Absent when nothing was flagged.
      */
     priceGuard?: { suspicious: number; excluded: number };
   };

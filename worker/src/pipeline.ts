@@ -761,8 +761,8 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   }
   // A live price replaces the cached one for the same flight; the same flight seen by two sources counts once.
   const ranking = mergeQuoted(working);
-  // Price guard (priceguard.ts): a cached fare far below its neighbouring dates or its own recent history is tagged and kept out
-  // of the cards while anything else is priced. One indexed D1 read (the cheapest date pairs' history); storage trouble = no history.
+  // Price guard (priceguard.ts): a cached fare far below its neighbouring dates or its own recent history is tagged; when both
+  // signals agree it is kept out of the cards while anything else is priced. One indexed D1 read (the cheapest date pairs' history); storage trouble = no history.
   const since = new Date(now.getTime() - HISTORY_LOOKBACK_DAYS * 86_400_000);
   const targets = historyTargets(ranking, fx, pax);
   const history =
@@ -825,8 +825,9 @@ interface PersistJob {
   cache: { offers: Offer[]; oneWayPairs: OneWayPair[]; notes: string[]; quotes: Offer[] } | null;
   health: { ok: boolean; error: string | null } | null;
   /**
-   * Set once the ranking has run: fresh fares it finds suspicious are not written to the price history, so a stale cached fare
-   * cannot become the "lowest we have seen" of a price context or the baseline of the next guard / deal check.
+   * Set once the ranking has run: fresh fares BOTH guard signals reject are not written to the price history, so a stale cached
+   * fare cannot become the "lowest we have seen" of a price context or the baseline of the next check. A fare only one signal
+   * doubts is written, so the history can learn that a new low level is real.
    */
   guard?: PriceGuard;
 }
@@ -836,7 +837,7 @@ async function persist(job: PersistJob): Promise<void> {
   const { repo, now } = job;
   const work: Array<Promise<unknown>> = [];
   if (job.logSearch) work.push(attempt(() => repo.saveSearch(job.req, job.searchKey, now)));
-  const fresh = job.guard ? job.fresh.filter((o) => job.guard!.check(o) === null) : job.fresh;
+  const fresh = job.guard ? job.fresh.filter((o) => !job.guard!.check(o)?.exclude) : job.fresh;
   if (fresh.length > 0) work.push(attempt(() => repo.savePrices(historyRows(fresh, job.fx, job.pax))));
   if (job.quotes.length > 0) work.push(attempt(() => repo.savePrices(historyRows(job.quotes, job.fx, job.pax))));
   for (const h of job.quoteHealth) work.push(attempt(() => repo.recordSourceHealth(h.name, h.ok, h.error, now)));

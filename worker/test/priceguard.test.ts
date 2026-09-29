@@ -68,19 +68,22 @@ const hist = (price: number, depart: string, ret: string, msAgo: number, currenc
   checked_at: ago(msAgo),
 });
 
+/** Three older snapshots at 200 USD of the 2026-11-13 / 2026-11-19 pair (the odd day of `week`). */
+const hist13 = (price = 200): HistoryRow[] => [1, 2, 3].map((d) => hist(price, "2026-11-13", "2026-11-19", d * DAY));
+
 // --- peers ---------------------------------------------------------------------------------------------
 
 describe("peer signal", () => {
-  it("flags a cached fare at half or less of the median of its neighbouring dates", () => {
+  it("flags an isolated cached fare at half or less of its CHEAPEST neighbouring date", () => {
     const offers = week(200, 10, 7, { 13: 90 });
     const g = createPriceGuard(offers, [], FX, 1);
-    expect(g.check(offers[3]!)).toBe("peers");
+    expect(g.check(offers[3]!)).toMatchObject({ peers: true, history: false, exclude: false });
     for (const o of offers.filter((_, i) => i !== 3)) expect(g.check(o)).toBeNull();
   });
 
   it("the boundary is inclusive: exactly 50% is suspicious, a cent above is not", () => {
     const at = week(200, 10, 7, { 13: 100 });
-    expect(createPriceGuard(at, [], FX, 1).check(at[3]!)).toBe("peers");
+    expect(createPriceGuard(at, [], FX, 1).check(at[3]!)).toMatchObject({ peers: true, history: false, exclude: false });
     const above = week(200, 10, 7, { 13: 100.01 });
     expect(createPriceGuard(above, [], FX, 1).check(above[3]!)).toBeNull();
   });
@@ -88,6 +91,15 @@ describe("peer signal", () => {
   it("an ordinary cheap day (40% below its neighbours) is not flagged", () => {
     const offers = week(200, 10, 7, { 13: 120 });
     expect(createPriceGuard(offers, [], FX, 1).check(offers[3]!)).toBeNull();
+  });
+
+  it("REGRESSION: a real low-cost carrier on a minority of the dates is not flagged (its own other dates are neighbours)", () => {
+    // Sparse cache: a full-service fare (400) on most days, a low-cost carrier (150) on 13 and 15 only. Against the MEDIAN of the
+    // neighbours (400) both LCC fares were <= 50% and got excluded, handing 💰 to a fare 2.7x the price. Against the cheapest
+    // neighbour they are fine.
+    const offers = week(400, 10, 7, { 13: 150, 15: 150 });
+    const g = createPriceGuard(offers, [], FX, 1);
+    for (const o of offers) expect(g.check(o)).toBeNull();
   });
 
   it("stays silent with fewer than minPeers neighbouring date pairs", () => {
@@ -114,7 +126,7 @@ describe("peer signal", () => {
     const g = createPriceGuard([...offers.filter((_, i) => i !== 3), odd], [], FX, 2);
     expect(g.check(odd)).toBeNull(); // 350 vs 600 is 58%: fine
     const odder = offer(600, "2026-11-13", "2026-11-19", { priceCurrency: "ILS" });
-    expect(createPriceGuard([...offers.filter((_, i) => i !== 3), odder], [], FX, 2).check(odder)).toBe("peers"); // 300 vs 600
+    expect(createPriceGuard([...offers.filter((_, i) => i !== 3), odder], [], FX, 2).check(odder)).toMatchObject({ peers: true, history: false, exclude: false }); // 300 vs 600
   });
 
   it("never judges a non-Travelpayouts offer (live quotes and monitor rows) and never judges an unpriceable one", () => {
@@ -138,7 +150,7 @@ describe("peer signal", () => {
     const offers = week(200, 10, 7, { 13: 50 });
     const junk = [offer(NaN, "2026-11-12", "2026-11-18"), offer(10, "not-a-date", "2026-11-18"), offer(10, "2026-11-20", "2026-11-12"), offer(-5, "2026-11-12", "2026-11-18")];
     const g = createPriceGuard([...offers, ...junk], [], FX, 1);
-    expect(g.check(offers[3]!)).toBe("peers");
+    expect(g.check(offers[3]!)).toMatchObject({ peers: true, history: false, exclude: false });
     for (const j of junk) expect(() => g.check(j)).not.toThrow();
   });
 });
@@ -152,7 +164,7 @@ describe("history signal", () => {
   it("flags a fare at half or less of the median of its own date pair's older snapshots", () => {
     const o = offer(90, D, R);
     const h = [hist(200, D, R, 1 * DAY), hist(210, D, R, 2 * DAY), hist(190, D, R, 3 * DAY)];
-    expect(createPriceGuard([o], h, FX, 1).check(o)).toBe("history");
+    expect(createPriceGuard([o], h, FX, 1).check(o)).toMatchObject({ peers: false, history: true, exclude: false });
   });
 
   it("needs minHistoryBins bins: several snapshots in one 6-hour bin are one look", () => {
@@ -186,7 +198,7 @@ describe("history signal", () => {
     const o = offer(400, D, R); // 2 travellers: 200 USD each
     const h = [hist(200, D, R, DAY), hist(200, D, R, 2 * DAY), hist(200, D, R, 3 * DAY)];
     expect(createPriceGuard([o], h, FX, 2).check(o)).toBeNull();
-    expect(createPriceGuard([offer(200, D, R)], h, FX, 2).check(offer(200, D, R))).toBe("history");
+    expect(createPriceGuard([offer(200, D, R)], h, FX, 2).check(offer(200, D, R))).toMatchObject({ peers: false, history: true, exclude: false });
   });
 });
 
@@ -202,19 +214,29 @@ describe("historyTargets and applyPriceGuard", () => {
     expect(new Set(t.map((p) => p.departDate)).size).toBe(t.length);
   });
 
-  it("tags and removes suspicious offers, keeps the rest", () => {
+  it("one signal only tags: the offer stays in the pool", () => {
     const offers = week(200, 10, 7, { 13: 50 });
     const out = applyPriceGuard(offers, [], createPriceGuard(offers, [], FX, 1));
+    expect(out.pool).toHaveLength(7);
+    expect(out.excluded).toBe(0);
+    expect(offers[3]!.tags).toEqual([PRICE_SUSPICIOUS_TAG]);
+    expect(out.suspicious.has(offers[3]!)).toBe(true);
+  });
+
+  it("both signals together tag AND remove the offer, keep the rest", () => {
+    const offers = week(200, 10, 7, { 13: 50 });
+    const g = createPriceGuard(offers, hist13(), FX, 1);
+    expect(g.check(offers[3]!)).toEqual({ peers: true, history: true, exclude: true });
+    const out = applyPriceGuard(offers, [], g);
     expect(out.pool).toHaveLength(6);
     expect(out.excluded).toBe(1);
     expect(offers[3]!.tags).toEqual([PRICE_SUSPICIOUS_TAG]);
-    expect(out.suspicious.has(offers[3]!)).toBe(true);
   });
 
   it("falls back to the whole pool (tagged) when nothing else is priced", () => {
     const only = offer(50, "2026-11-13", "2026-11-19");
     const unpriced = offer(200, "2026-11-12", "2026-11-18", { totalIls: null });
-    const guard = { check: (o: Offer) => (o === only ? ("history" as const) : null) };
+    const guard = { check: (o: Offer) => (o === only ? { peers: true, history: true, exclude: true } : null) };
     const out = applyPriceGuard([only, unpriced], [], guard);
     expect(out.pool).toEqual([only, unpriced]);
     expect(out.excluded).toBe(0);
@@ -223,7 +245,7 @@ describe("historyTargets and applyPriceGuard", () => {
 
   it("filters the 🎯-only candidates the same way and never tags twice", () => {
     const offers = week(200, 10, 7, { 13: 50 });
-    const guard = createPriceGuard(offers, [], FX, 1);
+    const guard = createPriceGuard(offers, hist13(), FX, 1);
     applyPriceGuard(offers, [], guard);
     const out = applyPriceGuard(offers, [offers[3]!], guard);
     expect(out.timeOnly).toEqual([]);
@@ -341,23 +363,48 @@ function setup(rts: Offer[]) {
 }
 
 describe("pipeline wiring", () => {
-  it("a suspicious cached fare does not win 💰 or ⚖️; the next honest fare does, and meta says one was excluded", async () => {
-    const { deps } = setup(week(200, 10, 7, { 13: 50 }));
-    const res = await runSearch(deps, req());
-    const cheapest = res.cards.find((c) => c.kinds.includes("cheapest"));
-    expect(cheapest?.offer.priceAmount).toBe(200);
-    for (const c of res.cards) expect(c.offer.tags).not.toContain(PRICE_SUSPICIOUS_TAG);
-    expect(res.meta.priceGuard).toEqual({ suspicious: 1, excluded: 1 });
-  });
+  const seed13 = (repo: ReturnType<typeof createRepo>, price = 200) =>
+    repo.savePrices([1, 2, 3].map((d) => offer(price, "2026-11-13", "2026-11-19", { checkedAt: ago(d * DAY) })));
 
-  it("a history of the same date pair far above the fare flags it too (one extra D1 query)", async () => {
-    const { db, repo, deps } = setup([offer(90, "2026-11-13", "2026-11-19"), offer(150, "2026-11-12", "2026-11-18")]);
-    await repo.savePrices([1, 2, 3].map((d) => offer(200, "2026-11-13", "2026-11-19", { checkedAt: ago(d * DAY) })));
+  it("both signals agree: the fare does not win 💰 or ⚖️, the next honest fare does, meta says one was excluded (one D1 read)", async () => {
+    const { db, repo, deps } = setup(week(200, 10, 7, { 13: 50 }));
+    await seed13(repo);
     const prepare = vi.spyOn(db, "prepare");
     const res = await runSearch(deps, req());
-    expect(res.cards.find((c) => c.kinds.includes("cheapest"))?.offer.priceAmount).toBe(150);
+    expect(res.cards.find((c) => c.kinds.includes("cheapest"))?.offer.priceAmount).toBe(200);
+    for (const c of res.cards) expect(c.offer.tags).not.toContain(PRICE_SUSPICIOUS_TAG);
     expect(res.meta.priceGuard).toEqual({ suspicious: 1, excluded: 1 });
     expect(prepare.mock.calls.filter((c) => String(c[0]).includes("idx_prices_route")).length).toBe(1);
+  });
+
+  it("peers alone only tag: the fare still wins 💰 and carries the tag (disclosed, not hidden)", async () => {
+    const { deps } = setup(week(200, 10, 7, { 13: 50 }));
+    const res = await runSearch(deps, req());
+    const c = res.cards.find((x) => x.kinds.includes("cheapest"));
+    expect(c?.offer.priceAmount).toBe(50);
+    expect(c?.offer.tags).toContain(PRICE_SUSPICIOUS_TAG);
+    expect(res.meta.priceGuard).toEqual({ suspicious: 1, excluded: 0 });
+  });
+
+  it("history alone only tags", async () => {
+    const { repo, deps } = setup([offer(90, "2026-11-13", "2026-11-19"), offer(150, "2026-11-12", "2026-11-18")]);
+    await seed13(repo);
+    const res = await runSearch(deps, req());
+    const c = res.cards.find((x) => x.kinds.includes("cheapest"));
+    expect(c?.offer.priceAmount).toBe(90);
+    expect(c?.offer.tags).toContain(PRICE_SUSPICIOUS_TAG);
+    expect(res.meta.priceGuard).toEqual({ suspicious: 1, excluded: 0 });
+  });
+
+  it("REGRESSION: sparse cache with a real low-cost carrier on a minority of dates: its fare wins 💰, untagged, and is stored", async () => {
+    const { db, deps } = setup(week(400, 10, 7, { 13: 150, 15: 150 }));
+    const res = await runSearch(deps, req());
+    const c = res.cards.find((x) => x.kinds.includes("cheapest"));
+    expect(c?.offer.priceAmount).toBe(150);
+    expect(c?.offer.tags).not.toContain(PRICE_SUSPICIOUS_TAG);
+    expect("priceGuard" in res.meta).toBe(false);
+    const stored = (await db.prepare("SELECT price_amount FROM prices").all<{ price_amount: number }>()).results;
+    expect(stored.filter((r) => r.price_amount === 150)).toHaveLength(2);
   });
 
   it("when every priced offer is suspicious it is still shown, tagged, and excluded is 0", async () => {
@@ -376,25 +423,37 @@ describe("pipeline wiring", () => {
     expect("priceGuard" in res.meta).toBe(false);
   });
 
-  it("a suspicious fare is not written to the price history; the honest fares are", async () => {
-    const { db, deps } = setup(week(200, 10, 7, { 13: 50 }));
-    await runSearch(deps, req());
-    const stored = (await db.prepare("SELECT depart_date, price_amount FROM prices").all<{ depart_date: string; price_amount: number }>()).results;
-    expect(stored.map((r) => r.price_amount)).not.toContain(50);
-    expect(stored).toHaveLength(6);
+  it("a fare both signals reject is not written to the price history; a fare one signal doubts is, so the history can learn", async () => {
+    const both = setup(week(200, 10, 7, { 13: 50 }));
+    await seed13(both.repo);
+    await runSearch(both.deps, req());
+    const a = (await both.db.prepare("SELECT price_amount FROM prices WHERE checked_at > ?").bind(ago(HOUR)).all<{ price_amount: number }>()).results;
+    expect(a.map((r) => r.price_amount)).not.toContain(50);
+    expect(a).toHaveLength(6);
+
+    const one = setup(week(200, 10, 7, { 13: 50 }));
+    await runSearch(one.deps, req());
+    const b = (await one.db.prepare("SELECT price_amount FROM prices").all<{ price_amount: number }>()).results;
+    expect(b.map((r) => r.price_amount)).toContain(50);
+    expect(b).toHaveLength(7);
   });
 
-  it("a history read that fails degrades to peers only, never fails the search", async () => {
+  it("a history read that fails degrades to peers only (tag only), never fails the search", async () => {
     const { repo, deps } = setup(week(200, 10, 7, { 13: 50 }));
+    await seed13(repo);
     repo.priceHistory = async () => {
       throw new Error("D1 down");
     };
     const res = await runSearch(deps, req());
-    expect(res.cards.find((c) => c.kinds.includes("cheapest"))?.offer.priceAmount).toBe(200);
+    const c = res.cards.find((x) => x.kinds.includes("cheapest"));
+    expect(c?.offer.priceAmount).toBe(50);
+    expect(c?.offer.tags).toContain(PRICE_SUSPICIOUS_TAG);
+    expect(res.meta.priceGuard).toEqual({ suspicious: 1, excluded: 0 });
   });
 
   it("a cache hit applies the guard the same way, with no upstream call", async () => {
-    const { deps } = setup(week(200, 10, 7, { 13: 50 }));
+    const { repo, deps } = setup(week(200, 10, 7, { 13: 50 }));
+    await seed13(repo);
     await runSearch(deps, req());
     const tp = deps.tp;
     const before = tp.callCount();

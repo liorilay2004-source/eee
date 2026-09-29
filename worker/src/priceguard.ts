@@ -2,16 +2,17 @@
  * Price-sanity guard. The Travelpayouts Data API serves CACHED fares (found by other users 2-7 days ago), and now and
  * then one of them is far below anything that can still be booked: a sold-out promo seat, or a mistake that was already
  * fixed. Shown as 💰 "cheapest", it promises a price the booking link will not honour. This module marks such fares
- * with the tag `price_suspicious` so the pipeline can keep them from winning a card while anything else exists.
+ * with the tag `price_suspicious`, and keeps them from winning a card only when BOTH signals below agree.
  *
- * Pure and deterministic: no I/O, no clock reads. Two independent signals, either one is enough:
+ * Pure and deterministic: no I/O, no clock reads. Two independent signals; either one TAGS the offer (a disclosure the
+ * card shows), both together EXCLUDE it from the cards while anything else is priced:
  *
  *  - PEERS (always available, no D1): the offer is compared with the cheapest fare of each NEIGHBOURING date pair of
  *    the same airport pair in the same search (departure within ±peerDepartDays, trip length within ±peerNightsDelta,
- *    the offer's own date pair excluded). A cached fare at most `(100 - errorDropPct)` % of the median of those
- *    neighbours, with at least minPeers of them, is suspicious: adjacent days of one route are rarely that far apart,
- *    while a stale cache entry is exactly that. The neighbours' MINIMA are used, so a neighbour that is itself cheap
- *    only makes the guard more lenient.
+ *    the offer's own date pair excluded). It fires only for an ISOLATED outlier: at most `(100 - errorDropPct)` % of the
+ *    CHEAPEST neighbour, with at least minPeers neighbours. Not the median: on a sparse cache a real low-cost carrier
+ *    often covers a minority of the dates, and every one of its fares sits far below the full-service median; against
+ *    the minimum, its own other dates are neighbours at the same level, so it is left alone. A lone stale entry is not.
  *  - HISTORY (one indexed D1 read per search, see Repo.priceHistory): the same date pair's own older snapshots in the
  *    shared `prices` table, one per 6-hour bin (the cheapest), strictly older than the offer. At least
  *    minHistoryBins bins on minHistoryDays distinct UTC days are needed; then the same cut-off against their median.
@@ -77,9 +78,16 @@ export interface DatePair {
 
 export type SuspicionReason = "peers" | "history";
 
+/** Which signals fired. `exclude` (both did) is what keeps an offer out of the cards and out of the price history. */
+export interface Suspicion {
+  peers: boolean;
+  history: boolean;
+  exclude: boolean;
+}
+
 export interface PriceGuard {
-  /** Why the offer is suspicious, or null when it is not (or cannot be judged). */
-  check(o: Offer): SuspicionReason | null;
+  /** Which signals call the offer suspicious, or null when none does (or it cannot be judged). */
+  check(o: Offer): Suspicion | null;
 }
 
 const pairKey = (o: { origin: string; destination: string; departDate: string; returnDate: string }): string =>
@@ -177,7 +185,7 @@ export function createPriceGuard(
     byRoute.set(p.route, list);
   }
   for (const list of byRoute.values()) list.sort((a, b) => a.dep - b.dep);
-  // The peer reference is a median of some of a route's pair minima, so never above the dearest one: a fare above `share` of that
+  // The peer reference is the lowest of some of a route's pair minima, so never above the dearest one: a fare above `share` of that
   // cannot be flagged by peers, and most fares of a search are rejected with one comparison instead of a neighbour scan.
   const routeMax = new Map<string, number>();
   for (const [route, list] of byRoute) routeMax.set(route, list.reduce((m, p) => (p.minIls > m ? p.minIls : m), 0));
@@ -205,7 +213,7 @@ export function createPriceGuard(
         if (p.key === k || Math.abs(p.nights - own.nights) > cfg.peerNightsDelta) continue;
         near.push(p.minIls);
       }
-      if (near.length >= Math.max(1, cfg.minPeers)) ref = median(near);
+      if (near.length >= Math.max(1, cfg.minPeers)) ref = Math.min(...near);
     }
     peerRef.set(k, ref);
     return ref;
@@ -243,46 +251,50 @@ export function createPriceGuard(
   }
 
   return {
-    check(o: Offer): SuspicionReason | null {
+    check(o: Offer): Suspicion | null {
       if (o.source !== "travelpayouts") return null;
       const ils = perPaxIls(fx, o.priceAmount, o.priceCurrency, pax);
       if (ils === null) return null;
       const max = routeMax.get(routeKey(o));
       const peer = max !== undefined && ils <= max * share + EPS ? peerReference(o) : null;
-      if (peer !== null && ils <= peer * share + EPS) return "peers";
       const past = hist.size > 0 ? historyReference(o) : null;
-      if (past !== null && ils <= past * share + EPS) return "history";
-      return null;
+      const peers = peer !== null && ils <= peer * share + EPS;
+      const history = past !== null && ils <= past * share + EPS;
+      return peers || history ? { peers, history, exclude: peers && history } : null;
     },
   };
 }
 
 export interface GuardOutcome {
-  /** What to rank: the pool without suspicious offers, or the whole pool when nothing else is priced. */
+  /** What to rank: the pool without the excluded offers, or the whole pool when nothing else is priced. */
   pool: Offer[];
   /** The same filter for the 🎯-only candidates. */
   timeOnly: Offer[];
-  /** Offers found suspicious (each got the tag). */
+  /** Offers either signal found suspicious (each got the tag; a tag-only offer can still win a card, and shows the tag). */
   suspicious: Set<Offer>;
-  /** How many suspicious offers were kept out of the ranking (0 when the fallback kept them in). */
+  /** How many offers both signals agreed on were kept out of the ranking (0 when the fallback kept them in). */
   excluded: number;
 }
 
 /**
- * Tags every suspicious offer of `pool` and `timeOnly` and keeps them out of the ranking, unless that would leave no
- * priced offer at all: then everything stays in (tagged), because a suspicious price is still better than an empty
- * page. Mutates only the tags of the given (working copy) offers.
+ * Tags every suspicious offer of `pool` and `timeOnly`. Those both signals agree on are kept out of the ranking, unless
+ * that would leave no priced offer at all: then everything stays in (tagged), because a suspicious price is still better
+ * than an empty page. One signal alone only tags. Mutates only the tags of the given (working copy) offers.
  */
 export function applyPriceGuard(pool: Offer[], timeOnly: Offer[], guard: PriceGuard): GuardOutcome {
   const suspicious = new Set<Offer>();
+  const excludable = new Set<Offer>();
   for (const o of [...pool, ...timeOnly]) {
-    if (o.totalIls === null || guard.check(o) === null) continue;
+    if (o.totalIls === null) continue;
+    const s = guard.check(o);
+    if (s === null) continue;
     suspicious.add(o);
+    if (s.exclude) excludable.add(o);
     if (!o.tags.includes(PRICE_SUSPICIOUS_TAG)) o.tags.push(PRICE_SUSPICIOUS_TAG);
   }
-  if (suspicious.size === 0) return { pool, timeOnly, suspicious, excluded: 0 };
-  const kept = pool.filter((o) => !suspicious.has(o));
+  if (excludable.size === 0) return { pool, timeOnly, suspicious, excluded: 0 };
+  const kept = pool.filter((o) => !excludable.has(o));
   if (!kept.some((o) => o.totalIls !== null)) return { pool, timeOnly, suspicious, excluded: 0 };
   const excluded = pool.length - kept.length;
-  return { pool: kept, timeOnly: timeOnly.filter((o) => !suspicious.has(o)), suspicious, excluded };
+  return { pool: kept, timeOnly: timeOnly.filter((o) => !excludable.has(o)), suspicious, excluded };
 }
