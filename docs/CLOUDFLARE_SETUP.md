@@ -57,7 +57,7 @@ npx wrangler login          # נפתח דפדפן לאישור (במחשב אי�
 npx wrangler d1 migrations apply eee-db --remote
 ```
 
-ב-Codespaces או בכל סביבה מרוחקת `wrangler login` לא עובד (ה-callback מקומי). שם יוצרים טוקן API בהרשאות "Edit Cloudflare Workers" ו-"Account → D1 → Edit" ומגדירים אותו רק כמשתנה סביבה בטרמינל (`export CLOUDFLARE_API_TOKEN=…`, ללא כתיבה לקובץ), ואת ה-Account ID כ-`CLOUDFLARE_ACCOUNT_ID`.
+ב-Codespaces או בכל סביבה מרוחקת (שבה `localhost:8976` לא נגיש מהדפדפן) מריצים `npx wrangler login --device` (זרימת OAuth בלי callback מקומי; הדגל קיים ב-wrangler 4.143 ונבדק ב-`--help`). רק אם זה לא מתאפשר, יוצרים טוקן API בהרשאות "Edit Cloudflare Workers" ו-"Account → D1 → Edit" ומגדירים אותו רק כמשתנה סביבה בטרמינל (`export CLOUDFLARE_API_TOKEN=…`, ללא כתיבה לקובץ), ואת ה-Account ID כ-`CLOUDFLARE_ACCOUNT_ID`.
 
 `wrangler` מתעד ב-D1 אילו מיגרציות הורצו (טבלת `d1_migrations`), ולכן הרצה חוזרת בטוחה: הוא מריץ רק את החסרות (ואם אין חסרות: "No migrations to apply!"). לפני ההרצה הוא שואל אישור (`yes`), ומדפיס שלושה בלוקים, אחד לכל מיגרציה (20, 616 ו-3 פקודות). ההצלחה היא שבסוף כל שלוש השורות מסומנות ✅. הבלוק האחרון נראה כך (מקומית):
 
