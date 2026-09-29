@@ -2,6 +2,9 @@ name = "eee-api"
 main = "src/index.ts"
 compatibility_date = "2026-09-01"
 
+[vars]
+ALLOWED_ORIGIN = "https://eee-web-bly.pages.dev"
+
 # Created in the owner's Cloudflare account on 2026-09-29 (not a secret: it only identifies the database).
 [[d1_databases]]
 binding = "DB"
