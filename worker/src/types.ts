@@ -105,6 +105,8 @@ export interface CardView extends Card {
 export interface SearchResponse {
   cards: CardView[];
   meta: {
+    /** ADDITIVE: contract version (WEB_APP_SPEC 7.1). */
+    apiVersion: 1;
     searchKey: string;
     fromCache: boolean;
     fxSource: string;

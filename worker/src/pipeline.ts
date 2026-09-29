@@ -294,6 +294,8 @@ interface ScanResult {
   oneWayPairs: Array<{ pair: Pair; outs: OneWayFare[]; backs: OneWayFare[] }>;
   successes: number;
   failures: string[];
+  /** Airport pairs Travelpayouts answered with HTTP 400 (not a searchable code): reported, not counted as a source failure. */
+  rejected: string[];
   plannedRequests: number;
   skippedRequests: number;
 }
@@ -325,7 +327,7 @@ async function scanTravelpayouts(tp: TravelpayoutsClient, req: SearchRequest, pa
     steps.push({ kind: "rt", pair, cost: rtCost }, { kind: "ow", pair, cost: owCost });
   }
 
-  const result: ScanResult = { roundTrips: [], oneWayPairs: [], successes: 0, failures: [], plannedRequests: 0, skippedRequests: 0 };
+  const result: ScanResult = { roundTrips: [], oneWayPairs: [], successes: 0, failures: [], rejected: [], plannedRequests: 0, skippedRequests: 0 };
   let spent = 0;
   let stopped = false;
   for (const step of steps) {
@@ -346,6 +348,15 @@ async function scanTravelpayouts(tp: TravelpayoutsClient, req: SearchRequest, pa
       }
       result.successes += 1;
     } catch (e) {
+      // HTTP 400 means the pair itself is not searchable (e.g. Ovda, a sibling airport of Eilat that Aviasales does not
+      // serve). The source answered, so it is neither a failure nor a reason to stop: an all-rejected search is an empty
+      // result, and a good sibling airport still gets searched.
+      if (e instanceof TravelpayoutsError && e.status === 400) {
+        const label = `${step.pair.origin}-${step.pair.dest}`;
+        if (!result.rejected.includes(label)) result.rejected.push(label);
+        result.successes += 1;
+        continue;
+      }
       const text = describeError(e);
       if (!result.failures.includes(text)) result.failures.push(text);
       if (isFatal(e)) stopped = true;
@@ -592,6 +603,9 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
       if (scan.skippedRequests > 0) {
         scanNotes = [`truncated: ${scan.skippedRequests} of ${scan.plannedRequests} planned requests skipped (limit ${MAX_TP_REQUESTS})`];
       }
+      if (scan.rejected.length > 0) {
+        scanNotes = [...scanNotes, `not searchable at Travelpayouts: ${scan.rejected.slice(0, 6).join(", ")}`];
+      }
       const notes = [...scan.failures, ...scanNotes];
       tpStatus.error = notes.length > 0 ? notes.join("; ") : null;
     }
@@ -681,6 +695,7 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   return {
     cards: views,
     meta: {
+      apiVersion: 1,
       searchKey,
       fromCache,
       fxSource: fx.source,
