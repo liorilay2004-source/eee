@@ -5,6 +5,7 @@
  *   GET  /api/calendar  cheapest cached round trip per departure day (rate limited, src/calendar.ts)
  *   GET  /api/explore   cheapest destinations from TLV/ETM in a month or window (rate limited, src/explore.ts)
  *   GET  /api/health    D1 liveness
+ *   POST /api/watches, GET|DELETE /api/watches/<token>, POST /api/telegram/webhook   price alerts (src/watches.ts)
  *   GET  /api/deals     unusual fares per watched route, precomputed by the hourly snapshot cron (dealreports.ts)
  *
  * Every response is JSON, `Cache-Control: no-store`, `nosniff`. Errors are
@@ -33,8 +34,10 @@ import { createSearchApiSource } from "./sources/searchapi";
 import { createSerpApiSource } from "./sources/serpapi";
 import { createWegoSource } from "./sources/wego";
 import { pickSnapshotRoute, runSnapshot } from "./snapshots";
+import { secretMatches, telegramConfig } from "./telegram";
 import { createTravelpayoutsClient, marketForCountry } from "./travelpayouts";
 import type { Env } from "./types";
+import { handleBotUpdate, handleCreateWatch, handleWatchByToken, runWatchChecks } from "./watches";
 import { GLOBAL_SCAN_LIMIT, GLOBAL_SCAN_WINDOW_SECONDS, MAX_BODY_BYTES, parseSearchBody, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_SECONDS } from "./validate";
 
 // The entry module must export only the handler: workerd refuses to load a Worker whose main module exports anything
@@ -44,6 +47,8 @@ const AIRPORTS_MAX_LIMIT = 10;
 
 /** Must equal the hourly entry of `crons` in wrangler.toml (a test pins that). */
 const SNAPSHOT_CRON = "43 * * * *";
+/** Must equal the price-alert entry of `crons` in wrangler.toml (a test pins that). Hourly, small batches: each watch about once a day. */
+const WATCH_CRON = "29 * * * *";
 
 /**
  * Used only while the D1-backed limiter is failing (e.g. the free-tier write quota is spent, when every D1 write
@@ -151,6 +156,19 @@ async function readBody(request: Request): Promise<{ text: string } | { tooLarge
 
 const isJsonContentType = (request: Request): boolean =>
   (request.headers.get("Content-Type") ?? "").split(";")[0]?.trim().toLowerCase() === "application/json";
+
+/** Content type, size cap, UTF-8 and JSON checks of a request body, with the same errors as /api/search. */
+async function readJson(request: Request): Promise<{ ok: true; value: unknown } | { ok: false; result: ApiResult }> {
+  if (!isJsonContentType(request)) return { ok: false, result: errorResult(415, "unsupported_media_type", "Content-Type must be application/json") };
+  const raw = await readBody(request);
+  if ("tooLarge" in raw) return { ok: false, result: errorResult(413, "payload_too_large", `Request body must be at most ${MAX_BODY_BYTES} bytes`) };
+  if ("invalid" in raw) return { ok: false, result: errorResult(400, "invalid_json", "Request body is not valid UTF-8 JSON") };
+  try {
+    return { ok: true, value: JSON.parse(raw.text) };
+  } catch {
+    return { ok: false, result: errorResult(400, "invalid_json", "Request body is not valid JSON") };
+  }
+}
 
 // --- handlers -------------------------------------------------------------------------------------------
 
@@ -407,12 +425,47 @@ async function handleHealth(env: Env): Promise<ApiResult> {
   }
 }
 
-const ROUTES: Record<string, string> = { "/api/search": "POST", "/api/airports": "GET", "/api/deals": "GET", "/api/calendar": "GET", "/api/explore": "GET", "/api/health": "GET" };
+/**
+ * Telegram calls this with the secret it was registered with (setWebhook secret_token) in a header. Without the channel's
+ * settings the path does not exist (404); a wrong or missing secret is 401. After that the answer is always 200, even for
+ * an update that cannot be read: any other status makes Telegram deliver the same update again and again.
+ */
+async function handleTelegramWebhook(request: Request, env: Env): Promise<ApiResult> {
+  const tg = telegramConfig(env);
+  if (!tg) return errorResult(404, "not_found", "Not found");
+  if (!(await secretMatches(request.headers.get("X-Telegram-Bot-Api-Secret-Token"), tg.webhookSecret))) {
+    return errorResult(401, "unauthorized", "Unauthorized");
+  }
+  const raw = await readBody(request);
+  if (!("text" in raw)) return { status: 200 };
+  let update: unknown;
+  try {
+    update = JSON.parse(raw.text);
+  } catch {
+    return { status: 200 };
+  }
+  const reply = await handleBotUpdate(update, { env, repo: createRepo(env.DB), now: new Date() });
+  return reply ? { status: 200, body: reply } : { status: 200 };
+}
+
+const ROUTES: Record<string, string> = {
+  "/api/search": "POST",
+  "/api/airports": "GET",
+  "/api/deals": "GET",
+  "/api/calendar": "GET",
+  "/api/explore": "GET",
+  "/api/health": "GET",
+  "/api/watches": "POST",
+  "/api/telegram/webhook": "POST",
+};
+/** /api/watches/<token>: the token is checked by the handler (a malformed one is simply not found). */
+const WATCH_PATH = /^\/api\/watches\/([^/]+)$/;
 
 async function route(request: Request, env: Env, ctx: ExecutionContext): Promise<ApiResult> {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, "") || "/";
-  const method = ROUTES[path];
+  const watchToken = WATCH_PATH.exec(path)?.[1];
+  const method = watchToken !== undefined ? "GET, DELETE" : ROUTES[path];
   if (method === undefined) return errorResult(404, "not_found", "Not found");
 
   if (request.method === "OPTIONS") {
@@ -427,8 +480,16 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
       },
     };
   }
-  if (request.method !== method) return errorResult(405, "method_not_allowed", "Method not allowed", { headers: { Allow: `${method}, OPTIONS` } });
+  if (!method.split(", ").includes(request.method)) {
+    return errorResult(405, "method_not_allowed", "Method not allowed", { headers: { Allow: `${method}, OPTIONS` } });
+  }
 
+  if (watchToken !== undefined || path === "/api/watches") {
+    const deps = { env, repo: createRepo(env.DB), now: new Date(), ip: request.headers.get("CF-Connecting-IP") ?? "unknown" };
+    if (watchToken !== undefined) return handleWatchByToken(deps, request.method as "GET" | "DELETE", watchToken);
+    return handleCreateWatch(deps, () => readJson(request));
+  }
+  if (path === "/api/telegram/webhook") return handleTelegramWebhook(request, env);
   if (path === "/api/search") return handleSearch(request, env, ctx);
   if (path === "/api/airports") return handleAirports(url);
   if (path === "/api/deals") return handleDeals(env);
@@ -439,8 +500,9 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
 
 export default {
   /**
-   * Two cron triggers (wrangler.toml `[triggers]`): the daily retention job (the append-only tables must not grow without
-   * bound), and the hourly price snapshot of one watchlist route (src/snapshots.ts).
+   * Three cron triggers (wrangler.toml `[triggers]`): the daily retention job (the append-only tables must not grow without
+   * bound), the hourly price snapshot of one watchlist route (src/snapshots.ts), and the hourly price-alert batch
+   * (src/watches.ts).
    */
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     if (controller.cron === SNAPSHOT_CRON) {
@@ -460,6 +522,34 @@ export default {
         runSnapshot({ repo, tp, fx: () => getFxRates(repo, fetchFn, now), now, resolver: defaultResolver })
           .then(() => refreshDealReport(env.DB, origin, destination, new Date()))
           .then(() => undefined),
+      );
+      return;
+    }
+    if (controller.cron === WATCH_CRON) {
+      const now = new Date(controller.scheduledTime);
+      const fetchFn: typeof fetch = (input, init) => globalThis.fetch(input, init);
+      const repo = createRepo(env.DB);
+      const tp = createTravelpayoutsClient({
+        token: env.TRAVELPAYOUTS_TOKEN,
+        marker: env.TRAVELPAYOUTS_MARKER,
+        fetchFn,
+        marketFor: (origin) => marketForCountry(defaultResolver.countryOfAirport(origin)),
+      });
+      ctx.waitUntil(
+        runWatchChecks({
+          db: env.DB,
+          repo,
+          tp,
+          now,
+          fetchFn,
+          fx: () => getFxRates(repo, fetchFn, now),
+          telegram: telegramConfig(env),
+          scanBudget: async () => {
+            const verdict = await scanBudgetLeft(repo, now);
+            return typeof verdict === "boolean" ? verdict : verdict.allowed;
+          },
+          resolver: defaultResolver,
+        }).then(() => undefined),
       );
       return;
     }

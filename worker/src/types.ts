@@ -352,4 +352,11 @@ export interface Env {
   WEGO_API_TOKEN?: string;
   SEARCHAPI_KEY?: string;
   SERPAPI_KEY?: string;
+  /**
+   * ADDITIVE (price alerts, src/telegram.ts): the free Telegram Bot API. All three must be set or the alert channel is disabled:
+   * POST /api/watches answers 503 and the webhook 404 (fail closed). The username is not a secret (a plain var).
+   */
+  TELEGRAM_BOT_TOKEN?: string;
+  TELEGRAM_WEBHOOK_SECRET?: string;
+  TELEGRAM_BOT_USERNAME?: string;
 }
