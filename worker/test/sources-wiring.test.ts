@@ -184,6 +184,20 @@ afterEach(() => {
 // ---------------------------------------------------------------------------------------------------------
 
 describe("no key: the extra sources do not exist", () => {
+  it("GET /api/source-setup returns connector readiness without outbound calls or secret values", async () => {
+    const up = stubUpstream();
+    const env = makeEnv({ DUFFEL_API_TOKEN: "duffel-secret-for-test" });
+    const res = await call(env, "/api/source-setup", { method: "GET", headers: { "CF-Connecting-IP": IP } });
+    const text = await res.clone().text();
+    const data = JSON.parse(text) as { connectors: Array<{ id: string; status: string; missingSecrets: string[] }> };
+    expect(res.status).toBe(200);
+    expect(data.connectors.find((s) => s.id === "duffel")?.status).toBe("configured");
+    expect(data.connectors.find((s) => s.id === "amadeus")?.missingSecrets).toEqual(["AMADEUS_CLIENT_ID", "AMADEUS_CLIENT_SECRET"]);
+    expect(text).not.toContain("duffel-secret-for-test");
+    expect(up.fn).not.toHaveBeenCalled();
+    expect(await quotaRows(env)).toEqual([]);
+  });
+
   it("GET /api/sources returns the registry without outbound calls or quota writes", async () => {
     const up = stubUpstream();
     const env = makeEnv();

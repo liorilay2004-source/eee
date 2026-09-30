@@ -195,6 +195,23 @@ export interface FlightLinksResponse {
   generatedAt: string;
 }
 
+export interface SourceSetupStatus {
+  id: string;
+  name: string;
+  kind: "multi-airline" | "direct-airline";
+  status: "configured" | "missing_credentials";
+  requiredSecrets: string[];
+  missingSecrets: string[];
+  officialUrl: string;
+  noteHe: string;
+}
+
+export interface SourceSetupResponse {
+  connectors: SourceSetupStatus[];
+  summary: { total: number; configured: number; missingCredentials: number };
+  generatedAt: string;
+}
+
 export interface SourceStatus {
   name: string;
   enabled: boolean;
@@ -552,4 +569,24 @@ export interface Env {
    * `Authorization: Bearer <key>`; anything else = misconfigured, and the API fails closed (503).
    */
   ACCESS_KEY?: string;
+  /** Optional future official airline/GDS API connectors. These are status-gated until adapters are enabled. */
+  DUFFEL_API_TOKEN?: string;
+  AMADEUS_CLIENT_ID?: string;
+  AMADEUS_CLIENT_SECRET?: string;
+  TRAVELPORT_CLIENT_ID?: string;
+  TRAVELPORT_CLIENT_SECRET?: string;
+  SABRE_CLIENT_ID?: string;
+  SABRE_CLIENT_SECRET?: string;
+  LUFTHANSA_CLIENT_ID?: string;
+  LUFTHANSA_CLIENT_SECRET?: string;
+  TURKISH_API_KEY?: string;
+  AFKL_API_KEY?: string;
+  BA_NDC_CLIENT_ID?: string;
+  BA_NDC_CLIENT_SECRET?: string;
+  EMIRATES_NDC_CLIENT_ID?: string;
+  EMIRATES_NDC_CLIENT_SECRET?: string;
+  QATAR_NDC_CLIENT_ID?: string;
+  QATAR_NDC_CLIENT_SECRET?: string;
+  EASYJET_API_KEY?: string;
+  RYANAIR_API_KEY?: string;
 }
