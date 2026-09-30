@@ -18,3 +18,8 @@ SERPAPI_KEY=
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_WEBHOOK_SECRET=
 TELEGRAM_BOT_USERNAME=
+
+# OPTIONAL private-use lock (src/access.ts). Empty = the API is public. 20-256 visible ASCII characters without spaces =
+# every API call needs "Authorization: Bearer <key>" (the web asks for it once per browser). Shorter = misconfigured:
+# the API then fails closed (503). Generate one: node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"
+ACCESS_KEY=
