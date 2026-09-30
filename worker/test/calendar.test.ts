@@ -17,6 +17,7 @@ import {
   runCalendar,
   type CalendarResponse,
 } from "../src/calendar";
+import { bundledHolidays, buildHolidayIndex, HOLIDAYS_ATTRIBUTION } from "../src/holidays";
 import { defaultResolver } from "../src/pipeline";
 import { createTravelpayoutsClient } from "../src/travelpayouts";
 import type { Env, Offer } from "../src/types";
@@ -117,6 +118,11 @@ async function cal(env: Env, query: string, headers: Record<string, string> = {}
 
 const Q = "origin=TLV&destination=BCN&month=2026-11";
 const day = (data: CalendarResponse, date: string) => data.days.find((d) => d.date === date);
+/** The additive holidayHe a day carries from the bundled table (absent on a plain day). */
+const holidayOf = (date: string): { holidayHe?: string } => {
+  const he = bundledHolidays.holidayHeOn(date);
+  return he ? { holidayHe: he } : {};
+};
 const rows = async <T = Record<string, unknown>>(env: Env, sql: string, ...binds: unknown[]) => (await env.DB.prepare(sql).bind(...binds).all<T>()).results;
 
 beforeEach(() => {
@@ -559,8 +565,8 @@ describe("GET /api/calendar: budget, limits and failures", () => {
     expect(data.meta.months.map((m) => m.status)).toEqual(["stale", "busy"]);
     expect(up.tpCalls()).toHaveLength(2);
     // December's empty days are unknown, not "no cached fare", and the response says so.
-    expect(day(data, "2026-12-10")).toEqual({ date: "2026-12-10", known: false, fare: null });
-    expect(day(data, "2026-11-01")).toEqual({ date: "2026-11-01", known: true, fare: null });
+    expect(day(data, "2026-12-10")).toEqual({ date: "2026-12-10", known: false, fare: null, ...holidayOf("2026-12-10") });
+    expect(day(data, "2026-11-01")).toEqual({ date: "2026-11-01", known: true, fare: null, ...holidayOf("2026-11-01") });
     expect(data.meta.unavailableHe).toBe(CALENDAR_UNKNOWN_HE);
   });
 
@@ -635,6 +641,43 @@ describe("runCalendar directly", () => {
       runCalendar({ db: createTestD1(), tp, fx: async () => ({ date: "2026-10-01", source: "t", ratesToIls: { ILS: 1, USD: 3.6 } }), now: NOW, reserveFetch: async () => false }, q),
     ).rejects.toMatchObject({ code: "source_unavailable", message: "Too many calendar requests right now, try again later" });
     expect(fetchFn).not.toHaveBeenCalled();
+  });
+});
+
+describe("holidays (holidays.ts): days[].holidayHe and meta.holidaysAttribution", () => {
+  const FIXTURE = buildHolidayIndex({
+    range: { start: "2026-10-01", end: "2026-12-31" },
+    holidays: [
+      { date: "2026-11-09", titleHe: "חג הסיגד", yomtov: false, category: "modern" },
+      { date: "2026-11-12", titleHe: "חג בדיקה", yomtov: true, category: "major" },
+      { date: "2026-11-12", titleHe: "יום נוסף", yomtov: false, category: "minor" },
+    ],
+  });
+
+  it("labels holiday days from the injected table, leaves plain days without the field, credits Hebcal", async () => {
+    const fetchFn = vi.fn(async (input: RequestInfo | URL) => tpResponder()(new URL(input instanceof Request ? input.url : String(input))));
+    const tp = createTravelpayoutsClient({ token: TOKEN, fetchFn: fetchFn as unknown as typeof fetch });
+    const q = { origin: "TLV", destination: "BCN", months: ["2026-11"], minNights: 1, maxNights: 30, maxStops: null };
+    const data = await runCalendar(
+      { db: createTestD1(), tp, fx: async () => ({ date: "2026-10-01", source: "t", ratesToIls: { ILS: 1, USD: 3.6 } }), now: NOW, reserveFetch: async () => true, holidays: FIXTURE },
+      q,
+    );
+    expect(day(data, "2026-11-09")?.holidayHe).toBe("חג הסיגד");
+    expect(day(data, "2026-11-12")?.holidayHe).toBe("חג בדיקה, יום נוסף");
+    expect(day(data, "2026-11-12")?.fare?.priceAmount).toBe(150); // the fare is untouched
+    expect(day(data, "2026-11-10")).not.toHaveProperty("holidayHe");
+    expect(data.days.filter((d) => d.holidayHe !== undefined).map((d) => d.date)).toEqual(["2026-11-09", "2026-11-12"]);
+    expect(data.meta.holidaysAttribution).toBe(HOLIDAYS_ATTRIBUTION);
+    expect(fetchFn).toHaveBeenCalledTimes(2); // holidays add no upstream call
+  });
+
+  it("the endpoint uses the bundled table and makes no extra outbound call for it", async () => {
+    const up = stubUpstream();
+    const { res, data } = await cal(makeEnv(), Q);
+    expect(res.status).toBe(200);
+    expect(data.meta.holidaysAttribution).toBe("Hebcal.com, CC BY 4.0");
+    for (const d of data.days) expect(d.holidayHe, d.date).toBe(bundledHolidays.holidayHeOn(d.date) ?? undefined);
+    expect(up.calls.every((c) => c.url.hostname !== "www.hebcal.com")).toBe(true);
   });
 });
 

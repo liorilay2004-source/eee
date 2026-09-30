@@ -27,6 +27,7 @@
  */
 import type { Resolver } from "./airports/types";
 import { computeInsights, type CalendarInsights, type InsightFare } from "./calendar-insights";
+import { bundledHolidays, HOLIDAYS_ATTRIBUTION, type HolidayIndex } from "./holidays";
 import { EMPTY_RESULT_TTL_HOURS } from "./pipeline";
 import { SCORING } from "./scoring.config";
 import { dayNumber } from "./splits";
@@ -324,6 +325,11 @@ export interface CalendarDay {
    * known, NOT because the source has no cached fare. true: `fare` null really means "no cached fare that fits".
    */
   known: boolean;
+  /**
+   * Israeli holiday(s) on this day in Hebrew, e.g. "פסח א׳" (holidays.ts, Hebcal Israel schedule). additive; absent on a
+   * day without a holiday or outside the bundled table's range.
+   */
+  holidayHe?: string;
   /** The cheapest fitting fare departing this day, or null when the source has none cached. */
   fare: {
     priceIls: number;
@@ -367,6 +373,8 @@ export interface CalendarResponse {
     fxDate: string;
     source: "travelpayouts";
     noticeHe: string;
+    /** Credit for the days' holidayHe (additive): "Hebcal.com, CC BY 4.0". */
+    holidaysAttribution: string;
     /** Set only when some month could not be loaded (a day with known: false). */
     unavailableHe?: string;
     generatedAt: string;
@@ -391,6 +399,8 @@ export interface CalendarDeps {
   /** Takes the global units for ONE fresh fetch (calendar share, then scan budget). Must fail closed. */
   reserveFetch: () => Promise<boolean>;
   waitUntil?: (p: Promise<unknown>) => void;
+  /** Holiday table; defaults to the bundled one (tests inject a fixture). */
+  holidays?: HolidayIndex;
 }
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
@@ -464,6 +474,7 @@ export async function runCalendar(deps: CalendarDeps, q: CalendarQuery): Promise
 
   // Every day of the asked months from today on, the cheapest fitting fare per day.
   const today = Math.floor(now.getTime() / DAY_MS);
+  const holidays = deps.holidays ?? bundledHolidays;
   const days: CalendarDay[] = [];
   /** Every fare that passed this request's filters (not only each day's cheapest), for meta.insights. */
   const fitting: InsightFare[] = [];
@@ -499,7 +510,8 @@ export async function runCalendar(deps: CalendarDeps, q: CalendarQuery): Promise
     }
     for (let d = Math.max(today, monthStartDay(month)); d <= monthEndDay(month); d++) {
       const date = isoOfDay(d);
-      days.push({ date, known: entry?.data != null, fare: perDay.get(date) ?? null });
+      const holidayHe = holidays.holidayHeOn(date);
+      days.push({ date, known: entry?.data != null, ...(holidayHe ? { holidayHe } : {}), fare: perDay.get(date) ?? null });
     }
   }
 
@@ -537,6 +549,7 @@ export async function runCalendar(deps: CalendarDeps, q: CalendarQuery): Promise
       fxDate: fx.date,
       source: "travelpayouts",
       noticeHe: CALENDAR_NOTICE_HE,
+      holidaysAttribution: HOLIDAYS_ATTRIBUTION,
       ...(days.some((d) => !d.known) ? { unavailableHe: CALENDAR_UNKNOWN_HE } : {}),
       generatedAt: now.toISOString(),
     },
