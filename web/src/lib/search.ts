@@ -261,6 +261,23 @@ export function parseSearchParams(search: string): SearchForm | null {
   });
 }
 
+/**
+ * A link carrying `fill=1` only fills the search form (the explore screen's "fill the search" button): it is not run
+ * on arrival, so the user first checks who is flying. A shared search link without it runs as before.
+ */
+export const FILL_ONLY_PARAM = "fill";
+
+export function isFillOnly(search: string): boolean {
+  return new URLSearchParams(search).get(FILL_ONLY_PARAM) === "1";
+}
+
+/** The search page's address for a form that should be filled, not run. */
+export function fillSearchHref(form: SearchForm): string {
+  const params = searchParamsFor(form);
+  params.set(FILL_ONLY_PARAM, "1");
+  return `/?${params.toString()}`;
+}
+
 export function readSearchUrl(): SearchForm | null {
   return parseSearchParams(location.search);
 }

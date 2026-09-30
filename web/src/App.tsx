@@ -2,6 +2,9 @@ import { useEffect } from "react";
 import { ArrowRight, Compass } from "lucide-react";
 import { SiteFooter, SiteHeader } from "./components/Chrome";
 import { SearchPage } from "./pages/SearchPage";
+import { ExplorePage } from "./pages/ExplorePage";
+import { DealsPage } from "./pages/DealsPage";
+import { AlertsPage } from "./pages/AlertsPage";
 import { PRODUCT_NAME } from "./config";
 
 const pages = {
@@ -68,6 +71,9 @@ function NotFound() {
 export default function App() {
   const path = location.pathname.replace(/\/+$/, "") || "/";
   if (Object.hasOwn(pages, path)) return <LegalPage path={path as LegalPath} />;
+  if (path === "/explore") return <ExplorePage />;
+  if (path === "/deals") return <DealsPage />;
+  if (path === "/alerts") return <AlertsPage />;
   if (path !== "/") return <NotFound />;
   return <SearchPage />;
 }

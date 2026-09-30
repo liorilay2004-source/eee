@@ -59,12 +59,19 @@ function lastDayOfMonth(key: string): string {
   return fromDay(Date.UTC(y, m, 0));
 }
 
+/**
+ * 1 when the current month is no longer worth offering (fewer than MIN_DAYS_LEFT_IN_MONTH days left, which also covers its
+ * last day, when the servers' windows, starting tomorrow, hold nothing of it), else 0. Shared by every month picker.
+ */
+export function firstMonthOffset(today: string): 0 | 1 {
+  const [y, m] = today.split("-").map(Number);
+  return daysBetween(today, lastDayOfMonth(monthKey(y, m - 1))) < MIN_DAYS_LEFT_IN_MONTH ? 1 : 0;
+}
+
 /** The next `count` months, starting with the current one only when enough of it is left. */
 export function monthOptions(today: string, count = 6): MonthOption[] {
   const [y, m] = today.split("-").map(Number);
-  const currentKey = monthKey(y, m - 1);
-  const skipCurrent = daysBetween(today, lastDayOfMonth(currentKey)) < MIN_DAYS_LEFT_IN_MONTH;
-  const first = skipCurrent ? 1 : 0;
+  const first = firstMonthOffset(today);
   return Array.from({ length: count }, (_, i) => {
     const key = monthKey(y, m - 1 + first + i);
     const [year, month] = key.split("-").map(Number);
@@ -529,7 +536,21 @@ export const QUICK_ORIGINS: readonly { code: string; label: string }[] = [
   { code: "ETM", label: "אילת" },
 ];
 
-const KNOWN_LABELS = new Map([...POPULAR_DESTINATIONS, ...QUICK_ORIGINS].map((p) => [p.code, p.label]));
+/** Other cities the price monitor watches (worker SNAPSHOT_ROUTES), so every watched route reads in Hebrew. */
+const MORE_CITIES: readonly { code: string; label: string }[] = [
+  { code: "AMS", label: "אמסטרדם" },
+  { code: "BER", label: "ברלין" },
+  { code: "MIL", label: "מילאנו" },
+  { code: "MAD", label: "מדריד" },
+  { code: "LIS", label: "ליסבון" },
+  { code: "VIE", label: "וינה" },
+  { code: "SOF", label: "סופיה" },
+  { code: "TBS", label: "טביליסי" },
+  { code: "ZRH", label: "ציריך" },
+  { code: "MUC", label: "מינכן" },
+];
+
+const KNOWN_LABELS = new Map([...POPULAR_DESTINATIONS, ...QUICK_ORIGINS, ...MORE_CITIES].map((p) => [p.code, p.label]));
 
 /** Display text for a place: the chosen label, a known city name, or the code itself. */
 export function placeLabel(code: string, label: string): string {
