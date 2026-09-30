@@ -12,3 +12,9 @@ IGNAV_API_KEY=
 WEGO_API_TOKEN=
 SEARCHAPI_KEY=
 SERPAPI_KEY=
+
+# OPTIONAL price alerts (src/telegram.ts), the free Telegram Bot API. All three or the channel stays off.
+# TELEGRAM_WEBHOOK_SECRET: 16-256 characters of A-Z a-z 0-9 _ - (Telegram's rule for secret_token).
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_WEBHOOK_SECRET=
+TELEGRAM_BOT_USERNAME=

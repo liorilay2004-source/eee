@@ -16,11 +16,14 @@
  * Passenger convention: `Offer.priceAmount` is the total for the whole party (like Python), and the shared
  * `prices` history stores PER-PASSENGER amounts so searches with different party sizes stay comparable.
  */
+import { airlineFieldsFor } from "./airlines/lookup";
 import * as airportData from "./airports/resolve";
+import { orderPairsByService } from "./airports/served";
 import type { Resolver } from "./airports/types";
+import { DEAL_CONFIG } from "./deals";
 import { applyExtrasAndFx, paxCount, round2 } from "./extras";
 import { toIls } from "./money";
-import { departHour, recommend } from "./scoring";
+import { departHour, recommend, recommendationsMeta } from "./scoring";
 import { SCORING } from "./scoring.config";
 import {
   coverKey,
@@ -38,6 +41,15 @@ import {
   type QuoteSourceName,
   type QuoteStat,
 } from "./quotes";
+import {
+  applyPriceGuard,
+  createPriceGuard,
+  HISTORY_LOOKBACK_DAYS,
+  HISTORY_ROWS_PER_PAIR,
+  historyTargets,
+  type PriceGuard,
+} from "./priceguard";
+import { fareExpired, fareFreshness, vendorTimestamp } from "./freshness";
 import { buildSplits, dayNumber, pairOk } from "./splits";
 import { monthsBetween, TravelpayoutsError, withPartySize, type Party } from "./travelpayouts";
 import type {
@@ -53,7 +65,10 @@ import type {
   SearchRequest,
   SearchResponse,
   SourceName,
+  SourceCoverage,
   SourceStatus,
+  StaleInfo,
+  SourceUnavailableReason,
   TravelpayoutsClient,
 } from "./types";
 
@@ -79,14 +94,50 @@ export const RECENT_ENRICHMENT_MAX_AGE_HOURS = 12;
 /** When Travelpayouts is down, older stored fares are better than nothing (the card shows their age). */
 export const FALLBACK_MAX_AGE_HOURS = 24;
 
+/**
+ * Stale-while-revalidate (index.ts only, see SearchDeps.staleWhileRevalidate): a cache row older than the TTL but younger than
+ * this still answers at once, marked `meta.stale`, and one background rescan refreshes it. Same bound as the stored-fare fallback.
+ */
+export const STALE_MAX_AGE_HOURS = 24;
+/** At most one background rescan per search key in this many seconds (a D1 counter): a burst of stale hits costs one scan. */
+export const REFRESH_LOCK_SECONDS = 600;
+
 /** Failures the caller can act on; index.ts maps both to HTTP 503. */
 export class PipelineError extends Error {
   readonly code: "source_unavailable" | "fx_unavailable";
-  constructor(code: "source_unavailable" | "fx_unavailable", message: string) {
+  /** ADDITIVE: why the fare source is unavailable (source_unavailable only). */
+  readonly reason?: SourceUnavailableReason;
+  /** ADDITIVE: seconds until a retry can succeed, only when that is actually known (the global scan budget's window). */
+  readonly retryAfterSec?: number;
+  constructor(
+    code: "source_unavailable" | "fx_unavailable",
+    message: string,
+    extra: { reason?: SourceUnavailableReason; retryAfterSec?: number } = {},
+  ) {
     super(message);
     this.name = "PipelineError";
     this.code = code;
+    if (extra.reason !== undefined) this.reason = extra.reason;
+    if (extra.retryAfterSec !== undefined) this.retryAfterSec = extra.retryAfterSec;
   }
+}
+
+/** What the global budget check answers: a plain boolean (older callers, tests) or the limiter's verdict with its wait. */
+export type ScanBudgetVerdict = boolean | { allowed: boolean; retryAfterSec?: number };
+
+/** A usable Retry-After value: a positive whole number of seconds, or undefined when the wait is not known. */
+function knownWait(v: unknown): number | undefined {
+  return typeof v === "number" && Number.isFinite(v) && v >= 1 ? Math.min(Math.ceil(v), 86_400) : undefined;
+}
+
+/** Reads back the truncation note this module writes (see scanNotes); a cache row keeps only the notes, not the counts. */
+export function coverageFromNotes(notes: readonly string[] | undefined): SourceCoverage | null {
+  for (const n of notes ?? []) {
+    const m = /^truncated: (\d+) of (\d+) planned requests skipped/.exec(typeof n === "string" ? n : "");
+    // Only a complete scan (no failed request) is cached, so a cached scan never stopped on a fatal error.
+    if (m) return { skippedRequests: Number(m[1]), plannedRequests: Number(m[2]), abortedRequests: 0 };
+  }
+  return null;
 }
 
 export interface SearchDeps {
@@ -102,9 +153,17 @@ export interface SearchDeps {
    * Asked before every fresh Travelpayouts scan (never on a cache hit): false = the global upstream budget is spent,
    * so no scan is made and the search is answered from stored fares only, like a source outage.
    */
-  scanBudget?: () => Promise<boolean>;
+  scanBudget?: () => Promise<ScanBudgetVerdict>;
   /** Optional live fare sources (quotes.ts). Asked on complete fresh scans only, and only those with a key. */
   quoteSources?: FareQuoteSource[];
+  /**
+   * Serve a cache row older than the TTL (up to STALE_MAX_AGE_HOURS) at once, marked `meta.stale`, and rescan in the
+   * background (waitUntil required; one rescan per key per REFRESH_LOCK_SECONDS; the global scan budget applies). Off by
+   * default: only the public API turns it on, so the scheduled snapshot always scans.
+   */
+  staleWhileRevalidate?: boolean;
+  /** True for a background rescan that goes through the whole pipeline: the stale answer already logged this search. */
+  skipSearchLog?: boolean;
 }
 
 export const defaultResolver: Resolver = {
@@ -208,6 +267,16 @@ function parseLeg(v: unknown): Leg | null {
   };
 }
 
+/** Source-stated fare times read back from a cache row: kept only when valid, absent otherwise (as before the fields existed). */
+function vendorTimes<F extends string, E extends string>(found: unknown, expires: unknown, fKey: F, eKey: E): Partial<Record<F | E, string>> {
+  const out: Partial<Record<F | E, string>> = {};
+  const f = vendorTimestamp(found);
+  const e = vendorTimestamp(expires);
+  if (f) out[fKey] = f as never;
+  if (e) out[eKey] = e as never;
+  return out;
+}
+
 /**
  * The cache is JSON written by an earlier version of this code: rebuild every offer from known fields and drop
  * anything malformed, so a bad row can never crash ranking. Derived fields are reset (the cache is RAW).
@@ -246,6 +315,7 @@ export function sanitizeOffers(raw: unknown, sources: readonly string[] = SOURCE
       ...(returnDeeplink !== null ? { returnDeeplink } : {}),
       verifyLink: strOrNull(v.verifyLink),
       checkedAt: v.checkedAt,
+      ...vendorTimes(v.fareFoundAt, v.fareExpiresAt, "fareFoundAt", "fareExpiresAt"),
       extrasAmountIls: 0,
       totalIls: null,
       tags: [],
@@ -261,7 +331,7 @@ function parseFare(v: unknown): OneWayFare | null {
   if (!leg || typeof v.date !== "string" || dayNumber(v.date) === null) return null;
   if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0) return null;
   if (typeof v.priceCurrency !== "string" || v.priceCurrency === "") return null;
-  return { date: v.date, priceAmount: amount, priceCurrency: v.priceCurrency, leg, deeplink: strOrNull(v.deeplink) };
+  return { date: v.date, priceAmount: amount, priceCurrency: v.priceCurrency, leg, deeplink: strOrNull(v.deeplink), ...vendorTimes(v.foundAt, v.expiresAt, "foundAt", "expiresAt") };
 }
 
 /** Same defensive rebuild as sanitizeOffers, for the one-way fares kept in the cache row. */
@@ -297,14 +367,19 @@ function airportsOf(resolver: Resolver, code: string, nearby: boolean): string[]
   return list;
 }
 
-/** All origin x destination airport pairs, the primary pair first, then by distance from it. */
+/**
+ * All origin x destination airport pairs, the primary pair first, then by distance from it. Route hints from public
+ * data (airports/served.ts) then drop pairs touching an airport without scheduled service (when others remain) and
+ * move pairs with a direct flight seen ahead of the rest, before the cap: a truncated scan spends its budget on the
+ * pairs most likely to have fares (TLV-BGY before TLV-LIN). The primary pair always stays first.
+ */
 export function airportPairs(resolver: Resolver, req: SearchRequest): Pair[] {
   const origins = airportsOf(resolver, req.origin, req.nearbyAirports);
   const dests = airportsOf(resolver, req.destination, req.nearbyAirports);
   const ranked: Array<{ pair: Pair; rank: number; i: number }> = [];
   origins.forEach((origin, i) => dests.forEach((dest, j) => ranked.push({ pair: { origin, dest }, rank: i + j, i })));
   ranked.sort((a, b) => a.rank - b.rank || a.i - b.i);
-  return ranked.slice(0, MAX_AIRPORT_PAIRS).map((r) => r.pair);
+  return orderPairsByService(ranked.map((r) => r.pair)).slice(0, MAX_AIRPORT_PAIRS);
 }
 
 // --- step 3: Travelpayouts wide scan --------------------------------------------------------------------
@@ -318,6 +393,8 @@ interface ScanResult {
   rejected: string[];
   plannedRequests: number;
   skippedRequests: number;
+  /** Planned requests not made because an earlier request failed fatally (401/403/429): the scan stopped. */
+  abortedRequests: number;
 }
 
 /**
@@ -347,12 +424,15 @@ async function scanTravelpayouts(tp: TravelpayoutsClient, req: SearchRequest, pa
     steps.push({ kind: "rt", pair, cost: rtCost }, { kind: "ow", pair, cost: owCost });
   }
 
-  const result: ScanResult = { roundTrips: [], oneWayPairs: [], successes: 0, failures: [], rejected: [], plannedRequests: 0, skippedRequests: 0 };
+  const result: ScanResult = { roundTrips: [], oneWayPairs: [], successes: 0, failures: [], rejected: [], plannedRequests: 0, skippedRequests: 0, abortedRequests: 0 };
   let spent = 0;
   let stopped = false;
   for (const step of steps) {
     result.plannedRequests += step.cost;
-    if (stopped) continue;
+    if (stopped) {
+      result.abortedRequests += step.cost;
+      continue;
+    }
     if (spent + step.cost > MAX_TP_REQUESTS) {
       result.skippedRequests += step.cost;
       continue;
@@ -483,9 +563,12 @@ function capOneWayPairs(pairs: OneWayPair[], fx: FxRates, max: number): OneWayPa
 }
 
 /** Price-history rows for a fresh scan: the cheapest fare per (pair, source, structure), per passenger. */
-function historyRows(live: Offer[], fx: FxRates, pax: number): Offer[] {
+function historyRows(live: Offer[], fx: FxRates, pax: number, now: Date): Offer[] {
   const best = new Map<string, { o: Offer; ils: number }>();
   for (const o of live) {
+    // A source-expired fare is not ranked, so it must not reach the history either: the `prices` table keeps no expiry,
+    // and a fallback read of it could not tell it apart from a valid fare.
+    if (fareExpired(o, now)) continue;
     const key = [o.origin, o.destination, o.departDate, o.returnDate, o.source, o.ticketStructure].join("|");
     const ils = baseIls(fx, o);
     const cur = best.get(key);
@@ -577,7 +660,18 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   const pax = paxCount(req);
   const pairs = airportPairs(resolver, req);
 
-  const tpStatus: SourceStatus = { name: "travelpayouts", enabled: tp.configured, ok: false, calls: 0, offers: 0, error: null };
+  const tpStatus: SourceStatus = {
+    name: "travelpayouts",
+    enabled: tp.configured,
+    ok: false,
+    calls: 0,
+    offers: 0,
+    error: null,
+    truncated: false,
+    coverage: null,
+    reason: null,
+  };
+  let budgetWait: number | undefined; // seconds until the global scan budget frees up, when it was the reason
   let fx: FxRates;
   let rts: Offer[] = []; // RAW round trips for the whole party: from the cache or the scan below
   let oneWayPairs: OneWayPair[] = []; // RAW one-way fares, per adult
@@ -590,27 +684,44 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
 
   // Step 2: cache check. A row that holds fares is a hit, and so is a scan that found nothing (for a shorter time:
   // repeating a no-result search must not repeat up to 30 upstream calls). A damaged row is a miss.
-  const hit = await attempt(() => repo.getCachedOffers(searchKey, SCORING.cacheTtlHours, now));
+  // With stale-while-revalidate a row up to STALE_MAX_AGE_HOURS old is read; one older than the TTL is a hit only when it
+  // holds fares (an old EMPTY scan is a miss, as before), and the answer then says how old it is (meta.stale).
+  const swr = deps.staleWhileRevalidate === true && deps.waitUntil !== undefined;
+  const readAgeHours = swr ? Math.max(SCORING.cacheTtlHours, STALE_MAX_AGE_HOURS) : SCORING.cacheTtlHours;
+  const hit = await attempt(() => repo.getCachedOffers(searchKey, readAgeHours, now));
   const cachedRts = hit ? sanitizeOffers(hit.offers) : [];
   const cachedPairs = hit?.oneWayPairs ? sanitizeOneWayPairs(hit.oneWayPairs) : null;
   const cachedFares = cachedPairs ? cachedPairs.reduce((n, p) => n + p.outs.length + p.backs.length, 0) : 0;
-  const fromCache = hit !== null && (cachedRts.length + cachedFares > 0 || isFreshEmptyScan(hit, now));
+  const hitAgeMs = hit ? now.getTime() - Date.parse(hit.createdAt) : Number.NaN;
+  const isStale = hit !== null && !(hitAgeMs < SCORING.cacheTtlHours * 3_600_000);
+  const fromCache = hit !== null && (isStale ? cachedRts.length + cachedFares > 0 : cachedRts.length + cachedFares > 0 || isFreshEmptyScan(hit, now));
+  let revalidation: Promise<boolean> = Promise.resolve(false);
 
   if (fromCache && hit) {
     fx = await fxForCacheHit(deps);
+    // Started now, awaited at the end: the lock and budget reads run while this request ranks the stale fares.
     rts = cachedRts;
     oneWayPairs = cachedPairs ?? [];
     splitsCheckedAt = hit.createdAt; // the fares are as old as the scan that found them
     tpStatus.ok = true;
     tpStatus.error = hit.notes && hit.notes.length > 0 ? hit.notes.join("; ") : null;
+    tpStatus.coverage = coverageFromNotes(hit.notes);
+    tpStatus.truncated = (tpStatus.coverage?.skippedRequests ?? 0) > 0;
     carriedQuotes = sanitizeOffers(hit.quotes, QUOTE_SOURCE_NAMES).filter((o) => o.ticketStructure === "roundtrip" && ageHours(o.checkedAt, now) <= QUOTE_MAX_AGE_HOURS);
+    // Started now, awaited at the end: the lock and budget reads run while this request ranks the stale fares.
+    if (isStale) revalidation = startRevalidation(deps, req, searchKey, pairs, fx, carriedQuotes);
   } else {
     // FX loads while the scan runs; the scan itself does not need it, only split building and ranking do.
     const fxLoad = settle(resolveFx(deps));
+    const budget: ScanBudgetVerdict = !tp.configured || !deps.scanBudget ? true : await deps.scanBudget();
+    const budgetOk = typeof budget === "boolean" ? budget : budget.allowed === true;
     if (!tp.configured) {
       tpStatus.error = "Travelpayouts is not configured";
-    } else if (deps.scanBudget && !(await deps.scanBudget())) {
+      tpStatus.reason = "no_token";
+    } else if (!budgetOk) {
       tpStatus.error = "Travelpayouts: too many searches right now";
+      tpStatus.reason = "scan_budget";
+      budgetWait = typeof budget === "boolean" ? undefined : knownWait(budget.retryAfterSec);
     } else {
       const callsBefore = tp.callCount();
       scan = await scanTravelpayouts(tp, req, pairs);
@@ -624,6 +735,9 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
       rts = scan.roundTrips.filter((o) => pairOk(req, o.departDate, o.returnDate)).map((o) => scaledCopy(o, pax));
       oneWayPairs = scan.oneWayPairs.map(({ pair, outs, backs }) => ({ origin: pair.origin, destination: pair.dest, outs, backs }));
       tpStatus.ok = scan.failures.length === 0 && scan.successes > 0; // like Python: any failed request = not ok
+      if (scan.failures.length > 0) tpStatus.reason = "upstream_down";
+      tpStatus.coverage = { plannedRequests: scan.plannedRequests, skippedRequests: scan.skippedRequests, abortedRequests: scan.abortedRequests };
+      tpStatus.truncated = scan.skippedRequests > 0;
       if (scan.skippedRequests > 0) {
         scanNotes = [`truncated: ${scan.skippedRequests} of ${scan.plannedRequests} planned requests skipped (limit ${MAX_TP_REQUESTS})`];
       }
@@ -637,8 +751,11 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
 
   // Split tickets are built per request, from the raw one-way fares, so the request's own hour windows, max stops
   // and bag choice decide which legs get combined: a cache hit answers exactly like a fresh scan would.
+  // A fare whose source-stated expiry has passed is never ranked (the vendor advises against using expired prices). One-way
+  // legs are dropped BEFORE pairing, so an expired cheap leg cannot hide a valid pair behind it.
+  const unexpiredLeg = (f: OneWayFare): boolean => !fareExpired({ fareExpiresAt: f.expiresAt }, now);
   const splits = oneWayPairs.flatMap((p) =>
-    buildSplits(p.origin, p.destination, req, p.outs, p.backs, "travelpayouts", fx, pax, splitsCheckedAt),
+    buildSplits(p.origin, p.destination, req, p.outs.filter(unexpiredLeg), p.backs.filter(unexpiredLeg), "travelpayouts", fx, pax, splitsCheckedAt),
   );
   // Ranking sees everything the scan found. Only what is cached is cut down (capOffers), never what is ranked.
   const live = [...rts, ...splits];
@@ -676,7 +793,7 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   const scanHealth = scan === null ? null : { ok: scan.failures.length === 0 && scan.successes > 0, error: scan.failures.join("; ") || null };
   const quoteHealth = () => [...quoteStats].filter(([, st]) => st.calls > 0).map(([name, st]) => ({ name, ok: quoteOk(st), error: st.failures.join("; ") || null }));
   const jobOf = (part: Partial<PersistJob>): PersistJob => ({
-    repo, req, searchKey, now, fx, pax, logSearch: true, fresh: [], quotes: [], quoteHealth: [], cache: null, health: null, ...part,
+    repo, req, searchKey, now, fx, pax, logSearch: deps.skipSearchLog !== true, fresh: [], quotes: [], quoteHealth: [], cache: null, health: null, ...part,
   });
   const wholeJob = () =>
     jobOf({ fresh: fromCache ? [] : live, quotes: quotedRaw, quoteHealth: quoteHealth(), cache: cacheRow(quotedRaw), health: scanHealth });
@@ -690,11 +807,14 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
 
   if (live.length + fromDb.length === 0 && tpUnavailable) {
     await write(persist(wholeJob()));
-    throw new PipelineError("source_unavailable", "No fare source is available right now");
+    throw new PipelineError("source_unavailable", "No fare source is available right now", {
+      reason: tpStatus.reason ?? "upstream_down",
+      ...(tpStatus.reason === "scan_budget" && budgetWait !== undefined ? { retryAfterSec: budgetWait } : {}),
+    });
   }
 
   // Steps 7-8: extras + FX on copies (`live` stays raw for the cache), then rank.
-  const working = [...live.map(cloneOffer), ...fromDb];
+  const working = [...live.map(cloneOffer), ...fromDb].filter((o) => !fareExpired(o, now));
   const party: Party = { adults: req.adults, children: req.children, infants: req.infants };
   for (const o of working) linkParty(o, party);
   applyExtrasAndFx(working, req, fx);
@@ -753,8 +873,16 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   }
   // A live price replaces the cached one for the same flight; the same flight seen by two sources counts once.
   const ranking = mergeQuoted(working);
+  // Price guard (priceguard.ts): a cached fare far below its neighbouring dates or its own recent history is tagged; when both
+  // signals agree it is kept out of the cards while anything else is priced. One indexed D1 read (the cheapest date pairs' history); storage trouble = no history.
+  const since = new Date(now.getTime() - HISTORY_LOOKBACK_DAYS * 86_400_000);
+  const targets = historyTargets(ranking, fx, pax);
+  const history =
+    targets.length > 0 && repo.priceHistory ? ((await attempt(() => repo.priceHistory!(targets, since, HISTORY_ROWS_PER_PAIR))) ?? []) : [];
+  const guard = createPriceGuard(ranking, history, fx, pax);
   // ...but a quote that does not state its return flight cannot pass the user's return-hour window or max stops: the cached fare it replaced stays a 🎯 candidate.
-  const cards = recommend(ranking, req, SCORING, timeCandidates(working, ranking, req));
+  const guarded = applyPriceGuard(ranking, timeCandidates(working, ranking, req), guard);
+  const cards = recommend(guarded.pool, req, SCORING, guarded.timeOnly);
 
   // Step 4 bookkeeping: how many date pairs are candidates for the deep search (top N cheapest pairs).
   const pairsWithPrice = new Set<string>();
@@ -765,13 +893,17 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
       ...card,
       priceContext: await contextFor(repo, card.offer, pax, now),
       ageHours: ageHours(card.offer.checkedAt, now),
+      ...airlineFieldsFor(card.offer),
+      ...fareFreshness(card.offer, now),
     })),
   );
 
   // History and vendor health come last: the ranking above has read its price context before this search's own prices are written.
   // After the scan's own write, never beside it: both may write the cache row, and the one with the quotes must be the last.
-  const rest = jobOf({ logSearch: false, fresh: fromCache ? [] : live, quotes: quotedRaw, quoteHealth: quoteHealth(), cache: quotedRaw.length > 0 ? cacheRow(quotedRaw) : null });
-  await write(scanStored ? scanStored.then(() => persist(rest)) : persist(wholeJob()));
+  const rest = jobOf({ logSearch: false, fresh: fromCache ? [] : live, quotes: quotedRaw, guard, quoteHealth: quoteHealth(), cache: quotedRaw.length > 0 ? cacheRow(quotedRaw) : null });
+  await write(scanStored ? scanStored.then(() => persist(rest)) : persist({ ...wholeJob(), guard }));
+
+  const stale = fromCache && isStale && hit ? staleInfo(hit.createdAt, now, await revalidation) : null;
 
   return {
     cards: views,
@@ -784,8 +916,96 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
       sources: [tpStatus, gfStatus, ...quoters.map((s) => quoteStatus(s, quoteStats.get(s.name), fromDb.filter((o) => o.source === s.name).length))],
       candidatePairs: Math.min(SCORING.topNCandidates, pairsWithPrice.size),
       generatedAt: now.toISOString(),
+      ...(stale ? { stale } : {}),
+      // Only when something was flagged: an ordinary answer keeps exactly the fields it had before the guard.
+      ...(guarded.suspicious.size > 0 ? { priceGuard: { suspicious: guarded.suspicious.size, excluded: guarded.excluded } } : {}),
+      recommendations: recommendationsMeta(ranking, req, cards),
     },
   };
+}
+
+// --- stale-while-revalidate -----------------------------------------------------------------------------
+
+/** What a stale answer tells the caller: the scan's time and age, whether a rescan runs, and the Hebrew notice. */
+export function staleInfo(cachedAt: string, now: Date, revalidating: boolean): StaleInfo {
+  const hours = ageHours(cachedAt, now);
+  const whole = Math.max(1, Math.floor(hours));
+  const age = whole === 1 ? "לפני שעה" : whole === 2 ? "לפני שעתיים" : `לפני ${whole} שעות`;
+  const messageHe = revalidating
+    ? `התוצאות מחיפוש שנעשה ${age}, והמחירים עשויים להשתנות. מחירים עדכניים נבדקים עכשיו ברקע: חפשו שוב בעוד דקה כדי לראות אותם.`
+    : `התוצאות מחיפוש שנעשה ${age}, והמחירים עשויים להשתנות.`;
+  return { cachedAt: new Date(Date.parse(cachedAt)).toISOString(), ageHours: hours, revalidating, messageHe };
+}
+
+/**
+ * Decides, before the answer is sent, whether a background rescan starts (so meta.stale.revalidating is true only when one
+ * really does): Travelpayouts must be configured, this key's refresh lock free, and the global scan budget not spent, in
+ * that order (a refused lock spends no budget). Every failure means "no rescan": the stale answer stands on its own.
+ *
+ * The lock is a FIXED window (Repo.claimWindowLock): one claim per key per REFRESH_LOCK_SECONDS window, and refused
+ * attempts write nothing, so a key polled all day still gets a rescan in every window, never less often.
+ *
+ * Which rescan: while the row still carries live quotes (or no quote source is configured) the lean one below, which keeps
+ * those quotes on the rewritten row; once they have expired and a quote source is configured, the whole pipeline (quote
+ * phase included, with all its caps and shares) runs in the background, so a key kept warm by stale hits still gets its
+ * live price checks.
+ */
+async function startRevalidation(deps: SearchDeps, req: SearchRequest, searchKey: string, pairs: Pair[], fx: FxRates, carriedQuotes: Offer[]): Promise<boolean> {
+  const { repo, tp, now, waitUntil } = deps;
+  if (!waitUntil || !tp.configured) return false;
+  const locked = await attempt(() => repo.claimWindowLock(`refresh:${searchKey}`, REFRESH_LOCK_SECONDS, now));
+  if (locked !== true) return false;
+  if (deps.scanBudget) {
+    const verdict = await attempt(deps.scanBudget);
+    // A verdict is a boolean or { allowed } (#22): an object is truthy even when it refuses, so read `allowed`.
+    const allowed = typeof verdict === "object" && verdict !== null ? verdict.allowed : verdict === true;
+    if (!allowed) return false;
+  }
+  const quoters = (deps.quoteSources ?? []).filter((s) => s.configured);
+  if (carriedQuotes.length === 0 && quoters.length > 0) {
+    // The budget unit above is this scan's: the pipeline must not take a second one.
+    const full = { ...deps, fx, staleWhileRevalidate: false, waitUntil: undefined, scanBudget: undefined, skipSearchLog: true };
+    waitUntil(
+      runSearch(full, req).then(
+        () => undefined,
+        (err: unknown) => console.error("background refresh failed:", err instanceof Error ? err.name : typeof err),
+      ),
+    );
+  } else {
+    waitUntil(refreshCache({ ...deps, fx }, req, searchKey, pairs, fx, carriedQuotes));
+  }
+  return true;
+}
+
+/**
+ * The background rescan: the same Travelpayouts scan and the same writes as a fresh search's miss path (cache row, price
+ * history, source health), minus what only an answer needs (ranking, price context), the search log (the stale answer
+ * already logged this search) and the quote phase: the row's still-live quotes are kept on the rewritten row as they are
+ * (startRevalidation runs the whole pipeline instead once they have expired). A scan that is not complete leaves the stale
+ * row as it is. Never rejects.
+ */
+async function refreshCache(deps: SearchDeps, req: SearchRequest, searchKey: string, pairs: Pair[], fx: FxRates, carriedQuotes: Offer[]): Promise<void> {
+  try {
+    const { repo, tp, now } = deps;
+    const pax = paxCount(req);
+    const scan = await scanTravelpayouts(tp, req, pairs);
+    const complete = scan.failures.length === 0 && scan.successes > 0;
+    const health = { ok: complete, error: scan.failures.join("; ") || null };
+    if (!complete) {
+      await persist({ repo, req, searchKey, now, fx, pax, logSearch: false, fresh: [], quotes: [], quoteHealth: [], cache: null, health });
+      return;
+    }
+    const rts = scan.roundTrips.filter((o) => pairOk(req, o.departDate, o.returnDate)).map((o) => scaledCopy(o, pax));
+    const oneWayPairs: OneWayPair[] = scan.oneWayPairs.map(({ pair, outs, backs }) => ({ origin: pair.origin, destination: pair.dest, outs, backs }));
+    const splits = oneWayPairs.flatMap((p) => buildSplits(p.origin, p.destination, req, p.outs, p.backs, "travelpayouts", fx, pax, now.toISOString()));
+    let notes: string[] = [];
+    if (scan.skippedRequests > 0) notes = [`truncated: ${scan.skippedRequests} of ${scan.plannedRequests} planned requests skipped (limit ${MAX_TP_REQUESTS})`];
+    if (scan.rejected.length > 0) notes = [...notes, `not searchable at Travelpayouts: ${scan.rejected.slice(0, 6).join(", ")}`];
+    const cache = { offers: capOffers(rts, fx, MAX_CACHED_OFFERS), oneWayPairs: capOneWayPairs(oneWayPairs, fx, MAX_CACHED_ONEWAYS), notes, quotes: carriedQuotes };
+    await persist({ repo, req, searchKey, now, fx, pax, logSearch: false, fresh: [...rts, ...splits], quotes: [], quoteHealth: [], cache, health });
+  } catch (err) {
+    console.error("background refresh failed:", err instanceof Error ? err.name : typeof err);
+  }
 }
 
 // --- step 9: persist ------------------------------------------------------------------------------------
@@ -806,6 +1026,18 @@ interface PersistJob {
   /** What to keep for the next identical search, or null when this scan must not be reused. */
   cache: { offers: Offer[]; oneWayPairs: OneWayPair[]; notes: string[]; quotes: Offer[] } | null;
   health: { ok: boolean; error: string | null } | null;
+  /**
+   * Set once the ranking has run: fresh fares BOTH guard signals reject are not written to the price history, so a stale cached
+   * fare cannot become the "lowest we have seen" of a price context or the baseline of the next check. A fare only one signal
+   * doubts is written, so the history can learn that a new low level is real.
+   */
+  guard?: PriceGuard;
+}
+
+/** Start of the UTC deal-detection bin (DEAL_CONFIG.binHours) that `now` falls in, canonical ISO. */
+function binStart(now: Date): string {
+  const binMs = DEAL_CONFIG.binHours * 3_600_000;
+  return new Date(Math.floor(now.getTime() / binMs) * binMs).toISOString();
 }
 
 /** Best effort and never rejects: a storage hiccup must not turn a good answer into an error. */
@@ -813,8 +1045,11 @@ async function persist(job: PersistJob): Promise<void> {
   const { repo, now } = job;
   const work: Array<Promise<unknown>> = [];
   if (job.logSearch) work.push(attempt(() => repo.saveSearch(job.req, job.searchKey, now)));
-  if (job.fresh.length > 0) work.push(attempt(() => repo.savePrices(historyRows(job.fresh, job.fx, job.pax))));
-  if (job.quotes.length > 0) work.push(attempt(() => repo.savePrices(historyRows(job.quotes, job.fx, job.pax))));
+  // A fare already stored unchanged in this deal-detection time bin is not written again (see Repo.savePrices): deals.ts keeps one
+  // observation per bin (the cheapest, the older on a tie), so the skipped row changes no verdict, and it saves 3 row writes.
+  const fresh = job.guard ? job.fresh.filter((o) => !job.guard!.check(o)?.exclude) : job.fresh;
+  if (fresh.length > 0) work.push(attempt(() => repo.savePrices(historyRows(fresh, job.fx, job.pax, job.now), { skipUnchangedSince: binStart(now) })));
+  if (job.quotes.length > 0) work.push(attempt(() => repo.savePrices(historyRows(job.quotes, job.fx, job.pax, job.now))));
   for (const h of job.quoteHealth) work.push(attempt(() => repo.recordSourceHealth(h.name, h.ok, h.error, now)));
   if (job.cache) {
     const { offers, oneWayPairs, notes, quotes } = job.cache;

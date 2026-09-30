@@ -2,24 +2,42 @@
  * Worker entry point: the public REST API (SPEC §6).
  *   POST /api/search    the search pipeline (rate limited)
  *   GET  /api/airports  autocomplete over the Hebrew/English city dataset
+ *   GET  /api/calendar  cheapest cached round trip per departure day (rate limited, src/calendar.ts)
+ *   GET  /api/explore   cheapest destinations from TLV/ETM in a month or window (rate limited, src/explore.ts)
  *   GET  /api/health    D1 liveness
+ *   POST /api/watches, GET|DELETE /api/watches/<token>, POST /api/telegram/webhook   price alerts (src/watches.ts)
+ *   GET  /api/deals     unusual fares per watched route, precomputed by the hourly snapshot cron (dealreports.ts)
  *
- * Every response is JSON, `Cache-Control: no-store`, `nosniff`. Errors are { error: { code, message, fields? } }
+ * Every response is JSON, `Cache-Control: no-store`, `nosniff`. Errors are
+ * { error: { code, message, reason?, fields?, fieldCodes?, retryAfterSec? } } (all but code and message are additive)
  * and never carry stack traces, upstream response bodies or secrets. CORS is opt-in for exactly one origin
  * (env.ALLOWED_ORIGIN) and is never a wildcard.
  */
+import {
+  CALENDAR_GLOBAL_LIMIT,
+  CALENDAR_GLOBAL_WINDOW_SECONDS,
+  CALENDAR_RATE_LIMIT_MAX,
+  CALENDAR_RATE_LIMIT_WINDOW_SECONDS,
+  CalendarError,
+  parseCalendarQuery,
+  runCalendar,
+} from "./calendar";
 import { createRepo, pruneHistory } from "./db";
+import { loadDeals, refreshDealReport } from "./dealreports";
+import { EXPLORE_RATE_LIMIT_MAX, EXPLORE_RATE_LIMIT_WINDOW_SECONDS, ExploreError, parseExploreParams, runExplore } from "./explore";
 import { getFxRates } from "./fx";
-import { defaultResolver, PipelineError, runSearch, sha256Hex } from "./pipeline";
+import { defaultResolver, PipelineError, runSearch, sha256Hex, type ScanBudgetVerdict } from "./pipeline";
 import { withDailyShare, type FareQuoteSource } from "./quotes";
 import { clientIdentity, createMemoryLimiter, limiterSalt } from "./ratelimit";
 import { createIgnavSource } from "./sources/ignav";
 import { createSearchApiSource } from "./sources/searchapi";
 import { createSerpApiSource } from "./sources/serpapi";
 import { createWegoSource } from "./sources/wego";
-import { runSnapshot } from "./snapshots";
+import { pickSnapshotRoute, runSnapshot } from "./snapshots";
+import { secretMatches, telegramConfig } from "./telegram";
 import { createTravelpayoutsClient, marketForCountry } from "./travelpayouts";
 import type { Env } from "./types";
+import { handleBotUpdate, handleCreateWatch, handleWatchByToken, runWatchChecks } from "./watches";
 import { GLOBAL_SCAN_LIMIT, GLOBAL_SCAN_WINDOW_SECONDS, MAX_BODY_BYTES, parseSearchBody, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_SECONDS } from "./validate";
 
 // The entry module must export only the handler: workerd refuses to load a Worker whose main module exports anything
@@ -29,12 +47,16 @@ const AIRPORTS_MAX_LIMIT = 10;
 
 /** Must equal the hourly entry of `crons` in wrangler.toml (a test pins that). */
 const SNAPSHOT_CRON = "43 * * * *";
+/** Must equal the price-alert entry of `crons` in wrangler.toml (a test pins that). Hourly, small batches: each watch about once a day. */
+const WATCH_CRON = "29 * * * *";
 
 /**
  * Used only while the D1-backed limiter is failing (e.g. the free-tier write quota is spent, when every D1 write
  * throws): failing closed there would turn a storage problem into a full outage, cache hits included.
  */
 const fallbackLimiter = createMemoryLimiter(RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_SECONDS);
+const calendarFallbackLimiter = createMemoryLimiter(CALENDAR_RATE_LIMIT_MAX, CALENDAR_RATE_LIMIT_WINDOW_SECONDS);
+const exploreFallbackLimiter = createMemoryLimiter(EXPLORE_RATE_LIMIT_MAX, EXPLORE_RATE_LIMIT_WINDOW_SECONDS);
 let lastFallbackLog = 0;
 
 interface ApiResult {
@@ -47,10 +69,25 @@ const errorResult = (
   status: number,
   code: string,
   message: string,
-  extra: { fields?: Record<string, string>; retryAfterSec?: number; headers?: Record<string, string> } = {},
+  extra: {
+    reason?: string;
+    fields?: Record<string, string>;
+    fieldCodes?: Record<string, string>;
+    retryAfterSec?: number;
+    headers?: Record<string, string>;
+  } = {},
 ): ApiResult => ({
   status,
-  body: { error: { code, message, ...(extra.fields ? { fields: extra.fields } : {}), ...(extra.retryAfterSec !== undefined ? { retryAfterSec: extra.retryAfterSec } : {}) } },
+  body: {
+    error: {
+      code,
+      message,
+      ...(extra.reason !== undefined ? { reason: extra.reason } : {}),
+      ...(extra.fields ? { fields: extra.fields } : {}),
+      ...(extra.fieldCodes ? { fieldCodes: extra.fieldCodes } : {}),
+      ...(extra.retryAfterSec !== undefined ? { retryAfterSec: extra.retryAfterSec } : {}),
+    },
+  },
   headers: extra.headers,
 });
 
@@ -120,12 +157,29 @@ async function readBody(request: Request): Promise<{ text: string } | { tooLarge
 const isJsonContentType = (request: Request): boolean =>
   (request.headers.get("Content-Type") ?? "").split(";")[0]?.trim().toLowerCase() === "application/json";
 
+/** Content type, size cap, UTF-8 and JSON checks of a request body, with the same errors as /api/search. */
+async function readJson(request: Request): Promise<{ ok: true; value: unknown } | { ok: false; result: ApiResult }> {
+  if (!isJsonContentType(request)) return { ok: false, result: errorResult(415, "unsupported_media_type", "Content-Type must be application/json") };
+  const raw = await readBody(request);
+  if ("tooLarge" in raw) return { ok: false, result: errorResult(413, "payload_too_large", `Request body must be at most ${MAX_BODY_BYTES} bytes`) };
+  if ("invalid" in raw) return { ok: false, result: errorResult(400, "invalid_json", "Request body is not valid UTF-8 JSON") };
+  try {
+    return { ok: true, value: JSON.parse(raw.text) };
+  } catch {
+    return { ok: false, result: errorResult(400, "invalid_json", "Request body is not valid JSON") };
+  }
+}
+
 // --- handlers -------------------------------------------------------------------------------------------
 
-/** Global cap on fresh scans (see GLOBAL_SCAN_LIMIT). Storage trouble never blocks: the per-client limit still applies. */
-async function scanBudgetLeft(repo: ReturnType<typeof createRepo>, now: Date): Promise<boolean> {
+/**
+ * Global cap on fresh scans (see GLOBAL_SCAN_LIMIT), with the limiter's wait when it says no (surfaced as retryAfterSec on a
+ * 503). Storage trouble never blocks: the per-client limit still applies.
+ */
+async function scanBudgetLeft(repo: ReturnType<typeof createRepo>, now: Date): Promise<ScanBudgetVerdict> {
   try {
-    return (await repo.checkRateLimit("global:scan", GLOBAL_SCAN_LIMIT, GLOBAL_SCAN_WINDOW_SECONDS, now)).allowed;
+    const verdict = await repo.checkRateLimit("global:scan", GLOBAL_SCAN_LIMIT, GLOBAL_SCAN_WINDOW_SECONDS, now);
+    return { allowed: verdict.allowed, retryAfterSec: verdict.retryAfterSec };
   } catch {
     return true;
   }
@@ -198,7 +252,7 @@ async function handleSearch(request: Request, env: Env, ctx: ExecutionContext): 
   const parsed = parseSearchBody(body, { resolver: defaultResolver, now });
   if (!parsed.ok) {
     const message = parsed.code === "destination_required" ? "A destination is required" : "The search request is invalid";
-    return errorResult(400, parsed.code, message, { fields: parsed.fields });
+    return errorResult(400, parsed.code, message, { fields: parsed.fields, fieldCodes: parsed.fieldCodes });
   }
 
   // Per-request wiring. The wrapper resolves globalThis.fetch at call time (workerd rejects a detached fetch).
@@ -220,12 +274,128 @@ async function handleSearch(request: Request, env: Env, ctx: ExecutionContext): 
         waitUntil: (p) => ctx.waitUntil(p),
         scanBudget: () => scanBudgetLeft(repo, now),
         quoteSources: quoteSources(env, repo, fetchFn, now),
+        // A cache row past its TTL (up to 24h) answers at once, marked meta.stale, and is rescanned in the background.
+        staleWhileRevalidate: true,
       },
       parsed.req,
     );
     return { status: 200, body: result };
   } catch (err) {
-    if (err instanceof PipelineError) return errorResult(503, err.code, err.message);
+    if (err instanceof PipelineError) {
+      // Retry-After (already exposed to the one CORS origin) only when the wait is actually known: never a guess.
+      return errorResult(503, err.code, err.message, {
+        reason: err.reason,
+        retryAfterSec: err.retryAfterSec,
+        headers: err.retryAfterSec !== undefined ? { "Retry-After": String(err.retryAfterSec) } : undefined,
+      });
+    }
+    throw err;
+  }
+}
+
+async function handleExplore(request: Request, url: URL, env: Env, ctx: ExecutionContext): Promise<ApiResult> {
+  const now = new Date();
+  const repo = createRepo(env.DB);
+
+  // Rate limit first (own key, same salted-hash identity as /api/search), so it also covers invalid requests.
+  const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
+  const key = `explore:${await sha256Hex(`${clientIdentity(ip)}|${limiterSalt(env)}`)}`;
+  let limit: { allowed: boolean; retryAfterSec: number };
+  try {
+    limit = await repo.checkRateLimit(key, EXPLORE_RATE_LIMIT_MAX, EXPLORE_RATE_LIMIT_WINDOW_SECONDS, now);
+  } catch {
+    limit = exploreFallbackLimiter.check(key, now.getTime());
+  }
+  if (!limit.allowed) {
+    return errorResult(429, "rate_limited", "Too many searches, try again later", {
+      retryAfterSec: limit.retryAfterSec,
+      headers: { "Retry-After": String(limit.retryAfterSec) },
+    });
+  }
+
+  const parsed = parseExploreParams(url.searchParams, now);
+  if (!parsed.ok) return errorResult(400, parsed.code, parsed.message, { fields: parsed.fields });
+
+  const fetchFn: typeof fetch = (input, init) => globalThis.fetch(input, init);
+  try {
+    const body = await runExplore(
+      {
+        db: env.DB,
+        token: env.TRAVELPAYOUTS_TOKEN,
+        marker: env.TRAVELPAYOUTS_MARKER,
+        fetchFn,
+        now,
+        resolver: defaultResolver,
+        // The SAME global budget as /api/search: one unit per request that needs any upstream call.
+        scanBudget: async () => {
+          const verdict = await scanBudgetLeft(repo, now);
+          return typeof verdict === "boolean" ? verdict : verdict.allowed;
+        },
+        fx: () => getFxRates(repo, fetchFn, now),
+        waitUntil: (p) => ctx.waitUntil(p),
+      },
+      parsed.params,
+    );
+    return { status: 200, body };
+  } catch (err) {
+    if (err instanceof ExploreError) return errorResult(503, err.code, err.message);
+    throw err;
+  }
+}
+
+/**
+ * GET /api/calendar (src/calendar.ts). Per-client limit on its own counter; a fresh upstream fetch additionally takes one
+ * unit of the calendar's global share and one of the global scan budget shared with /api/search. Unlike the search's budget
+ * check, both fail CLOSED: a calendar is never worth an uncounted upstream call.
+ */
+async function handleCalendar(request: Request, url: URL, env: Env, ctx: ExecutionContext): Promise<ApiResult> {
+  const now = new Date();
+  const repo = createRepo(env.DB);
+  const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
+  const key = `calendar:${await sha256Hex(`${clientIdentity(ip)}|${limiterSalt(env)}`)}`;
+  let limit: { allowed: boolean; retryAfterSec: number };
+  try {
+    limit = await repo.checkRateLimit(key, CALENDAR_RATE_LIMIT_MAX, CALENDAR_RATE_LIMIT_WINDOW_SECONDS, now);
+  } catch {
+    limit = calendarFallbackLimiter.check(key, now.getTime());
+  }
+  if (!limit.allowed) {
+    return errorResult(429, "rate_limited", "Too many calendar requests, try again later", {
+      retryAfterSec: limit.retryAfterSec,
+      headers: { "Retry-After": String(limit.retryAfterSec) },
+    });
+  }
+
+  const parsed = parseCalendarQuery(url.searchParams, { resolver: defaultResolver, now });
+  if (!parsed.ok) {
+    const message = parsed.code === "destination_required" ? "A destination is required" : "The calendar request is invalid";
+    return errorResult(400, parsed.code, message, { fields: parsed.fields });
+  }
+
+  const fetchFn: typeof fetch = (input, init) => globalThis.fetch(input, init);
+  const tp = createTravelpayoutsClient({
+    token: env.TRAVELPAYOUTS_TOKEN,
+    marker: env.TRAVELPAYOUTS_MARKER,
+    fetchFn,
+    marketFor: (origin) => marketForCountry(defaultResolver.countryOfAirport(origin)),
+  });
+  const reserveFetch = async (): Promise<boolean> => {
+    try {
+      // The calendar's own share first, so a refused calendar never spends a unit of the search budget.
+      if (!(await repo.checkRateLimit("global:calendar", CALENDAR_GLOBAL_LIMIT, CALENDAR_GLOBAL_WINDOW_SECONDS, now)).allowed) return false;
+      return (await repo.checkRateLimit("global:scan", GLOBAL_SCAN_LIMIT, GLOBAL_SCAN_WINDOW_SECONDS, now)).allowed;
+    } catch {
+      return false;
+    }
+  };
+  try {
+    const body = await runCalendar(
+      { db: env.DB, tp, fx: () => getFxRates(repo, fetchFn, now), now, reserveFetch, waitUntil: (p) => ctx.waitUntil(p) },
+      parsed.q,
+    );
+    return { status: 200, body };
+  } catch (err) {
+    if (err instanceof CalendarError) return errorResult(503, err.code, err.message);
     throw err;
   }
 }
@@ -237,6 +407,15 @@ function handleAirports(url: URL): ApiResult {
   return { status: 200, body: { results: defaultResolver.resolveLocation(q, limit) } };
 }
 
+/** Precomputed by the hourly cron (dealreports.ts): one small bounded D1 read, cached per isolate, no external calls. */
+async function handleDeals(env: Env): Promise<ApiResult> {
+  try {
+    return { status: 200, body: await loadDeals(env.DB, new Date()) };
+  } catch {
+    return errorResult(503, "deals_unavailable", "Deals are temporarily unavailable");
+  }
+}
+
 async function handleHealth(env: Env): Promise<ApiResult> {
   try {
     await env.DB.prepare("SELECT 1 AS ok").first();
@@ -246,12 +425,47 @@ async function handleHealth(env: Env): Promise<ApiResult> {
   }
 }
 
-const ROUTES: Record<string, string> = { "/api/search": "POST", "/api/airports": "GET", "/api/health": "GET" };
+/**
+ * Telegram calls this with the secret it was registered with (setWebhook secret_token) in a header. Without the channel's
+ * settings the path does not exist (404); a wrong or missing secret is 401. After that the answer is always 200, even for
+ * an update that cannot be read: any other status makes Telegram deliver the same update again and again.
+ */
+async function handleTelegramWebhook(request: Request, env: Env): Promise<ApiResult> {
+  const tg = telegramConfig(env);
+  if (!tg) return errorResult(404, "not_found", "Not found");
+  if (!(await secretMatches(request.headers.get("X-Telegram-Bot-Api-Secret-Token"), tg.webhookSecret))) {
+    return errorResult(401, "unauthorized", "Unauthorized");
+  }
+  const raw = await readBody(request);
+  if (!("text" in raw)) return { status: 200 };
+  let update: unknown;
+  try {
+    update = JSON.parse(raw.text);
+  } catch {
+    return { status: 200 };
+  }
+  const reply = await handleBotUpdate(update, { env, repo: createRepo(env.DB), now: new Date() });
+  return reply ? { status: 200, body: reply } : { status: 200 };
+}
+
+const ROUTES: Record<string, string> = {
+  "/api/search": "POST",
+  "/api/airports": "GET",
+  "/api/deals": "GET",
+  "/api/calendar": "GET",
+  "/api/explore": "GET",
+  "/api/health": "GET",
+  "/api/watches": "POST",
+  "/api/telegram/webhook": "POST",
+};
+/** /api/watches/<token>: the token is checked by the handler (a malformed one is simply not found). */
+const WATCH_PATH = /^\/api\/watches\/([^/]+)$/;
 
 async function route(request: Request, env: Env, ctx: ExecutionContext): Promise<ApiResult> {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, "") || "/";
-  const method = ROUTES[path];
+  const watchToken = WATCH_PATH.exec(path)?.[1];
+  const method = watchToken !== undefined ? "GET, DELETE" : ROUTES[path];
   if (method === undefined) return errorResult(404, "not_found", "Not found");
 
   if (request.method === "OPTIONS") {
@@ -266,17 +480,29 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
       },
     };
   }
-  if (request.method !== method) return errorResult(405, "method_not_allowed", "Method not allowed", { headers: { Allow: `${method}, OPTIONS` } });
+  if (!method.split(", ").includes(request.method)) {
+    return errorResult(405, "method_not_allowed", "Method not allowed", { headers: { Allow: `${method}, OPTIONS` } });
+  }
 
+  if (watchToken !== undefined || path === "/api/watches") {
+    const deps = { env, repo: createRepo(env.DB), now: new Date(), ip: request.headers.get("CF-Connecting-IP") ?? "unknown" };
+    if (watchToken !== undefined) return handleWatchByToken(deps, request.method as "GET" | "DELETE", watchToken);
+    return handleCreateWatch(deps, () => readJson(request));
+  }
+  if (path === "/api/telegram/webhook") return handleTelegramWebhook(request, env);
   if (path === "/api/search") return handleSearch(request, env, ctx);
   if (path === "/api/airports") return handleAirports(url);
+  if (path === "/api/deals") return handleDeals(env);
+  if (path === "/api/calendar") return handleCalendar(request, url, env, ctx);
+  if (path === "/api/explore") return handleExplore(request, url, env, ctx);
   return handleHealth(env);
 }
 
 export default {
   /**
-   * Two cron triggers (wrangler.toml `[triggers]`): the daily retention job (the append-only tables must not grow without
-   * bound), and the hourly price snapshot of one watchlist route (src/snapshots.ts).
+   * Three cron triggers (wrangler.toml `[triggers]`): the daily retention job (the append-only tables must not grow without
+   * bound), the hourly price snapshot of one watchlist route (src/snapshots.ts), and the hourly price-alert batch
+   * (src/watches.ts).
    */
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     if (controller.cron === SNAPSHOT_CRON) {
@@ -289,7 +515,42 @@ export default {
         fetchFn,
         marketFor: (origin) => marketForCountry(defaultResolver.countryOfAirport(origin)),
       });
-      ctx.waitUntil(runSnapshot({ repo, tp, fx: () => getFxRates(repo, fetchFn, now), now, resolver: defaultResolver }).then(() => undefined));
+      const [origin, destination] = pickSnapshotRoute(now);
+      // Then the route's deal report, as of AFTER the scan (a fresh Date, not the scheduled time: see detectDeals).
+      // Only D1 reads and one upsert; it runs even when the scan was skipped or failed (user searches add history too).
+      ctx.waitUntil(
+        runSnapshot({ repo, tp, fx: () => getFxRates(repo, fetchFn, now), now, resolver: defaultResolver })
+          .then(() => refreshDealReport(env.DB, origin, destination, new Date()))
+          .then(() => undefined),
+      );
+      return;
+    }
+    if (controller.cron === WATCH_CRON) {
+      const now = new Date(controller.scheduledTime);
+      const fetchFn: typeof fetch = (input, init) => globalThis.fetch(input, init);
+      const repo = createRepo(env.DB);
+      const tp = createTravelpayoutsClient({
+        token: env.TRAVELPAYOUTS_TOKEN,
+        marker: env.TRAVELPAYOUTS_MARKER,
+        fetchFn,
+        marketFor: (origin) => marketForCountry(defaultResolver.countryOfAirport(origin)),
+      });
+      ctx.waitUntil(
+        runWatchChecks({
+          db: env.DB,
+          repo,
+          tp,
+          now,
+          fetchFn,
+          fx: () => getFxRates(repo, fetchFn, now),
+          telegram: telegramConfig(env),
+          scanBudget: async () => {
+            const verdict = await scanBudgetLeft(repo, now);
+            return typeof verdict === "boolean" ? verdict : verdict.allowed;
+          },
+          resolver: defaultResolver,
+        }).then(() => undefined),
+      );
       return;
     }
     ctx.waitUntil(
