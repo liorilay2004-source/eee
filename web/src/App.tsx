@@ -43,6 +43,7 @@ function LegalPage({ path }: { path: LegalPath }) {
         <p className="legal-notice">עמוד זה הוא טיוטת תצוגה מקדימה. יש להשלים בדיקה ועדכון לפני השקה לציבור.</p>
         {page.sections.map(([heading, content]) => <section key={heading}><h2>{heading}</h2><p>{content}</p></section>)}
         <section><h2>גרסת המערכת</h2><p>{PRODUCT_NAME} היא מערכת מידע לחיפוש טיסות. השם והנוסחים בעמוד זה זמניים, ופרטי מפעיל ויצירת קשר יתווספו לפני השקה מלאה.</p></section>
+        <section><h2>קרדיט למקורות מידע</h2><p>המידע על חגים ומועדים בישראל מבוסס על נתוני <a href="https://www.hebcal.com/" target="_blank" rel="noopener noreferrer">Hebcal.com</a>, המופצים ברישיון <a href="https://creativecommons.org/licenses/by/4.0/deed.he" target="_blank" rel="noopener noreferrer">Creative Commons ייחוס 4.0 בינלאומי (CC BY 4.0)</a>. הנתונים עובדו לתצוגה (למשל הסרת ניקוד), ואין בכך כדי לרמוז ש־Hebcal.com תומכת בשירות.</p></section>
       </article>
     </main>
     <SiteFooter />

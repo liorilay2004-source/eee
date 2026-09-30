@@ -18,9 +18,11 @@ import {
   LATEST_API,
   mergeCandidates,
   parseExploreParams,
+  runExplore,
   type Candidate,
   type ExploreResponse,
 } from "../src/explore";
+import { bundledHolidays, buildHolidayIndex, HOLIDAYS_ATTRIBUTION } from "../src/holidays";
 import { defaultResolver } from "../src/pipeline";
 import type { Env } from "../src/types";
 import { GLOBAL_SCAN_LIMIT, GLOBAL_SCAN_WINDOW_SECONDS } from "../src/validate";
@@ -603,5 +605,68 @@ describe("helpers", () => {
     expect(weatherFit("QQQ", 5)).toBeNull();
     expect(weatherFit("LCA", 13)).toBeNull();
     expect(weatherFit("LCA", 8)).toMatchObject({ approximate: true, category: "beach" });
+  });
+});
+
+describe("holidays (holidays.ts): results[].holidayHe, vacationDaysUsed and meta.holidaysAttribution", () => {
+  const FIXTURE = buildHolidayIndex({
+    range: { start: "2026-10-01", end: "2026-11-30" },
+    holidays: [
+      { date: "2026-11-09", titleHe: "חג הסיגד", yomtov: false, category: "modern" },
+      { date: "2026-11-15", titleHe: "חג בדיקה א׳", yomtov: true, category: "major" },
+      { date: "2026-11-16", titleHe: "חג בדיקה ב׳ (חוה״מ)", yomtov: false, category: "major" },
+    ],
+  });
+
+  async function direct(holidays = FIXTURE) {
+    const up = stubUpstream();
+    const params = parseExploreParams(new URLSearchParams("month=2026-11"), NOW);
+    if (!params.ok) throw new Error("bad params");
+    const data = await runExplore(
+      {
+        db: createTestD1(),
+        token: TOKEN,
+        marker: "12345",
+        fetchFn: (input, init) => globalThis.fetch(input, init),
+        now: NOW,
+        resolver: defaultResolver,
+        scanBudget: async () => true,
+        fx: async () => ({ date: "2026-10-01", source: "t", ratesToIls: { ILS: 1, USD: 3.6 } }),
+        holidays,
+      },
+      params.params,
+    );
+    return { data, up };
+  }
+  const byCode = (d: ExploreResponse, code: string) => d.results.find((r) => r.destination.code === code);
+
+  it("names the holidays inside each trip and counts Sunday-Thursday work days that are not yom tov", async () => {
+    const { data, up } = await direct();
+    // BUD 2026-11-12 (Thu) .. 11-16 (Mon): Thu, Sun (yom tov in the fixture: not counted), Mon (chol hamoed: counted).
+    expect(byCode(data, "BUD")).toMatchObject({ departDate: "2026-11-12", returnDate: "2026-11-16", holidayHe: "חג בדיקה", vacationDaysUsed: 2 });
+    // LCA 2026-11-07 (Sat) .. 11-11 (Wed): Sun-Wed = 4, with a modern (not yom tov) day inside.
+    expect(byCode(data, "LCA")).toMatchObject({ departDate: "2026-11-07", returnDate: "2026-11-11", holidayHe: "חג הסיגד", vacationDaysUsed: 4 });
+    // ROM 2026-11-20 (Fri) .. 11-24 (Tue): Sun, Mon, Tue.
+    expect(byCode(data, "ROM")).toMatchObject({ holidayHe: null, vacationDaysUsed: 3 });
+    expect(data.meta.holidaysAttribution).toBe(HOLIDAYS_ATTRIBUTION);
+    expect(up.calls.every((c) => c.url.hostname !== "www.hebcal.com")).toBe(true);
+  });
+
+  it("outside the table's range nothing is guessed: holidayHe null and vacationDaysUsed null", async () => {
+    const { data } = await direct(buildHolidayIndex({ range: { start: "2026-10-01", end: "2026-11-11" }, holidays: [] }));
+    expect(byCode(data, "BUD")).toMatchObject({ holidayHe: null, vacationDaysUsed: null });
+    expect(byCode(data, "LCA")).toMatchObject({ vacationDaysUsed: 4 });
+  });
+
+  it("the endpoint uses the bundled table", async () => {
+    stubUpstream();
+    const { res, data } = await explore(makeEnv(), "month=2026-11");
+    expect(res.status).toBe(200);
+    expect(data.results.length).toBeGreaterThan(0);
+    expect(data.meta.holidaysAttribution).toBe("Hebcal.com, CC BY 4.0");
+    for (const r of data.results) {
+      expect(r.holidayHe, r.destination.code).toBe(bundledHolidays.holidayHeBetween(r.departDate, r.returnDate));
+      expect(r.vacationDaysUsed, r.destination.code).toBe(bundledHolidays.vacationDaysUsed(r.departDate, r.returnDate));
+    }
   });
 });

@@ -19,6 +19,7 @@
 import type { Resolver } from "./airports/types";
 import { CLIMATE_SOURCE, weatherFit, type DestinationCategory } from "./explore-climate";
 import { MAX_NIGHTS, MIN_NIGHTS, MAX_TEXT_LEN, parseExploreQuery, type NightsRange } from "./explore-text";
+import { bundledHolidays, HOLIDAYS_ATTRIBUTION, type HolidayIndex } from "./holidays";
 import { aviasalesSearchLink } from "./travelpayouts";
 import type { FxRates } from "./types";
 
@@ -313,6 +314,8 @@ export interface ExploreDeps {
   scanBudget: () => Promise<boolean>;
   fx: () => Promise<FxRates>;
   waitUntil?: (p: Promise<unknown>) => void;
+  /** Holiday table; defaults to the bundled one (tests inject a fixture). */
+  holidays?: HolidayIndex;
 }
 
 async function getJson(deps: ExploreDeps, token: string, url: string): Promise<Row> {
@@ -595,6 +598,18 @@ export interface ExploreResult {
   search: { origin: string; destination: string; windowStart: string; windowEnd: string; stayMin: number; stayMax: number };
   score: ScoreBreakdown;
   climate: { month: number; tmaxC: number; rainDays: number; approximate: true } | null;
+  /**
+   * Israeli holidays between departDate and returnDate (both included), distinct Hebrew names in date order, e.g.
+   * "סוכות, שמיני עצרת" (holidays.ts, Hebcal Israel schedule). additive; null when none is known (days outside the
+   * bundled table's range are unknown, never assumed holiday-free for vacationDaysUsed).
+   */
+  holidayHe: string | null;
+  /**
+   * Work days the trip takes off: Sunday-Thursday days from departDate to returnDate (both included) that are not yom
+   * tov. Other days off (e.g. Yom HaAtzmaut, erev chag half days, chol hamoed) are NOT subtracted. additive; null when
+   * any day of the trip is outside the bundled table's range.
+   */
+  vacationDaysUsed: number | null;
 }
 
 export interface ExploreResponse {
@@ -618,6 +633,8 @@ export interface ExploreResponse {
     sources: string[];
     fx: { date: string; source: string };
     climateSource: string;
+    /** Credit for results[].holidayHe and vacationDaysUsed (additive): "Hebcal.com, CC BY 4.0". */
+    holidaysAttribution: string;
     notes: string[];
   };
 }
@@ -719,6 +736,7 @@ export async function runExplore(deps: ExploreDeps, params: ExploreParams): Prom
     overBudget = picked.length - within.length;
     picked = within;
   }
+  const holidays = deps.holidays ?? bundledHolidays;
   const minUsd = picked.reduce((m, c) => Math.min(m, c.usd), Number.POSITIVE_INFINITY);
 
   const results: ExploreResult[] = picked.map((c) => {
@@ -752,6 +770,8 @@ export async function runExplore(deps: ExploreDeps, params: ExploreParams): Prom
       search: { origin: params.origin, destination: c.dest, windowStart: c.depart, windowEnd: c.ret, stayMin: nights, stayMax: nights },
       score: { total: combineScore(parts), ...parts, weights: SCORE_WEIGHTS },
       climate: w ? { month: departMonth, tmaxC: w.tmaxC, rainDays: w.rainDays, approximate: true } : null,
+      holidayHe: holidays.holidayHeBetween(c.depart, c.ret),
+      vacationDaysUsed: holidays.vacationDaysUsed(c.depart, c.ret),
     };
   });
 
@@ -788,6 +808,7 @@ export async function runExplore(deps: ExploreDeps, params: ExploreParams): Prom
       sources: ["travelpayouts:v2/prices/latest", "travelpayouts:v1/prices/cheap"],
       fx: { date: fx.date, source: fx.source },
       climateSource: CLIMATE_SOURCE,
+      holidaysAttribution: HOLIDAYS_ATTRIBUTION,
       notes,
     },
   };
