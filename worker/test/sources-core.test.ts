@@ -146,14 +146,14 @@ function fakeSource(name: QuoteSourceName, quote: (q: QuoteQuery) => Promise<Off
 // ---------------------------------------------------------------------------------------------------------
 
 describe("quota rules a vendor spec must keep", () => {
-  it("a cap is safe only when it is a whole number of at least 1 within 90% (one-off) or 45% (monthly) of the allowance", () => {
-    expect([LIFETIME_CAP_MAX_PERCENT, MONTHLY_CAP_MAX_PERCENT]).toEqual([90, 45]);
+  it("a cap is safe only when it is a whole number of at least 1 within 90% (one-off) or 100% (monthly) of the allowance", () => {
+    expect([LIFETIME_CAP_MAX_PERCENT, MONTHLY_CAP_MAX_PERCENT]).toEqual([90, 100]);
     const spec = (period: QuotaSpec["period"], cap: number, allowance: number) => ({ period, cap, allowance }) as QuotaSpec;
-    for (const s of [spec("lifetime", 800, 1000), spec("lifetime", 900, 1000), spec("lifetime", 50, 100), spec("monthly", 100, 250), spec("monthly", 112, 250), spec("monthly", 1, 3)]) {
+    for (const s of [spec("lifetime", 800, 1000), spec("lifetime", 900, 1000), spec("lifetime", 50, 100), spec("monthly", 100, 250), spec("monthly", 240, 250), spec("monthly", 250, 250), spec("monthly", 1, 3)]) {
       expect(quotaSpecIsSafe(s), JSON.stringify(s)).toBe(true);
     }
     for (const s of [
-      spec("lifetime", 901, 1000), spec("lifetime", 1000, 1000), spec("lifetime", 2000, 1000), spec("monthly", 113, 250), spec("monthly", 250, 250), spec("monthly", 1, 1),
+      spec("lifetime", 901, 1000), spec("lifetime", 1000, 1000), spec("lifetime", 2000, 1000), spec("monthly", 251, 250), spec("monthly", 2, 1),
       spec("lifetime", 0, 1000), spec("lifetime", -5, 1000), spec("lifetime", 1.5, 1000), spec("lifetime", Number.NaN, 1000), spec("lifetime", 5, Number.NaN),
       spec("lifetime", 5, 0), spec("lifetime", 5, Number.POSITIVE_INFINITY), spec("weekly" as QuotaSpec["period"], 1, 1000),
     ]) {
@@ -201,7 +201,7 @@ describe("createQuoteSource (the only code that calls a vendor)", () => {
   });
 
   it("a key alone is not enough: a cap outside the margin makes the source inert (the code cannot exceed an allowance)", async () => {
-    for (const quota of [{ period: "lifetime", cap: 1000, allowance: 1000 }, { period: "monthly", cap: 250, allowance: 250 }, { period: "lifetime", cap: 0, allowance: 100 }] as QuotaSpec[]) {
+    for (const quota of [{ period: "lifetime", cap: 1000, allowance: 1000 }, { period: "monthly", cap: 251, allowance: 250 }, { period: "lifetime", cap: 0, allowance: 100 }] as QuotaSpec[]) {
       const { db, fetchFn, source } = make({}, quota);
       expect(source.configured).toBe(false);
       await expect(source.quote(Q)).rejects.toMatchObject({ code: "not_configured" });
@@ -1174,14 +1174,15 @@ describe("the daily share: a ration in front of the caps", () => {
   const dates4: Array<[string, string]> = [["2026-11-10", "2026-11-16"], ["2026-11-11", "2026-11-17"], ["2026-11-12", "2026-11-18"], ["2026-11-13", "2026-11-19"]];
   const LIFE_50: QuotaSpec = { period: "lifetime", cap: 50, allowance: 100 };
 
-  it("is the cap over 30 days (one-off) or 31 (monthly), rounded up, and at least 1", () => {
+  it("is the cap over 30 days (one-off) or 10 active search days (monthly), rounded up, and at least 1", () => {
     expect(dailyShare("lifetime", 800)).toBe(27);
     expect(dailyShare("lifetime", 50)).toBe(2);
     expect(dailyShare("lifetime", 30)).toBe(1);
     expect(dailyShare("lifetime", 1)).toBe(1);
-    expect(dailyShare("2026-10", 100)).toBe(4);
-    expect(dailyShare("2026-10", 31)).toBe(1);
-    expect(dailyShare("2026-10", 32)).toBe(2);
+    expect(dailyShare("2026-10", 240)).toBe(24);
+    expect(dailyShare("2026-10", 100)).toBe(10);
+    expect(dailyShare("2026-10", 31)).toBe(4);
+    expect(dailyShare("2026-10", 1)).toBe(1);
   });
 
   it("a source gets its day's share and no more, however many searches ask; what the share refuses costs nothing of the allowance; the next UTC day renews it", async () => {

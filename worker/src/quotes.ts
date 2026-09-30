@@ -64,11 +64,11 @@ export interface QuotaSpec {
 
 /**
  * How much of the free allowance a cap may use, in percent. A one-off allowance keeps at least 10% spare. A monthly
- * one is counted per UTC month, but a vendor cycle that starts on another day overlaps two of our months (2 x cap in
- * one vendor cycle), so the cap stays under half of it. Where a vendor's terms are unclear the cap must be lower still.
+ * one is counted per UTC month. For vendors where the owner explicitly supplies a free-plan key for live pricing,
+ * the cap may use the documented free allowance, while the daily share below prevents one day from burning it all.
  */
 export const LIFETIME_CAP_MAX_PERCENT = 90;
-export const MONTHLY_CAP_MAX_PERCENT = 45;
+export const MONTHLY_CAP_MAX_PERCENT = 100;
 
 /** True when the cap is a whole number of at least 1 and within the margin above. An unsafe spec makes a source inert. */
 export function quotaSpecIsSafe(spec: QuotaSpec): boolean {
@@ -208,10 +208,11 @@ export function quotaPeriodKey(period: QuotaPeriod, now: Date): string {
 /**
  * The cap alone only stops spending: nothing in it stops a few clients that dodge the search cache (any changed parameter is a
  * new search) from using a whole one-off allowance in minutes, and a lifetime counter never renews. So the Worker also rations
- * every vendor per UTC day: at most its cap divided over 30 days (a lifetime allowance) or 31 (a monthly one), rounded up.
+ * every vendor per UTC day: at most its cap divided over 30 days for lifetime allowances, or 10 active search days for
+ * monthly allowances, rounded up.
  */
 export function dailyShare(period: string, cap: number): number {
-  return Math.max(1, Math.ceil(cap / (period === "lifetime" ? 30 : 31)));
+  return Math.max(1, Math.ceil(cap / (period === "lifetime" ? 30 : 10)));
 }
 
 /**

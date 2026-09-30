@@ -322,7 +322,7 @@ describe("which source the live check may use", () => {
   it("checks per day stay well below each source's daily share, and a share of under 4 requests cannot afford one", () => {
     expect(PARTY_CHECK_UNITS).toBe(2);
     expect(partyChecksPerDay(IGNAV_QUOTA)).toBe(PARTY_CHECK_MAX_PER_DAY); // share 27: 5 checks = 10 requests
-    expect(partyChecksPerDay(SERPAPI_QUOTA)).toBe(1); // share 4: 1 check = 2 requests
+    expect(partyChecksPerDay(SERPAPI_QUOTA)).toBe(PARTY_CHECK_MAX_PER_DAY); // share 24: 5 checks = 10 requests
     expect(partyChecksPerDay(SEARCHAPI_QUOTA)).toBe(0); // share 2
     expect(partyChecksPerDay(WEGO_QUOTA)).toBe(0); // share 1: a two-search check never fits
     for (const quota of [IGNAV_QUOTA, SERPAPI_QUOTA, SEARCHAPI_QUOTA, WEGO_QUOTA, BIG]) {
