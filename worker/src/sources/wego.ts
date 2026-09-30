@@ -13,8 +13,37 @@
  *  - the client id travels only in the token request BODY and the token only in an Authorization header: neither is in
  *    a URL, a log line or an error (errors are a bare code, like QuoteError everywhere else).
  * Prices follow the pipeline convention: ONE adult, the vendor's ORIGINAL currency, RAW (no extras, no ILS).
+ *
+ * PARTY CHECK (src/partycheck.ts, partySeries below): the search takes `adultsCount` ("Must be a number greater than or equal
+ * to 1 and smaller than or equal to 10"), and the Price object is documented field by field: `totalAmount` "total amount in
+ * currency Code", `amount` "average amount for all passengers, inludes payment fee (if there's any)", `originalAmount`
+ * "average amount without the payment fee", `amountPerAdult` "amount per adult passenger"
+ * (https://developers.wego.com/docs/affiliate/references/flight-objects/, sections Search and Price; read on 2026-09-30).
+ * The page does NOT say which passengers totalAmount covers: that it is the whole group's total is our INFERENCE from "total
+ * amount" beside "average amount for all passengers", not a documented fact (the guide's only example is for one adult). So
+ * partyPricing is "total" only together with a check on EVERY fare of a multi-adult answer: the fare must state at least one
+ * per-passenger figure (amount, originalAmount, amountPerAdult) and each one it states, times the adults, must match the
+ * total, or the fare is not read at all (partyTotalAgrees). Flight identity: the guide's example segments carry
+ * `designatorCode` ("BA6177") and the legs `departureDateTime` (https://developers.wego.com/docs/affiliate/guides/flights/);
+ * read only when present, never guessed.
+ * With today's cap (30, one-off) the daily share is 1 request, so a 2-search check never fits: the party check does not pick
+ * this source until the cap is raised (partycheck.ts, partyChecksPerDay). Raising it to 91 or more (with an allowance to
+ * match) WOULD turn the live check on: see docs/CLOUDFLARE_SETUP.md.
  */
-import { MAX_QUOTE_OFFERS_PER_CALL, QUOTE_TIMEOUT_MS, QuoteError, quotaPeriodKey, quotaSpecIsSafe, type FareQuoteSource, type QuotaSpec, type QuoteQuery } from "../quotes";
+import {
+  answerUsable,
+  MAX_QUOTE_OFFERS_PER_CALL,
+  QUOTE_TIMEOUT_MS,
+  QuoteError,
+  quotaPeriodKey,
+  quotaSpecIsSafe,
+  reserveUnits,
+  vendorAdults,
+  type FareQuoteSource,
+  type PartyFare,
+  type QuotaSpec,
+  type QuoteQuery,
+} from "../quotes";
 import type { Leg, Offer, Repo } from "../types";
 
 // --- quota -----------------------------------------------------------------------------------------------
@@ -109,16 +138,25 @@ function localParts(iso: unknown): { date: string; time: string } | null {
   return m ? { date: m[1] as string, time: m[2] as string } : null;
 }
 
-/** The documented example body, for one adult in economy: only fields of the docs, unknown optional ones left out. */
+/**
+ * The documented example body, for one adult in economy: only fields of the docs, unknown optional ones left out. The party
+ * check may ask for more adults (QuoteQuery.adults); absent = 1, and the body is byte for byte what it was.
+ */
 function searchBody(q: QuoteQuery, clientCreatedAt: string): string | null {
   if (![q.origin, q.destination].every((c) => /^[A-Za-z]{3}$/.test(c)) || !validDate(q.departDate) || !validDate(q.returnDate) || q.returnDate < q.departDate) return null;
+  let adults: number;
+  try {
+    adults = vendorAdults(q);
+  } catch {
+    return null;
+  }
   const from = q.origin.toUpperCase();
   const to = q.destination.toUpperCase();
   return JSON.stringify({
     // paymentMethodIds is optional and its ids are site specific: omitted. `offset` (marked required in the docs' table
     // but in none of its examples) is omitted too, like in every example.
     search: {
-      adultsCount: 1,
+      adultsCount: adults,
       childrenCount: 0,
       infantsCount: 0,
       cabin: "economy",
@@ -220,9 +258,10 @@ const cheaper = (a: Candidate, b: Candidate): number => rank(a) - rank(b) || a.a
 
 /**
  * The cheapest fare of every trip (the search only returns the best fare per trip, and a later poll can bring a cheaper
- * one), the cheapest trips first. A fare without a readable price, a two-leg trip or the asked dates is dropped.
+ * one), the cheapest trips first. A fare without a readable price, a two-leg trip or the asked dates is dropped, and so is
+ * one that `accept` (the party check's) refuses.
  */
-function toOffers(pool: Pool, q: QuoteQuery, checkedAt: string): Offer[] {
+function bestPerTrip(pool: Pool, q: QuoteQuery, accept?: (price: Rec, amount: number) => boolean): Candidate[] {
   const from = q.origin.toUpperCase();
   const to = q.destination.toUpperCase();
   const best = new Map<string, Candidate>();
@@ -236,14 +275,66 @@ function toOffers(pool: Pool, q: QuoteQuery, checkedAt: string): Offer[] {
     const back = typeof legIds[1] === "string" ? pool.legs.get(legIds[1]) : undefined;
     if (!price || amount === null || !/^[A-Z]{3}$/.test(currency) || !out || !back || legIds.length !== 2) continue;
     if (!isAsked(out, from, to, q.departDate) || !isAsked(back, to, from, q.returnDate)) continue;
+    if (accept && !accept(price, amount)) continue;
     const usd = posNumber(price.totalAmountUsd) ?? (currency === "USD" ? amount : null);
     const cand: Candidate = { amount, currency, usd, fare, out, back };
     const tripId = fare.tripId as string;
     const cur = best.get(tripId);
     if (!cur || cheaper(cand, cur) < 0) best.set(tripId, cand);
   }
-  return [...best.values()]
-    .sort(cheaper)
+  return [...best.values()].sort(cheaper);
+}
+
+/**
+ * PARTY CHECK: "totalAmount is the price of ALL the adults asked" is our inference from the docs, not a documented fact (see the
+ * header), so it is checked on every fare against the fare's OWN per-passenger figures: `amount` (the average, with the payment
+ * fee), `originalAmount` (the average without it) and `amountPerAdult`. For more than one adult a fare is read only when it
+ * states at least one of them AND every one it states, times the adults, matches the total within 5% or one unit per adult (the
+ * figures are rounded, and a payment fee may sit in one of them only). A fare that states none cannot be checked and is not read;
+ * one whose numbers disagree is not read either (never repaired): taken the wrong way round, a total that is really per person
+ * would make one booking for everybody look N times cheaper. For ONE adult a total and a per-person price are the same thing, so
+ * a fare without such figures is read, and one whose stated figures disagree with its total is not.
+ */
+export function partyTotalAgrees(price: Readonly<Record<string, unknown>>, total: number, adults: number): boolean {
+  const stated = [posNumber(price.amount), posNumber(price.originalAmount), posNumber(price.amountPerAdult)].filter((v): v is number => v !== null);
+  if (stated.length === 0) return adults === 1;
+  const tolerance = Math.max(adults, total * 0.05);
+  return stated.every((each) => Math.abs(total - each * adults) <= tolerance);
+}
+
+/** The vendor's identity of one leg: its segments' designator codes ("BA6177") and its local departure, or null when any is missing. */
+function legKey(leg: Rec): string | null {
+  const segs = Array.isArray(leg.segments) ? leg.segments : [];
+  if (segs.length === 0) return null;
+  const codes: string[] = [];
+  for (const seg of segs) {
+    const code = isRecord(seg) && typeof seg.designatorCode === "string" ? seg.designatorCode.trim().toUpperCase() : "";
+    if (!/^[A-Z0-9]{2}\d{1,4}[A-Z]?$/.test(code)) return null;
+    codes.push(code);
+  }
+  const departs = localParts(leg.departureDateTime);
+  return departs ? `${codes.join("+")}@${departs.date}T${departs.time}` : null;
+}
+
+/** PARTY CHECK: every trip's cheapest fare that passes partyTotalAgrees, as the price for all `adults` (price.totalAmount). */
+function toPartyFares(pool: Pool, q: QuoteQuery, adults: number): PartyFare[] {
+  return bestPerTrip(pool, q, (price, amount) => partyTotalAgrees(price, amount, adults))
+    .slice(0, MAX_QUOTE_OFFERS_PER_CALL)
+    .map((c) => {
+      const outKey = legKey(c.out);
+      const backKey = legKey(c.back);
+      return {
+        amount: Math.round(c.amount * 100) / 100,
+        currency: c.currency,
+        flightKey: outKey !== null && backKey !== null ? `${outKey}|${backKey}` : null,
+        outbound: readLeg(c.out),
+        inbound: readLeg(c.back),
+      };
+    });
+}
+
+function toOffers(pool: Pool, q: QuoteQuery, checkedAt: string): Offer[] {
+  return bestPerTrip(pool, q)
     .slice(0, MAX_QUOTE_OFFERS_PER_CALL)
     .map((c) => ({
       origin: q.origin,
@@ -308,9 +399,17 @@ export function createWegoSource(opts: WegoOptions): FareQuoteSource {
     }
   }
 
-  /** The bearer token: cached, or step 1 of the docs (client id in the body, no secret documented). null = unreadable answer. */
-  async function bearer(timeoutMs: () => number): Promise<string | null> {
-    if (tokenSlot && tokenSlot.clientId === key && tokenSlot.expiresAt > clock()) return tokenSlot.token;
+  /**
+   * The bearer token: cached, or step 1 of the docs (client id in the body, no secret documented). null = unreadable answer.
+   * `series` (party check only) holds the token of the series it belongs to: every later search of that series reuses it, so one
+   * check never sends a second token request (even when the vendor's token could not be cached, e.g. without `expires_in`).
+   */
+  async function bearer(timeoutMs: () => number, series?: { token: string | null }): Promise<string | null> {
+    if (series?.token) return series.token;
+    if (tokenSlot && tokenSlot.clientId === key && tokenSlot.expiresAt > clock()) {
+      if (series) series.token = tokenSlot.token;
+      return tokenSlot.token;
+    }
     tokenSlot = null;
     const res = await send(
       TOKEN_URL,
@@ -323,16 +422,20 @@ export function createWegoSource(opts: WegoOptions): FareQuoteSource {
     if (typeof token !== "string" || !TOKEN_CHARS.test(token)) return null;
     const life = Math.min(posNumber(isRecord(body) ? body.expires_in : undefined) ?? 0, TOKEN_MAX_LIFE_S) - TOKEN_MARGIN_S;
     if (life > 0) tokenSlot = { clientId: key, token, expiresAt: clock() + life * 1000 };
+    if (series) series.token = token;
     return token;
   }
 
-  /** Token, search creation, a few polls. Only transport and HTTP failures throw; whatever cannot be read is []. */
-  async function search(q: QuoteQuery, body: string): Promise<Offer[]> {
+  /**
+   * Token, search creation, a few polls: what came back, or null when it cannot be read. Only transport and HTTP failures throw.
+   * `series`: see bearer (absent for quote(), whose requests stay exactly what they were).
+   */
+  async function search(body: string, series?: { token: string | null }): Promise<Pool | null> {
     const deadline = clock() + WEGO_QUOTE_DEADLINE_MS;
     const timeoutMs = () => Math.min(WEGO_REQUEST_TIMEOUT_MS, deadline - clock());
 
-    const token = await bearer(timeoutMs);
-    if (token === null) return [];
+    const token = await bearer(timeoutMs, series);
+    if (token === null) return null;
     const auth = { Authorization: `Bearer ${token}` };
     const created = await send(SEARCH_URL, { method: "POST", headers: { ...auth, "Content-Type": "application/json" }, body }, timeoutMs());
     if (!isOk(created.status)) {
@@ -341,7 +444,7 @@ export function createWegoSource(opts: WegoOptions): FareQuoteSource {
     }
     const made = readJson(created.text);
     const id = isRecord(made) && isRecord(made.search) ? made.search.id : undefined;
-    if (typeof id !== "string" || !SEARCH_ID.test(id)) return [];
+    if (typeof id !== "string" || !SEARCH_ID.test(id)) return null;
 
     const pool: Pool = { fares: new Map(), trips: new Map(), legs: new Map() };
     let offset = 0; // the previous response's `count`: only the delta comes back
@@ -366,13 +469,16 @@ export function createWegoSource(opts: WegoOptions): FareQuoteSource {
       last = count;
       offset = count;
     }
-    return toOffers(pool, q, opts.now.toISOString());
+    return pool;
   }
 
   return {
     name: "wego",
     configured: usable,
     quota,
+    // INFERRED from the docs, not stated there (see the header): totalAmount read as the whole group's price, and that reading is
+    // checked on every fare of a multi-adult answer against its own per-passenger figures (partyTotalAgrees).
+    partyPricing: "total",
     callCount: () => requests,
     // A quote is up to WEGO_MAX_REQUESTS_PER_SEARCH requests, and only the first pair asked is quoted: the pipeline counts requests, not quotes.
     nextQuoteRequests: () => (quotes < WEGO_MAX_QUOTES_PER_SEARCH ? WEGO_MAX_REQUESTS_PER_SEARCH : 0),
@@ -404,11 +510,56 @@ export function createWegoSource(opts: WegoOptions): FareQuoteSource {
       if (!reserved) throw new QuoteError("quota_exhausted");
 
       try {
-        return await search(q, body);
+        const pool = await search(body);
+        return pool ? toOffers(pool, q, opts.now.toISOString()) : [];
       } catch (err) {
         if (err instanceof QuoteError) throw err;
         return []; // an answer whose shape broke the reader: nothing to offer, and nothing of it is kept
       }
+    },
+
+    /**
+     * PARTY CHECK: one whole Wego search (creation, polls) per query, in order, all under ONE token (at most one token request per
+     * series). All the units (one per search, like quote()) are reserved up front, all or none, before the first request. The
+     * first failure ends the series (no later search, no retry), and so does an answer that cannot be read (token or search id:
+     * QuoteError "response") or that holds no usable fare, or none the caller can compare (`comparable`, see answerUsable): the
+     * series then resolves with fewer lists than queries.
+     * Not limited by WEGO_MAX_QUOTES_PER_SEARCH, which is the search phase's own budget.
+     */
+    async partySeries(queries, comparable) {
+      if (!usable) throw new QuoteError("not_configured");
+      const stamp = opts.now.toISOString();
+      // Build (and so validate) every body first: a bad query must not burn a unit.
+      const bodies = queries.map((q) => {
+        const body = searchBody(q, stamp);
+        if (body === null) throw new RangeError("wego: invalid party-check query");
+        return body;
+      });
+      if (bodies.length === 0) return [];
+      await reserveUnits(opts.repo, "wego", quota, bodies.length, opts.now);
+      const out: PartyFare[][] = [];
+      const series: { token: string | null } = { token: null };
+      for (const [i, body] of bodies.entries()) {
+        const q = queries[i] as QuoteQuery;
+        let pool: Pool | null;
+        try {
+          pool = await search(body, series);
+        } catch (err) {
+          throw err instanceof QuoteError ? err : new QuoteError("response"); // a failure ends the series here
+        }
+        // An unreadable answer (token or search id) is a failure too: nothing later is sent, nothing is retried.
+        if (pool === null) throw new QuoteError("response");
+        let fares: PartyFare[];
+        try {
+          fares = toPartyFares(pool, q, vendorAdults(q));
+        } catch {
+          throw new QuoteError("response");
+        }
+        out.push(fares);
+        // Nothing usable (or comparable) in this answer: a later search could only be compared with nothing, so it is never started.
+        if (!answerUsable(fares, comparable)) break;
+      }
+      return out;
     },
   };
 }

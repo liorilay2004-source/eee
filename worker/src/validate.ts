@@ -71,16 +71,18 @@ export interface ValidateDeps {
   now: Date;
 }
 
-function isRecord(v: unknown): v is Record<string, unknown> {
+/** A JSON object (not an array, not null). Exported for the other request parsers (partycheck.ts). */
+export function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
 /** Only own keys: an inherited property ("constructor", "__proto__") is never a field. */
-function field(body: Record<string, unknown>, name: string): unknown {
+export function field(body: Record<string, unknown>, name: string): unknown {
   return Object.hasOwn(body, name) ? body[name] : undefined;
 }
 
-const missing = (v: unknown): boolean => v === undefined || v === null;
+/** Absent or null: a field that was not given (SPEC §4.1: unfilled = default). */
+export const missing = (v: unknown): boolean => v === undefined || v === null;
 
 export function parseSearchBody(body: unknown, deps: ValidateDeps): ParseResult {
   if (!isRecord(body)) return { ok: false, code: "invalid_request", fields: { body: "must be a JSON object" }, fieldCodes: { body: "invalid_format" } };

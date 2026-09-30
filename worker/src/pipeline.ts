@@ -52,6 +52,7 @@ import {
   type PriceGuard,
 } from "./priceguard";
 import { fareExpired, fareFreshness, vendorTimestamp } from "./freshness";
+import { partyCheckMetaNow, signedPartyCheckFields, type PartyTokenSigner } from "./partycheck";
 import { buildSplits, dayNumber, pairOk } from "./splits";
 import { monthsBetween, TravelpayoutsError, withPartySize, type Party } from "./travelpayouts";
 import type {
@@ -172,6 +173,11 @@ export interface SearchDeps {
    * the response.
    */
   audit?: boolean;
+  /**
+   * ADDITIVE (party check, partycheck.ts): signs a round-trip card's route, dates and adults for POST /api/party-check. Used only
+   * when meta.partyCheck.available is true; absent (the scheduled snapshot, background rescans, tests) = no card gets a token.
+   */
+  partyToken?: PartyTokenSigner;
 }
 
 export const defaultResolver: Resolver = {
@@ -909,6 +915,11 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   const pairsWithPrice = new Set<string>();
   for (const o of ranking) if (o.totalIls !== null) pairsWithPrice.add(`${o.departDate}|${o.returnDate}`);
 
+  // "Together or one by one?" (partycheck.ts): only on a search for 2+ adults. Whether the live check can run for this answer (a
+  // capable source with room for a check: one D1 read, made only when such a source is configured); only then do round-trip
+  // cards carry the token the check needs.
+  const partyMeta = await partyCheckMetaNow(req, quoters, { repo, now });
+  const partySigner = partyMeta.partyCheck?.available === true ? deps.partyToken : undefined;
   const views: CardView[] = await Promise.all(
     cards.map(async (card) => ({
       ...card,
@@ -916,6 +927,8 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
       ageHours: ageHours(card.offer.checkedAt, now),
       ...airlineFieldsFor(card.offer),
       ...fareFreshness(card.offer, now),
+      // From the card's own (already party-sized) links.
+      ...(await signedPartyCheckFields(card.offer, req, partySigner)),
     })),
   );
 
@@ -982,6 +995,8 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
       // Only when something was flagged: an ordinary answer keeps exactly the fields it had before the guard.
       ...(guarded.suspicious.size > 0 ? { priceGuard: { suspicious: guarded.suspicious.size, excluded: guarded.excluded } } : {}),
       recommendations: recommendationsMeta(ranking, req, cards),
+      // Only on a search for 2+ adults: whether the live party check can run (a configured source qualifies and has room, no children).
+      ...partyMeta,
     },
   };
 }

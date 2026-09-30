@@ -478,6 +478,41 @@ p { text-wrap: pretty; }
 .mini .booking { margin-top: 0; }
 .mini .booking-missing { font-size: 14px; }
 
+/* "together or one by one?" (PartyCheck.tsx): a collapsed box under the booking buttons */
+.party-check { margin-top: 14px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); }
+.mini .party-check { margin-top: 0; }
+.party-check > summary { min-height: 48px; display: flex; align-items: center; gap: 8px; padding: 8px 14px; cursor: pointer; font-weight: 700; color: var(--ink-2); border-radius: 16px; }
+.party-check > summary svg { flex: none; color: var(--select-ink); }
+.party-check[open] > summary { border-bottom: 1px solid var(--line); border-radius: 16px 16px 0 0; }
+.party-body { padding: 12px 14px 14px; display: grid; gap: 10px; font-size: 15px; color: var(--ink-2); }
+.party-body p { margin: 0; }
+.party-do { font-weight: 600; color: var(--ink); }
+.party-note { font-size: 14px; color: var(--muted); }
+.party-links { display: grid; gap: 8px; }
+.party-links .btn { min-width: 0; }
+@media (min-width: 480px) { .party-links { grid-template-columns: 1fr 1fr; } .party-links .party-leg { grid-column: 1 / -1; } }
+.party-leg { font-weight: 700; color: var(--ink); }
+.party-why { border-radius: 12px; background: var(--surface-2); }
+.party-why > summary { min-height: 44px; display: flex; align-items: center; gap: 6px; padding: 6px 12px; cursor: pointer; font-weight: 600; color: var(--ink-2); border-radius: 12px; }
+.party-why > summary svg { flex: none; }
+.party-why > p { padding: 0 12px 10px; }
+.party-downsides-title { font-weight: 700; color: var(--ink); }
+.party-downsides ul { margin: 4px 0 0; padding-inline-start: 20px; display: grid; gap: 2px; list-style: disc; }
+/* One button through every state (aria-disabled keeps its focus), and a live region that is ALWAYS rendered (a hidden one may not
+   be announced): the spacing is margins, so the empty region takes no room. */
+.party-auto { display: flex; flex-direction: column; align-items: flex-start; }
+.party-auto > .party-note { margin-top: 8px; }
+.party-auto-out { width: 100%; }
+.party-auto-out:not(:empty) { margin-top: 8px; }
+.party-flight { font-size: 14px; }
+.party-verdict { padding: 10px 12px; border-radius: 14px; display: grid; gap: 6px; }
+.party-verdict ul { margin: 0; padding-inline-start: 20px; list-style: disc; }
+.party-verdict.tone-good { background: var(--good-soft); color: var(--good); }
+.party-verdict.tone-plain { background: var(--surface-2); color: var(--ink-2); }
+.party-verdict.tone-warn { background: var(--warn-soft); color: var(--warn); }
+.party-error { display: flex; align-items: flex-start; gap: 8px; color: var(--warn); }
+.party-error svg { flex: none; margin-top: 3px; }
+
 /* demo */
 .demo-banner { margin-bottom: 16px; display: grid; gap: 6px; justify-items: start; padding: 16px 18px; border-radius: 18px; border: 2px dashed var(--accent-text); background: var(--accent-soft); color: var(--ink); }
 .demo-banner strong { font-size: 18px; color: var(--accent-text); }

@@ -2,6 +2,17 @@ export type {
   CardView,
   Leg,
   Offer,
+  // "Together or one by one?" (worker/src/partycheck.ts). CardView.partyCheck and SearchResponse.meta.partyCheck are optional:
+  // an older API sends neither, and POST /api/party-check is only called when meta.partyCheck.available is true and the card
+  // carries its token (PartyCheckLinks.token).
+  PartyCheckCard,
+  PartyCheckChildren,
+  PartyCheckLinks,
+  PartyCheckMeta,
+  PartyCheckPrice,
+  PartyCheckRequest,
+  PartyCheckResult,
+  PartyCheckVerdict,
   RecKind,
   SearchRequest,
   SearchResponse,

@@ -11,8 +11,16 @@
  *
  * Only the round-trip search is used. An airport search or a booking-links lookup is billed exactly like a search, so
  * this adapter never makes one and builds no booking link of its own (the core attaches an Aviasales search link).
+ *
+ * PARTY CHECK (src/partycheck.ts): the docs list `adults` ("Number of passengers age 12 or older. Default: 1. Max total
+ * passengers: 9.", https://ignav.com/docs/one-way; the round trip "Accepts all one-way parameters",
+ * https://ignav.com/docs/round-trip; OpenAPI https://ignav.com/openapi.json RoundTripRequest.adults), so a query may ask for
+ * more than one adult (QuoteQuery.adults; absent = 1 and the request is byte for byte what it was). But the docs never say
+ * whether `price.amount` for several adults is per person or for all of them: "the total itinerary price" (round-trip page)
+ * and "a trip-level price" (https://ignav.com/docs/faq) speak of the legs, not of the passengers, and the OpenAPI PriceModel
+ * has no description. So partyPricing is "unknown" and the party check never uses this source (read on 2026-09-30).
  */
-import { createQuoteSource, type FareQuoteSource, type ParsedFare, type QuoteAdapter, type QuotaSpec, type QuoteQuery } from "../quotes";
+import { createQuoteSource, vendorAdults, type FareQuoteSource, type ParsedFare, type QuoteAdapter, type QuotaSpec, type QuoteQuery } from "../quotes";
 import type { Leg, Repo } from "../types";
 
 // --- quota ----------------------------------------------------------------------------------------------
@@ -103,6 +111,8 @@ function readItinerary(it: unknown, q: QuoteQuery): ParsedFare | null {
 export const ignavAdapter: QuoteAdapter = {
   name: "ignav",
   quota: IGNAV_QUOTA,
+  // The docs do not say whether a multi-adult price is per person or for all (see the header): never guessed.
+  partyPricing: "unknown",
 
   request(q, key) {
     // Validated here so that a bad query fails before a unit of the allowance is reserved.
@@ -112,6 +122,7 @@ export const ignavAdapter: QuoteAdapter = {
     if (!isRealDate(q.departDate) || !isRealDate(q.returnDate) || q.returnDate < q.departDate) {
       throw new RangeError("ignav: dates must be YYYY-MM-DD, the return on or after the departure");
     }
+    const adults = vendorAdults(q); // 1 unless the party check asks for more (a bad value throws here, before any unit)
     return {
       url: ENDPOINT,
       method: "POST",
@@ -123,7 +134,7 @@ export const ignavAdapter: QuoteAdapter = {
         destination: q.destination,
         departure_date: q.departDate,
         return_date: q.returnDate,
-        adults: 1,
+        adults,
         cabin_class: "economy",
         allow_self_transfer: false,
       }),

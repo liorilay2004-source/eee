@@ -1,7 +1,7 @@
 import { API_BASE } from "../config";
 import type {
   AirportLookup, AirportSuggestion, ApiError, CountrySuggestion, CalendarResponse, CreateWatchRequest, CreateWatchResponse, DealsResponse, ExploreResponse,
-  GetWatchResponse, SearchRequest, SearchResponse,
+  GetWatchResponse, PartyCheckRequest, PartyCheckResult, SearchRequest, SearchResponse,
 } from "./contract";
 
 export class RequestError extends Error {
@@ -70,6 +70,18 @@ export async function searchFlights(request: SearchRequest, signal: AbortSignal)
     cache: "no-store",
   });
   return readJson<SearchResponse>(response);
+}
+
+/** POST /api/party-check: the live "together or one by one?" check of one card. Only called on the user's click. */
+export async function checkParty(body: PartyCheckRequest, signal?: AbortSignal): Promise<PartyCheckResult> {
+  const response = await fetch(`${API_BASE}/api/party-check`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+    cache: "no-store",
+  });
+  return readJson<PartyCheckResult>(response);
 }
 
 export function fetchExplore(params: Record<string, string>, signal: AbortSignal): Promise<ExploreResponse> {

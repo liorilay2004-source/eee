@@ -8,6 +8,7 @@ import { SiteFooter, SiteHeader } from "../components/Chrome";
 import { BoardingPass, CompactCard, PassSkeleton } from "../components/OfferCards";
 import { WatchPanel } from "../components/WatchPanel";
 import { metaNotes, staleBadge } from "../lib/cards";
+import { autoCheckAvailable } from "../lib/partycheck";
 import { clearPrefillNotice, peekPrefillNotice } from "../lib/prefill";
 import { RequestError, searchFlights } from "../api/client";
 import type { CardView, SearchRequest, SearchResponse, SourceStatus } from "../api/contract";
@@ -498,6 +499,7 @@ function Results({ submitted, response, dimmed, announce }: { submitted: Submitt
   const scanAge = Math.floor(hero.ageHours);
   const cachedAnswer = staleBadge(response.meta);
   const extraNotes = metaNotes(response.meta);
+  const autoCheck = autoCheckAvailable(response.meta);
   return <div className={`results-body ${dimmed ? "is-stale" : ""}`}>
     <h2 id="results-heading" tabIndex={-1} className="results-title">
       {cards.length === 1 ? "מצאנו הצעה אחת" : `מצאנו ${cards.length} הצעות`}
@@ -507,10 +509,10 @@ function Results({ submitted, response, dimmed, announce }: { submitted: Submitt
       {cachedAnswer.detail && <p>{cachedAnswer.detail}</p>}
     </div>}
     {truncated && <p className="calm-note"><Info size={18} aria-hidden="true" /><span>{he.truncated}</span></p>}
-    <BoardingPass card={hero} request={request} originLabel={originLabel} destinationLabel={destinationLabel} />
+    <BoardingPass card={hero} request={request} originLabel={originLabel} destinationLabel={destinationLabel} autoCheck={autoCheck} />
     {others.length > 0 && <>
       <h3 className="minis-title">עוד אפשרויות ששווה להכיר</h3>
-      <div className="minis">{others.map((card) => <CompactCard key={`${card.offer.departDate}-${card.offer.returnDate}-${card.kinds.join("-")}`} card={card} request={request} originLabel={originLabel} destinationLabel={destinationLabel} />)}</div>
+      <div className="minis">{others.map((card) => <CompactCard key={`${card.offer.departDate}-${card.offer.returnDate}-${card.kinds.join("-")}`} card={card} request={request} originLabel={originLabel} destinationLabel={destinationLabel} autoCheck={autoCheck} />)}</div>
     </>}
     {/* Keyed by the search: a new search starts a fresh alert form. */}
     <WatchPanel key={JSON.stringify(request)} request={request} originLabel={originLabel} destinationLabel={destinationLabel} announce={announce} />

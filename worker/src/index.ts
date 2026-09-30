@@ -7,6 +7,7 @@
  *   GET  /api/health    D1 liveness, deployed commit, newest applied migration
  *   POST /api/watches, GET|DELETE /api/watches/<token>, POST /api/telegram/webhook   price alerts (src/watches.ts)
  *   GET  /api/deals     unusual fares per watched route, precomputed by the hourly snapshot cron (dealreports.ts)
+ *   POST /api/party-check  "book together or one by one?" for one date pair, on demand (rate limited, src/partycheck.ts)
  *
  * Every response is JSON, `Cache-Control: no-store`, `nosniff`. Errors are
  * { error: { code, message, reason?, fields?, fieldCodes?, retryAfterSec? } } (all but code and message are additive)
@@ -29,6 +30,7 @@ import { loadDeals, refreshDealReport } from "./dealreports";
 import { EXPLORE_RATE_LIMIT_MAX, EXPLORE_RATE_LIMIT_WINDOW_SECONDS, ExploreError, parseExploreParams, runExplore } from "./explore";
 import { getFxRates } from "./fx";
 import { checkHealth } from "./health";
+import { handlePartyCheck, signPartyToken } from "./partycheck";
 import { defaultResolver, PipelineError, runSearch, sha256Hex, type ScanBudgetVerdict } from "./pipeline";
 import { withDailyShare, type FareQuoteSource } from "./quotes";
 import { clientIdentity, createMemoryLimiter, limiterSalt } from "./ratelimit";
@@ -279,6 +281,8 @@ async function handleSearch(request: Request, env: Env, ctx: ExecutionContext): 
         quoteSources: quoteSources(env, repo, fetchFn, now),
         // A cache row past its TTL (up to 24h) answers at once, marked meta.stale, and is rescanned in the background.
         staleWhileRevalidate: true,
+        // Round-trip cards get the signed token POST /api/party-check needs (only when that check can run: see partycheck.ts).
+        partyToken: (fields) => signPartyToken(limiterSalt(env), fields, now),
       },
       parsed.req,
     );
@@ -403,6 +407,26 @@ async function handleCalendar(request: Request, url: URL, env: Env, ctx: Executi
   }
 }
 
+/**
+ * POST /api/party-check (src/partycheck.ts): the live "together or one by one?" check of one card, only when the user asks for
+ * it, and only with the token the search signed that card with. The live sources are wired exactly like the search's (same keys,
+ * same caps, same daily shares); partycheck.ts picks the one that may be used, or answers 404 when none may. Its own per-client
+ * limit (own key, same salted-hash identity) fails closed.
+ */
+async function handlePartyCheckRoute(request: Request, env: Env): Promise<ApiResult> {
+  const now = new Date();
+  const repo = createRepo(env.DB);
+  const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
+  // Its own limiter key; "party:<source>" (no hash) is the check's daily cap per source, in the same table.
+  const clientKey = `party-client:${await sha256Hex(`${clientIdentity(ip)}|${limiterSalt(env)}`)}`;
+  const fetchFn: typeof fetch = (input, init) => globalThis.fetch(input, init);
+  return handlePartyCheck(
+    // tokenSecret: the key the search signed its cards with (handleSearch's partyToken), so only a card of a recent search is checked.
+    { repo, sources: quoteSources(env, repo, fetchFn, now), fx: () => getFxRates(repo, fetchFn, now), tokenSecret: limiterSalt(env), now, clientKey },
+    () => readJson(request),
+  );
+}
+
 function handleAirports(url: URL): ApiResult {
   const q = url.searchParams.get("q") ?? "";
   const asked = Number(url.searchParams.get("limit") ?? AIRPORTS_DEFAULT_LIMIT);
@@ -461,6 +485,7 @@ const ROUTES: Record<string, string> = {
   "/api/health": "GET",
   "/api/watches": "POST",
   "/api/telegram/webhook": "POST",
+  "/api/party-check": "POST",
 };
 /** /api/watches/<token>: the token is checked by the handler (a malformed one is simply not found). */
 const WATCH_PATH = /^\/api\/watches\/([^/]+)$/;
@@ -495,6 +520,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   }
   if (path === "/api/telegram/webhook") return handleTelegramWebhook(request, env);
   if (path === "/api/search") return handleSearch(request, env, ctx);
+  if (path === "/api/party-check") return handlePartyCheckRoute(request, env);
   if (path === "/api/airports") return handleAirports(url);
   if (path === "/api/deals") return handleDeals(env);
   if (path === "/api/calendar") return handleCalendar(request, url, env, ctx);
