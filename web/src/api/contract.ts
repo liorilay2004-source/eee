@@ -23,6 +23,34 @@ export interface AirportSuggestion {
   airports: string[];
 }
 
+/** One airport of a country suggestion (mirrors worker/src/countries/search.ts CountryAirport). */
+export interface CountryAirport {
+  code: string;
+  cityCode: string;
+  nameHe: string | null;
+  nameEn: string;
+  direct: boolean;
+}
+
+/**
+ * A country in the destination autocomplete ("יוון" -> Greece's airports, best first). Sent by newer Workers in a
+ * separate `countries` array next to `results`; older Workers omit it, so the web treats it as optional.
+ */
+export interface CountrySuggestion {
+  type: "country";
+  code: string;
+  nameHe: string;
+  nameEn: string | null;
+  match?: "exact" | "partial";
+  airports: string[];
+  places: CountryAirport[];
+}
+
+export interface AirportLookup {
+  results: AirportSuggestion[];
+  countries: CountrySuggestion[];
+}
+
 export interface ApiError {
   error?: {
     code?: string;

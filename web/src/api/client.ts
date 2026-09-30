@@ -1,6 +1,6 @@
 import { API_BASE } from "../config";
 import type {
-  AirportSuggestion, ApiError, CalendarResponse, CreateWatchRequest, CreateWatchResponse, DealsResponse, ExploreResponse,
+  AirportLookup, AirportSuggestion, ApiError, CountrySuggestion, CalendarResponse, CreateWatchRequest, CreateWatchResponse, DealsResponse, ExploreResponse,
   GetWatchResponse, SearchRequest, SearchResponse,
 } from "./contract";
 
@@ -44,9 +44,21 @@ async function getJson<T>(path: string, params: Record<string, string> | undefin
   return readJson<T>(await fetch(apiUrl(path, params), { signal, cache: "no-store" }));
 }
 
-export async function findAirports(query: string, signal: AbortSignal): Promise<AirportSuggestion[]> {
-  const data = await getJson<{ results: AirportSuggestion[] }>("/api/airports", { q: query, limit: "8" }, signal);
-  return data.results;
+/** Keeps only well-formed country suggestions with at least one airport; anything else (older API: absent) -> []. */
+export function cleanCountries(raw: unknown): CountrySuggestion[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((c): c is CountrySuggestion => {
+    if (!c || typeof c !== "object") return false;
+    const x = c as Partial<CountrySuggestion>;
+    return x.type === "country" && typeof x.code === "string" && typeof x.nameHe === "string"
+      && Array.isArray(x.places) && x.places.length > 0
+      && x.places.every((p) => p && typeof p.code === "string" && /^[A-Z]{3}$/.test(p.code));
+  });
+}
+
+export async function findAirports(query: string, signal: AbortSignal): Promise<AirportLookup> {
+  const data = await getJson<{ results?: AirportSuggestion[]; countries?: unknown }>("/api/airports", { q: query, limit: "8" }, signal);
+  return { results: Array.isArray(data.results) ? data.results : [], countries: cleanCountries(data.countries) };
 }
 
 export async function searchFlights(request: SearchRequest, signal: AbortSignal): Promise<SearchResponse> {

@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState, type FocusEvent, type KeyboardEvent } from "react";
-import { LoaderCircle, MapPin, Search } from "lucide-react";
+import { Check, Globe, LoaderCircle, MapPin, Search } from "lucide-react";
 import { findAirports } from "../api/client";
-import type { AirportSuggestion } from "../api/contract";
+import type { AirportSuggestion, CountryAirport, CountrySuggestion } from "../api/contract";
+import { chooseOption, countryChips, countryPlaceName, mergeOptions, placeDisplayName, placeSearchCode, type ComboOption } from "../lib/suggest";
 
 interface Props {
   label: string;
@@ -11,28 +12,59 @@ interface Props {
   /** Describes the input, e.g. the question's error message. */
   describedBy?: string;
   autoFocus?: boolean;
+  /** Also offer countries ("יוון" -> Greece's airports). For the destination only; off by default. */
+  countries?: boolean;
+  /** The form's current value for this field, when it can also change outside the combobox (quick-pick buttons). */
+  value?: string;
 }
 
-function displayName(place: AirportSuggestion): string {
-  if (place.kind === "airport") return place.airportNameHe || place.airportNameEn || place.airportCode || place.code;
-  return place.nameHe || place.nameEn || place.code;
+
+function optionKey(option: ComboOption, index: number): string {
+  return option.type === "country"
+    ? `country-${option.country.code}`
+    : `${option.place.code}-${option.place.airportCode ?? "city"}-${index}`;
 }
 
-function placeCode(place: AirportSuggestion): string {
-  return place.kind === "airport" ? (place.airportCode || place.code) : place.code;
+/** Row content for a country option. */
+export function CountryOptionContent({ country }: { country: CountrySuggestion }) {
+  const count = country.places.length;
+  return <>
+    <Globe size={16} aria-hidden="true" className="combo-pin" />
+    <span className="combo-main"><strong>{country.nameHe}</strong><small>{count === 1 ? "מדינה · שדה תעופה אחד" : `מדינה · ${count} שדות תעופה`}{country.nameEn ? <> · <span dir="ltr">{country.nameEn}</span></> : null}</small></span>
+    <span className="combo-code" dir="ltr">{country.places[0]?.code}</span>
+  </>;
+}
+
+/** After a country is picked: every airport of that country as a chip, the one being searched pressed. */
+export function CountryAirportChips({ country, selected, onPick }: { country: CountrySuggestion; selected: string; onPick: (place: CountryAirport) => void }) {
+  if (country.places.length < 2) return null;
+  return <div className="combo-country">
+    <p className="q-help">שדות תעופה ב{country.nameHe}. אפשר להחליף:</p>
+    <div className="choice-grid three" role="group" aria-label={`שדות תעופה ב${country.nameHe}`}>
+      {country.places.map((place) => {
+        const on = place.code === selected;
+        return <button key={place.code} type="button" className={`choice ${on ? "is-on" : ""}`} aria-pressed={on} onClick={() => onPick(place)}>
+          <span className="choice-main">{on && <Check size={16} aria-hidden="true" className="choice-check" />}{countryPlaceName(place)}</span>
+          <span className="choice-sub"><span dir="ltr">{place.code}</span>{place.direct ? " · טיסות ישירות" : ""}</span>
+        </button>;
+      })}
+    </div>
+  </div>;
 }
 
 /**
  * WAI-ARIA combobox (list autocomplete). The listbox is never a Tab stop; arrows move the active option,
  * Enter picks it, Escape closes the list (a second Escape closes the sheet), and focus leaving closes it.
  */
-export function AirportCombobox({ label, inputId, placeholder, onSelect, describedBy, autoFocus }: Props) {
+export function AirportCombobox({ label, inputId, placeholder, onSelect, describedBy, autoFocus, countries: withCountries = false, value }: Props) {
   const listId = useId();
   const statusId = useId();
   const root = useRef<HTMLDivElement>(null);
   const [text, setText] = useState("");
   const [picked, setPicked] = useState("");
-  const [items, setItems] = useState<AirportSuggestion[]>([]);
+  const [items, setItems] = useState<ComboOption[]>([]);
+  const [country, setCountry] = useState<CountrySuggestion | null>(null);
+  const [countryPick, setCountryPick] = useState("");
   const [active, setActive] = useState(-1);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -45,7 +77,8 @@ export function AirportCombobox({ label, inputId, placeholder, onSelect, describ
     const timer = window.setTimeout(() => {
       setBusy(true);
       findAirports(query, controller.signal)
-        .then((found) => {
+        .then((lookup) => {
+          const found = mergeOptions(lookup.results, withCountries ? lookup.countries : []);
           setItems(found);
           setActive(-1);
           setOpen(found.length > 0);
@@ -65,19 +98,31 @@ export function AirportCombobox({ label, inputId, placeholder, onSelect, describ
       // The aborted request never clears the spinner itself, and the next run may return early (short query).
       setBusy(false);
     };
-  }, [text, picked]);
+  }, [text, picked, withCountries]);
 
-  const choose = (place: AirportSuggestion) => {
-    const code = placeCode(place);
-    const name = displayName(place);
+  const settle = (code: string, name: string, statusText: string) => {
     const shown = `${name} · ${code}`;
     setPicked(shown);
     setText(shown);
     setItems([]);
     setOpen(false);
     setActive(-1);
-    setStatus(`נבחר: ${name}`);
+    setStatus(statusText);
     onSelect(code, name);
+  };
+
+  const pickCountryAirport = (from: CountrySuggestion, place: CountryAirport) => {
+    const name = countryPlaceName(place);
+    setCountryPick(place.code);
+    settle(place.code, name, `נבחר: ${name}, ${from.nameHe}`);
+  };
+
+  const choose = (option: ComboOption) => {
+    const choice = chooseOption(option);
+    if (!choice) return;
+    setCountry(choice.country);
+    setCountryPick(choice.countryPick);
+    settle(choice.code, choice.name, choice.status);
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -118,6 +163,7 @@ export function AirportCombobox({ label, inputId, placeholder, onSelect, describ
   };
 
   const listOpen = open && items.length > 0;
+  const chips = countryChips(country, countryPick, value);
   return <div className="combo" ref={root} onBlur={onBlur}>
     <label className="combo-label" htmlFor={inputId}>{label}</label>
     <div className="combo-shell">
@@ -139,27 +185,34 @@ export function AirportCombobox({ label, inputId, placeholder, onSelect, describ
         value={text}
         placeholder={placeholder}
         onFocus={() => { if (items.length) setOpen(true); }}
-        onChange={(event) => { setText(event.target.value); setPicked(""); setOpen(false); setActive(-1); if (event.target.value.trim().length < 2) { setItems([]); setStatus(""); } }}
+        onChange={(event) => { setText(event.target.value); setPicked(""); setCountry(null); setCountryPick(""); setOpen(false); setActive(-1); if (event.target.value.trim().length < 2) { setItems([]); setStatus(""); } }}
         onKeyDown={onKeyDown}
       />
       {busy && <LoaderCircle size={18} className="spin combo-busy" aria-hidden="true" />}
     </div>
+    {chips && <CountryAirportChips country={chips.country} selected={chips.selected} onPick={(place) => pickCountryAirport(chips.country, place)} />}
     <ul id={listId} className="combo-list" role="listbox" aria-label={`תוצאות עבור ${label}`} tabIndex={-1} hidden={!listOpen}>
-      {items.map((place, index) => <li
+      {items.map((option, index) => <li
         id={`${listId}-${index}`}
-        key={`${place.code}-${place.airportCode ?? "city"}-${index}`}
+        key={optionKey(option, index)}
         role="option"
         aria-selected={active === index}
         className={active === index ? "is-active" : undefined}
         onMouseDown={(event) => event.preventDefault()}
         onMouseMove={() => setActive(index)}
-        onClick={() => choose(place)}
+        onClick={() => choose(option)}
       >
-        <MapPin size={16} aria-hidden="true" className="combo-pin" />
-        <span className="combo-main"><strong>{displayName(place)}</strong><small dir="ltr">{place.nameEn && place.nameEn !== displayName(place) ? `${place.nameEn} · ${place.countryCode}` : place.countryCode}</small></span>
-        <span className="combo-code" dir="ltr">{placeCode(place)}</span>
+        {option.type === "country" ? <CountryOptionContent country={option.country} /> : <PlaceOptionContent place={option.place} />}
       </li>)}
     </ul>
     <p id={statusId} className="combo-status" aria-live="polite">{status}</p>
   </div>;
+}
+
+function PlaceOptionContent({ place }: { place: AirportSuggestion }) {
+  return <>
+    <MapPin size={16} aria-hidden="true" className="combo-pin" />
+    <span className="combo-main"><strong>{placeDisplayName(place)}</strong><small dir="ltr">{place.nameEn && place.nameEn !== placeDisplayName(place) ? `${place.nameEn} · ${place.countryCode}` : place.countryCode}</small></span>
+    <span className="combo-code" dir="ltr">{placeSearchCode(place)}</span>
+  </>;
 }

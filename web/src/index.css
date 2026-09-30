@@ -359,6 +359,8 @@ p { text-wrap: pretty; }
 .combo-main strong { font-size: 17px; }
 .combo-main small { color: var(--muted); font-size: 13px; text-align: end; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .combo-code { font-weight: 800; color: var(--ink-2); letter-spacing: .04em; }
+.combo-country { display: grid; gap: 8px; }
+.combo-country .q-help { margin: 0; }
 .combo-status { margin: 0; min-height: 1.4em; color: var(--muted); font-size: 14px; }
 
 /* ------------------------------------------------------------------ summary */
