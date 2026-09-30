@@ -9,12 +9,35 @@ export function PlaneMark() {
   </svg>;
 }
 
-export function SiteHeader({ children }: { children?: ReactNode }) {
-  return <header className="site-header">
-    <a className="skip-link" href="#main">דילוג לתוכן</a>
-    <a className="brand" href="/"><PlaneMark /><span className="brand-name">{PRODUCT_NAME}</span></a>
-    {children}
-  </header>;
+export type NavPath = "/" | "/explore" | "/deals" | "/alerts";
+
+const NAV: readonly [NavPath, string][] = [
+  ["/", "חיפוש"],
+  ["/explore", "לא יודע לאן?"],
+  ["/deals", "מבצעים"],
+  ["/alerts", "התראות"],
+];
+
+/** The app's sections. Plain links (full page loads): each page reads its own state from the URL or the device. */
+export function SiteNav({ current }: { current: NavPath }) {
+  return <nav className="site-nav" aria-label="אזורי האתר">
+    <ul>
+      {NAV.map(([href, label]) => <li key={href}>
+        <a href={href} aria-current={href === current ? "page" : undefined}>{label}</a>
+      </li>)}
+    </ul>
+  </nav>;
+}
+
+export function SiteHeader({ children, current }: { children?: ReactNode; current?: NavPath }) {
+  return <>
+    <header className="site-header">
+      <a className="skip-link" href="#main">דילוג לתוכן</a>
+      <a className="brand" href="/"><PlaneMark /><span className="brand-name">{PRODUCT_NAME}</span></a>
+      {children}
+    </header>
+    {current && <SiteNav current={current} />}
+  </>;
 }
 
 export function SiteFooter({ children }: { children?: ReactNode }) {

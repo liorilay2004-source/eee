@@ -2,12 +2,14 @@ import { useState, type ReactNode } from "react";
 import { BaggageClaim, CalendarDays, Check, CircleAlert, Info } from "lucide-react";
 import { AirportCombobox } from "./AirportCombobox";
 import { Stepper } from "./Stepper";
+import { PriceCalendar } from "./PriceCalendar";
 import { LIMITS } from "../config";
 import {
   POPULAR_DESTINATIONS, QUICK_ORIGINS, STAY_PRESETS, addDays, inferWhen, monthOptions, nextMonthWindow, nightsText,
   pairCheck, rangeLabel, stayPresetFor, toggleMonth, windowForMonths, type WhenChoice,
 } from "../lib/builder";
 import type { SearchForm } from "../lib/search";
+import { initialCalendarMonth } from "../lib/calendar";
 
 export type Patch = (patch: Partial<SearchForm>) => void;
 
@@ -79,6 +81,14 @@ export function WhenQuestion({ form, patch, error, errorId, today }: QuestionPro
     patch(w ?? { windowStart: "", windowEnd: "" });
   };
   const maxStart = addDays(today, LIMITS.maxAdvanceDays);
+  const monthKeys = months.map((m) => m.key);
+  const [calendarMonth] = useState(() => initialCalendarMonth(form, today, monthKeys[0]));
+  const [calendarStay] = useState<[number, number]>(() => [form.stayMin, form.stayMax]);
+  // A tapped calendar day is one exact date pair: that fare's departure, return and nights.
+  const pickDay = (dates: Pick<SearchForm, "windowStart" | "windowEnd" | "stayMin" | "stayMax">) => {
+    setChoice({ mode: "exact" });
+    patch(dates);
+  };
   return <div className="q">
     <QuestionError id={errorId} message={error} />
     <p className="q-help">בחרו חודש אחד, או שני חודשים צמודים. נחפש את הצירוף הזול ביותר בתוכם.</p>
@@ -106,6 +116,7 @@ export function WhenQuestion({ form, patch, error, errorId, today }: QuestionPro
         : <span>עוד לא נבחר טווח.</span>}
     </div>
     <PairHint form={form} />
+    <PriceCalendar form={form} today={today} months={monthKeys} initialMonth={calendarMonth} stay={calendarStay} onPick={pickDay} />
   </div>;
 }
 

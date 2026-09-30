@@ -4,7 +4,7 @@ const BUILD_ID = "__BUILD_ID__";
 const CACHE_PREFIX = "eee-shell-";
 const CACHE_NAME = `${CACHE_PREFIX}${BUILD_ID}`;
 const SHELL = ["/", "/offline.html", "/offline.css", "/manifest.webmanifest", "/icon.svg"];
-const APP_ROUTES = ["/", "/privacy", "/terms", "/affiliate", "/accessibility"];
+const APP_ROUTES = ["/", "/explore", "/deals", "/alerts", "/privacy", "/terms", "/affiliate", "/accessibility"];
 
 /**
  * A copy of a response without the "redirected" flag. Cloudflare Pages answers /offline.html with a 308 to /offline;

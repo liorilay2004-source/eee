@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  ArrowLeft, CalendarRange, CircleAlert, Compass, Eye, Hourglass, Info, MapPinned, Moon, PencilLine, RefreshCw,
+  ArrowLeft, CalendarRange, CircleAlert, Compass, Eye, History, Hourglass, Info, MapPinned, Moon, PencilLine, RefreshCw,
   Share2, WifiOff, X,
 } from "lucide-react";
 import { Builder } from "../components/Builder";
 import { SiteFooter, SiteHeader } from "../components/Chrome";
 import { BoardingPass, CompactCard, PassSkeleton } from "../components/OfferCards";
+import { WatchPanel } from "../components/WatchPanel";
+import { metaNotes, staleBadge } from "../lib/cards";
+import { clearPrefillNotice, peekPrefillNotice } from "../lib/prefill";
 import { RequestError, searchFlights } from "../api/client";
 import type { CardView, SearchRequest, SearchResponse, SourceStatus } from "../api/contract";
 import { he } from "../copy/he";
@@ -17,7 +20,7 @@ import {
 } from "../lib/builder";
 import { demoResult } from "../lib/demo";
 import {
-  clearStoredForm, emptyForm, formatShortDate, loadStoredForm, readSearchUrl, sameRequest, storeForm,
+  clearStoredForm, emptyForm, formatShortDate, isFillOnly, loadStoredForm, readSearchUrl, sameRequest, storeForm,
   toRequest, todayISO, updateSearchUrl, validateForm, type SearchForm,
 } from "../lib/search";
 
@@ -33,11 +36,14 @@ type Run =
 
 const SEARCH_TIMEOUT_MS = 25_000;
 
-function initialForm(): { form: SearchForm; fromUrl: boolean } {
+function initialForm(): { form: SearchForm; fromUrl: boolean; fillOnly: boolean } {
   const fromUrl = readSearchUrl();
-  if (fromUrl) return { form: fromUrl, fromUrl: true };
-  return { form: loadStoredForm() ?? emptyForm(), fromUrl: false };
+  // A fill-only link (from the explore screen) fills the form but does not run it.
+  if (fromUrl) return { form: fromUrl, fromUrl: true, fillOnly: isFillOnly(location.search) };
+  return { form: loadStoredForm() ?? emptyForm(), fromUrl: false, fillOnly: false };
 }
+
+const FILLED_FALLBACK = "מילאנו את החיפוש ממצב הגילוי. בדקו מי טס ולחצו על החיפוש כדי לבדוק מחיר לכל הנוסעים.";
 
 type FocusTarget = "results" | "demo-open";
 
@@ -94,6 +100,10 @@ export function SearchPage() {
   const [announcement, setAnnouncement] = useState("");
   const [online, setOnline] = useState(() => navigator.onLine);
   const [copied, setCopied] = useState(false);
+  // Set when the explore screen filled this search (read once, then forgotten).
+  // The notice text rides in sessionStorage; the search itself comes in the URL, so it arrives even when storage is blocked.
+  const [prefilled, setPrefilled] = useState(() => (initial.fillOnly ? peekPrefillNotice() ?? FILLED_FALLBACK : null));
+  useEffect(() => { clearPrefillNotice(); }, []);
   const controller = useRef<AbortController | null>(null);
   const searchSeq = useRef(0);
   const autoRan = useRef(false);
@@ -130,6 +140,7 @@ export function SearchPage() {
 
   const patch = useCallback((changes: Partial<SearchForm>) => {
     setForm((current) => ({ ...current, ...changes }));
+    setPrefilled(null);
     setDemo(false);
     // Clear the errors this change resolves (see questionsTouchedBy): never leave a stale message on another chip.
     const touched = questionsTouchedBy(Object.keys(changes), openQuestion);
@@ -148,6 +159,7 @@ export function SearchPage() {
     setDemo(false);
     setEditing(false);
     setOpenQuestion(null);
+    setPrefilled(null);
     setFieldErrors(NO_FIELD_ERRORS);
     setRawErrors({});
     updateSearchUrl(nextForm);
@@ -230,11 +242,11 @@ export function SearchPage() {
 
   // A shared link (or reload) with a search in the URL runs it once.
   useEffect(() => {
-    if (!initial.fromUrl || autoRan.current) return;
-    autoRan.current = true;
+    if (!initial.fromUrl || initial.fillOnly || autoRan.current) return;
     const errors = validateForm(initial.form, todayISO());
     if (Object.keys(errors).length) return;
-    const timer = window.setTimeout(() => { void runSearch(initial.form); }, 0);
+    // Marked inside the timer: StrictMode's mount-unmount-mount clears the first timer, and the second mount must still run it.
+    const timer = window.setTimeout(() => { autoRan.current = true; void runSearch(initial.form); }, 0);
     return () => window.clearTimeout(timer);
   }, [initial, runSearch]);
 
@@ -309,9 +321,10 @@ export function SearchPage() {
 
   return <>
     <div className={`app ${showBuilder ? "has-cta" : ""} ${showBuilder && editing && run.status === "done" ? "cta-tall" : ""}`} inert={openQuestion !== null}>
-      <SiteHeader />
+      <SiteHeader current="/" />
       {!online && <p className="offline-bar" role="status"><WifiOff size={16} aria-hidden="true" />אין חיבור לאינטרנט כרגע.</p>}
       <main id="main" className="main">
+        {showBuilder && prefilled && <p className="prefill-note" role="status"><Compass size={18} aria-hidden="true" /><span>{prefilled}</span></p>}
         {showBuilder && <Builder
           form={form} patch={patch} today={today} errors={fieldErrors} rawErrors={rawErrors}
           openQuestion={openQuestion} setOpenQuestion={setOpenQuestion} onSubmit={submit}
@@ -332,7 +345,7 @@ export function SearchPage() {
           </StateCard>}
           {run.status === "failed" && <FailureCard failure={run.failure} retryAt={run.retryAt} onRetry={() => trySearch(run.submitted.form)} onEdit={editSearch} showEdit={!showBuilder} />}
           {run.status === "done" && (run.response.cards.length
-            ? <Results submitted={run.submitted} response={run.response} dimmed={stale} />
+            ? <Results submitted={run.submitted} response={run.response} dimmed={stale} announce={announce} />
             : <EmptyState submitted={run.submitted} response={run.response} onTry={trySearch} onEdit={editSearch} />)}
         </section>
       </main>
@@ -473,7 +486,7 @@ function sourceName(source: SourceStatus): string {
   return names[source.name] ?? source.name;
 }
 
-function Results({ submitted, response, dimmed }: { submitted: Submitted; response: SearchResponse; dimmed: boolean }) {
+function Results({ submitted, response, dimmed, announce }: { submitted: Submitted; response: SearchResponse; dimmed: boolean; announce: (text: string) => void }) {
   const cards = response.cards;
   const heroIndex = Math.max(0, cards.findIndex((c) => c.kinds.includes("cheapest")));
   const hero = cards[heroIndex];
@@ -483,16 +496,24 @@ function Results({ submitted, response, dimmed }: { submitted: Submitted; respon
   const destinationLabel = placeLabel(form.destination, form.destinationLabel);
   const truncated = scanGaps(response.meta.sources).truncated;
   const scanAge = Math.floor(hero.ageHours);
+  const cachedAnswer = staleBadge(response.meta);
+  const extraNotes = metaNotes(response.meta);
   return <div className={`results-body ${dimmed ? "is-stale" : ""}`}>
     <h2 id="results-heading" tabIndex={-1} className="results-title">
       {cards.length === 1 ? "מצאנו הצעה אחת" : `מצאנו ${cards.length} הצעות`}
     </h2>
+    {cachedAnswer && <div className="cached-note">
+      <span className="badge-soft"><History size={16} aria-hidden="true" />{cachedAnswer.badge}</span>
+      {cachedAnswer.detail && <p>{cachedAnswer.detail}</p>}
+    </div>}
     {truncated && <p className="calm-note"><Info size={18} aria-hidden="true" /><span>{he.truncated}</span></p>}
     <BoardingPass card={hero} request={request} originLabel={originLabel} destinationLabel={destinationLabel} />
     {others.length > 0 && <>
       <h3 className="minis-title">עוד אפשרויות ששווה להכיר</h3>
       <div className="minis">{others.map((card) => <CompactCard key={`${card.offer.departDate}-${card.offer.returnDate}-${card.kinds.join("-")}`} card={card} request={request} originLabel={originLabel} destinationLabel={destinationLabel} />)}</div>
     </>}
+    {/* Keyed by the search: a new search starts a fresh alert form. */}
+    <WatchPanel key={JSON.stringify(request)} request={request} originLabel={originLabel} destinationLabel={destinationLabel} announce={announce} />
     <p className="disclaimer"><Info size={16} aria-hidden="true" />{he.priceDisclaimer}</p>
     <details className="data-details">
       <summary>על הנתונים של החיפוש הזה</summary>
@@ -502,6 +523,7 @@ function Results({ submitted, response, dimmed }: { submitted: Submitted; respon
         <div><dt>צירופי תאריכים</dt><dd className="num">{response.meta.candidatePairs}</dd></div>
         <div><dt>שער המטבע</dt><dd>{response.meta.fxSource} · <span dir="ltr" className="num">{response.meta.fxDate}</span></dd></div>
       </dl>
+      {extraNotes.length > 0 && <ul className="source-list meta-notes">{extraNotes.map((n) => <li key={n}>{n}</li>)}</ul>}
       <ul className="source-list">
         {response.meta.sources.map((source) => {
           const note = source.error ? sourceNote(source.error) : null;
