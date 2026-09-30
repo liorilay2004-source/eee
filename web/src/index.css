@@ -547,6 +547,15 @@ p { text-wrap: pretty; }
 .source-chip.is-api, .source-chip.is-active { background: var(--good-soft); }
 .source-chip.is-blocked { background: var(--warn-soft); }
 
+.official-airline-links { width: 100%; padding: 16px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); text-align: start; display: grid; gap: 12px; }
+.official-airline-links h3 { margin: 0 0 6px; display: flex; align-items: center; gap: 8px; font-size: 18px; color: var(--ink); }
+.official-airline-links p { margin: 0; color: var(--muted); font-size: 14px; }
+.official-airline-links ul { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
+.official-airline-links li { min-width: 0; display: grid; gap: 2px; padding: 10px 12px; border-radius: 14px; background: var(--surface-2); }
+.official-airline-links a { color: var(--select-ink); font-weight: 800; text-decoration: none; }
+.official-airline-links a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.official-airline-links small { color: var(--muted); font-size: 12px; line-height: 1.35; }
+
 /* idle, loading, states */
 .idle { padding: 4px 0; }
 .idle h2, .loading h2, .state h2 { margin: 0; font-size: 24px; font-weight: 800; }

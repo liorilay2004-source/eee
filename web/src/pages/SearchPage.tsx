@@ -440,6 +440,31 @@ function SourceRegistryPanel({ sources, compact = false }: { sources: SourceRegi
   </div>;
 }
 
+function OfficialAirlineLinks({ sources }: { sources: SourceRegistryEntry[] }) {
+  if (sources.length === 0) return null;
+  const routeAirlines = prioritizedRegistry(
+    sources.filter((source) => source.kind === "airline" && source.routeRelevant && source.status !== "blocked"),
+    ["active", "api", "manual-link", "planned"],
+    18,
+  );
+  const airlines = routeAirlines.length > 0
+    ? routeAirlines
+    : prioritizedRegistry(sources.filter((source) => source.kind === "airline" && source.status !== "blocked"), ["active", "api", "manual-link", "planned"], 18);
+  if (airlines.length === 0) return null;
+  return <section className="official-airline-links" aria-labelledby="official-airline-links-title">
+    <div>
+      <h3 id="official-airline-links-title"><Link2 size={18} aria-hidden="true" />בדיקה באתרי חברות התעופה עצמן</h3>
+      <p>לא מצאנו מחיר במנוע כרגע. פתחו את אתרי החברות הרשמיים שמתאימות למסלול, הזינו את אותם תאריכים ונוסעים, ואז אפשר לשמור אצלנו את הקישור שמצאתם.</p>
+    </div>
+    <ul>
+      {airlines.map((source) => <li key={source.id}>
+        <a href={source.homeUrl} target="_blank" rel="noreferrer">{source.name}</a>
+        <small>{source.routeReasonHe ?? source.noteHe}</small>
+      </li>)}
+    </ul>
+  </section>;
+}
+
 function IdleIntro({ onDemo, knownSources }: { onDemo: () => void; knownSources: SourceRegistryEntry[] }) {
   const sourceSummary = sourceRegistrySummary(knownSources);
   return <div className="idle">
@@ -539,8 +564,8 @@ function EmptyState({ submitted, response, knownSources, onTry, onEdit }: { subm
       {longer && <button type="button" className="suggestion" onClick={() => onTry(longer)}>
         <Moon size={20} aria-hidden="true" /><span><strong>משך טיול אחר</strong><small>{nightsText(longer.stayMin, longer.stayMax)}</small></span></button>}
     </div>
+    <OfficialAirlineLinks sources={registry} />
     <button type="button" className="btn btn-ghost" onClick={onEdit}><PencilLine size={18} aria-hidden="true" />שינוי חיפוש</button>
-    <SourceRegistryPanel sources={registry} compact />
   </StateCard>;
 }
 
