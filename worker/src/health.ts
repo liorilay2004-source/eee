@@ -12,7 +12,7 @@ import { BUILD_SHA, BUILD_TIME } from "eee-build-info";
  * Newest file in worker/migrations/ (the code expects its tables). test/health.test.ts fails when a new migration is
  * added without updating this.
  */
-export const LATEST_BUNDLED_MIGRATION = "0007_flight_links.sql";
+export const LATEST_BUNDLED_MIGRATION = "0008_flight_link_airline.sql";
 
 export interface HealthBody {
   status: "ok" | "degraded";

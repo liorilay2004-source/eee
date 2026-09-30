@@ -51,13 +51,16 @@ describe("flight links", () => {
     expect(body.saved.destination).toBe("FRA");
     expect(body.saved.departDate).toBe("2027-06-01");
     expect(body.saved.returnDate).toBe("2027-06-22");
+    expect(body.saved.airlineIata).toBe("LH");
+    expect(body.saved.airlineIcao).toBe("DLH");
+    expect(body.saved.airlineName).toBe("Lufthansa");
     expect(body.saved.checkedAt).toBe(NOW.toISOString());
     expect(body.saved.url).not.toContain("sessionToken");
     expect(body.saved.url).not.toContain("email");
     expect(body.saved.url).not.toContain("#private");
 
-    const rows = await env.DB.prepare("SELECT host, source_name, url, checked_at FROM flight_links").all<{ host: string; source_name: string; url: string; checked_at: string }>();
-    expect(rows.results).toEqual([{ host: "lufthansa.com", source_name: "Lufthansa", url: body.saved.url, checked_at: NOW.toISOString() }]);
+    const rows = await env.DB.prepare("SELECT host, source_name, url, airline_iata, airline_name, checked_at FROM flight_links").all<{ host: string; source_name: string; url: string; checked_at: string }>();
+    expect(rows.results).toEqual([{ host: "lufthansa.com", source_name: "Lufthansa", url: body.saved.url, airline_iata: "LH", airline_name: "Lufthansa", checked_at: NOW.toISOString() }]);
   });
 
   it("returns only the same client recent links", async () => {

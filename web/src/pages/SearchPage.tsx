@@ -575,7 +575,7 @@ function FlightLinkMemoryPanel({ request, announce }: { request: SearchRequest; 
       {links.map((link) => <li key={link.id}>
         <div>
           <strong>{link.sourceName}</strong>
-          <span>{flightLinkRoute(link)}</span>
+          <span>{flightLinkRoute(link)}{link.airlineName ? ` · ${link.airlineName}` : ""}</span>
         </div>
         <div className="flight-link-meta">
           <time dateTime={link.checkedAt}>{checkedAtText(link.checkedAt)}</time>

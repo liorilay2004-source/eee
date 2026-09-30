@@ -1,3 +1,4 @@
+import { airlineFromTokens } from "./airlines/openflights";
 import { sourceRegistry } from "./source-registry";
 import { sha256Hex } from "./pipeline";
 import { clientIdentity, limiterSalt } from "./ratelimit";
@@ -92,7 +93,15 @@ function firstIataPair(tokens: string[]): { origin: string | null; destination: 
 function parseFlightLink(url: URL): FlightLinkParse {
   const source = sourceFor(url);
   const tokens = tokensFromUrl(url);
-  return { ...source, ...firstIataPair(tokens), ...firstDates(tokens) };
+  const airline = airlineFromTokens(tokens, [source.name, source.host]);
+  return {
+    ...source,
+    ...firstIataPair(tokens),
+    ...firstDates(tokens),
+    airlineIata: airline?.iata ?? null,
+    airlineIcao: airline?.icao ?? null,
+    airlineName: airline?.name ?? null,
+  };
 }
 
 function cleanSearchRequest(value: unknown): SearchRequest | null {
@@ -116,6 +125,9 @@ function rowToMemory(row: Record<string, unknown>): FlightLinkMemory {
     destination: typeof row.destination === "string" ? row.destination : null,
     departDate: typeof row.depart_date === "string" ? row.depart_date : null,
     returnDate: typeof row.return_date === "string" ? row.return_date : null,
+    airlineIata: typeof row.airline_iata === "string" ? row.airline_iata : null,
+    airlineIcao: typeof row.airline_icao === "string" ? row.airline_icao : null,
+    airlineName: typeof row.airline_name === "string" ? row.airline_name : null,
     checkedAt: String(row.checked_at),
   };
 }
@@ -124,7 +136,7 @@ export async function handleFlightLinks(deps: { env: Env; now: Date; ip: string 
   const clientHash = await sha256Hex(`${clientIdentity(deps.ip)}|${limiterSalt(deps.env)}|flight-link`);
   if (method === "GET") {
     const rows = await deps.env.DB.prepare(
-      "SELECT id, url, host, source_id, source_name, origin, destination, depart_date, return_date, checked_at FROM flight_links WHERE client_hash = ? ORDER BY checked_at DESC, id DESC LIMIT ?",
+      "SELECT id, url, host, source_id, source_name, origin, destination, depart_date, return_date, airline_iata, airline_icao, airline_name, checked_at FROM flight_links WHERE client_hash = ? ORDER BY checked_at DESC, id DESC LIMIT ?",
     ).bind(clientHash, RECENT_LIMIT).all<Record<string, unknown>>();
     return { status: 200, body: { links: rows.results.map(rowToMemory), generatedAt: deps.now.toISOString() } };
   }
@@ -147,10 +159,13 @@ export async function handleFlightLinks(deps: { env: Env; now: Date; ip: string 
     destination: request?.destination ?? parsed.destination ?? null,
     departDate: parsed.departDate ?? request?.windowStart ?? null,
     returnDate: parsed.returnDate ?? request?.windowEnd ?? null,
+    airlineIata: parsed.airlineIata,
+    airlineIcao: parsed.airlineIcao,
+    airlineName: parsed.airlineName,
     checkedAt: deps.now.toISOString(),
   };
   const res = await deps.env.DB.prepare(
-    "INSERT INTO flight_links (client_hash, url, host, source_id, source_name, origin, destination, depart_date, return_date, request_json, checked_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO flight_links (client_hash, url, host, source_id, source_name, origin, destination, depart_date, return_date, airline_iata, airline_icao, airline_name, request_json, checked_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
   ).bind(
     clientHash,
     memory.url,
@@ -161,13 +176,16 @@ export async function handleFlightLinks(deps: { env: Env; now: Date; ip: string 
     memory.destination,
     memory.departDate,
     memory.returnDate,
+    memory.airlineIata,
+    memory.airlineIcao,
+    memory.airlineName,
     request ? JSON.stringify(request) : null,
     memory.checkedAt,
     memory.checkedAt,
   ).run();
   const saved: FlightLinkMemory = { id: Number(res.meta.last_row_id), ...memory };
   const recent = await deps.env.DB.prepare(
-    "SELECT id, url, host, source_id, source_name, origin, destination, depart_date, return_date, checked_at FROM flight_links WHERE client_hash = ? ORDER BY checked_at DESC, id DESC LIMIT ?",
+    "SELECT id, url, host, source_id, source_name, origin, destination, depart_date, return_date, airline_iata, airline_icao, airline_name, checked_at FROM flight_links WHERE client_hash = ? ORDER BY checked_at DESC, id DESC LIMIT ?",
   ).bind(clientHash, RECENT_LIMIT).all<Record<string, unknown>>();
   return { status: 201, body: { saved, parse: parsed, links: recent.results.map(rowToMemory) } satisfies FlightLinkResponse };
 }

@@ -158,6 +158,9 @@ export interface FlightLinkParse {
   destination: string | null;
   departDate: string | null;
   returnDate: string | null;
+  airlineIata: string | null;
+  airlineIcao: string | null;
+  airlineName: string | null;
 }
 
 export interface FlightLinkMemory {
@@ -170,6 +173,9 @@ export interface FlightLinkMemory {
   destination: string | null;
   departDate: string | null;
   returnDate: string | null;
+  airlineIata: string | null;
+  airlineIcao: string | null;
+  airlineName: string | null;
   checkedAt: string;
 }
 
