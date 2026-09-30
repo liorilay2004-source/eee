@@ -182,6 +182,102 @@ export interface CardView extends Card {
   ageLabelKey: AgeLabelKey;
   /** ADDITIVE: ready Hebrew sentence for the age line (never implies a live check for a cached fare). */
   ageLabelHe: string;
+  /**
+   * ADDITIVE (party check, src/partycheck.ts): "book together or one by one?". Present ONLY on searches for 2+ adults; absent on
+   * every other answer (one adult, older APIs), and also when the card's link is not a recognisable Aviasales search link
+   * (a link is never made up). See PartyCheckCard.
+   */
+  partyCheck?: PartyCheckCard | null;
+}
+
+/**
+ * ADDITIVE (party check): the card's own booking link pointed at ONE adult and at the whole group, so the user can compare
+ * "one adult x N" with "everybody together" on the booking site. For a split ticket (two one-ways) the return one-way's pair
+ * comes too. The passenger code of a multi-adult link is inferred, not verified against the live service (see partyCode).
+ */
+export interface PartyCheckLinks {
+  adults: number;
+  singleLink: string;
+  partyLink: string;
+  /** Split tickets only: the return one-way, for one adult and for the group. */
+  returnSingleLink?: string;
+  returnPartyLink?: string;
+  /**
+   * ADDITIVE: present only on a round-trip card when meta.partyCheck.available is true: the signed token POST /api/party-check
+   * needs to check THIS card (its route, dates and adults), valid for a day. Absent = no automatic check for this card.
+   */
+  token?: string;
+}
+
+/** ADDITIVE (party check): the search has children or infants, who must stay in a booking with an adult: no links, only the explanation. */
+export interface PartyCheckChildren {
+  adults: number;
+  reason: "children";
+}
+
+export type PartyCheckCard = PartyCheckLinks | PartyCheckChildren;
+
+/** ADDITIVE: meta.partyCheck of a search for 2+ adults. `available` = the live check (POST /api/party-check) can run for its cards. */
+export interface PartyCheckMeta {
+  available: boolean;
+}
+
+/** POST /api/party-check body (src/partycheck.ts). Adults only, 2-9; children and infants are refused. */
+export interface PartyCheckRequest {
+  origin: string;
+  destination: string;
+  departDate: string;
+  returnDate: string | null;
+  adults: number;
+  /** The card's PartyCheckLinks.token: without a valid one for exactly these fields the check is refused (400 invalid_token / offer_expired). */
+  token?: string;
+}
+
+/** One price of a party check: the vendor's amount in its own currency, and in ILS at the day's rate (null: no rate). */
+export interface PartyCheckPrice {
+  amount: number;
+  currency: string;
+  ils: number | null;
+}
+
+/**
+ * "separate": booking one adult alone (and, from 3 adults, the others together) is ESTIMATED to be cheaper, on one flight;
+ * "together": one booking is cheaper; "same": no real difference; "unknown": the check cannot tell (an answer held no comparable
+ * price, or the only lower single price may be on another flight than the group's: then `single` and `together` still say what
+ * was found).
+ */
+export type PartyCheckVerdict = "separate" | "together" | "same" | "unknown";
+
+/** POST /api/party-check 200. Every ILS figure is rounded to agorot; the separate cost is an ESTIMATE (see partycheck.ts). */
+export interface PartyCheckResult {
+  source: SourceName;
+  sourceName: string;
+  checkedAt: string;
+  adults: number;
+  /** "same_flight": the same flight (flight numbers + departure times) in both answers; "cheapest": cheapest vs cheapest; null: nothing to compare. */
+  matchBasis: "same_flight" | "cheapest" | null;
+  /** The flight that was compared, when it is one flight ("same_flight"). Not necessarily the flight of the card that asked. */
+  flight: { outboundDepartTime: string | null; inboundDepartTime: string | null; airlines: string[] } | null;
+  /** ONE adult alone. */
+  single: PartyCheckPrice | null;
+  /** All the adults in one booking; perPersonIls = ils / adults. */
+  together: (PartyCheckPrice & { perPersonIls: number | null }) | null;
+  /**
+   * ESTIMATE of booking one by one, for "separate" ONLY (null otherwise): the first adult at the single price, every other one at
+   * the together price per person. The formula assumes the single price is the lower one, so for any other verdict it would name
+   * a cost no booking can reach.
+   */
+  separateEstimateIls: number | null;
+  /**
+   * together / adults - single (= together - the estimate): positive = booking one by one is estimated to save this much; negative
+   * = the group's price per person is that much lower than one adult alone. null when unknown.
+   */
+  savingIls: number | null;
+  /** The smallest difference that counts: max(20 ILS, 3% of the together total). */
+  thresholdIls: number | null;
+  verdict: PartyCheckVerdict;
+  noteHe: string;
+  fx: { date: string; source: string } | null;
 }
 
 /**
@@ -221,6 +317,13 @@ export interface SearchResponse {
     priceGuard?: { suspicious: number; excluded: number };
     /** ADDITIVE: bag-cost pool gating of the 💰/⚖️ cards (see RecommendationsMeta). */
     recommendations: RecommendationsMeta;
+    /**
+     * ADDITIVE (party check): present ONLY on a search for 2+ adults. `available` is true only when a configured live source can
+     * run POST /api/party-check (its multi-adult price can be read: stated in its docs, or inferred from them and checked on every
+     * fare, see PartyPricing in quotes.ts; its daily share fits a check; and it has room for one right now) and the search has no
+     * children or infants. Absent on every other answer, like on older APIs.
+     */
+    partyCheck?: PartyCheckMeta;
   };
 }
 
@@ -332,6 +435,20 @@ export interface Repo {
    * the day's counter and the new value is <= cap; false when the share is spent AND on any error (fail closed). See withDailyShare.
    */
   reserveDaily(key: string, cap: number, now: Date): Promise<boolean>;
+  /**
+   * ADDITIVE (party check): reserves `units` requests of a vendor's allowance AT ONCE, all or none: true only when this call
+   * raised the counter by exactly `units` and the new value is <= cap; false when fewer are left AND on any error (fail closed),
+   * and then nothing is taken. Optional: a repo without it cannot reserve several units, so the caller must refuse.
+   */
+  reserveQuotaUnits?(source: SourceName, period: string, cap: number, units: number, now: Date): Promise<boolean>;
+  /** ADDITIVE (party check): reserveDaily for `units` at once, all or none, fail closed. Optional like reserveQuotaUnits. */
+  reserveDailyUnits?(key: string, cap: number, units: number, now: Date): Promise<boolean>;
+  /**
+   * ADDITIVE (party check): READS a vendor's counters without reserving anything: `used` of its period (source_quota) and today's
+   * count of each daily key (rate_limits, e.g. "quota:ignav", "party:ignav"); a missing row is 0. Rejects on any error or odd
+   * input, which the caller must read as "no room" (fail closed). Optional: without it the live check is never offered.
+   */
+  readAllowance?(source: SourceName, period: string, dailyKeys: string[], now: Date): Promise<{ used: number; daily: Record<string, number> }>;
   /**
    * ADDITIVE: claims `key` for the fixed window of `windowSeconds` that `now` falls in (table rate_limits: key + the window's
    * start). True only for the first claim of that window; false for every later one AND on any error (fail closed). A refused

@@ -8,7 +8,7 @@ import { API_BASE } from "../config";
 import { clearAccessKey, emitAccessEvent, getAccessKey } from "../lib/access-key";
 import type {
   AirportLookup, AirportSuggestion, ApiError, CountrySuggestion, CalendarResponse, CreateWatchRequest, CreateWatchResponse, DealsResponse, ExploreResponse,
-  GetWatchResponse, SearchRequest, SearchResponse,
+  GetWatchResponse, PartyCheckRequest, PartyCheckResult, SearchRequest, SearchResponse,
 } from "./contract";
 
 export class RequestError extends Error {
@@ -129,6 +129,11 @@ export async function findAirports(query: string, signal: AbortSignal): Promise<
 
 export function searchFlights(request: SearchRequest, signal: AbortSignal): Promise<SearchResponse> {
   return postJson<SearchResponse>("/api/search", request, signal);
+}
+
+/** POST /api/party-check: the live "together or one by one?" check of one card. Only called on the user's click. */
+export function checkParty(body: PartyCheckRequest, signal?: AbortSignal): Promise<PartyCheckResult> {
+  return postJson<PartyCheckResult>("/api/party-check", body, signal);
 }
 
 export function fetchExplore(params: Record<string, string>, signal: AbortSignal): Promise<ExploreResponse> {

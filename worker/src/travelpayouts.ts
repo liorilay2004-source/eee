@@ -129,6 +129,17 @@ export function aviasalesSearchLink(
 /** `https://www.aviasales.com/search/<origin><DDMM><dest><digits>` followed by the query string, if any. */
 const SEARCH_LINK = /^(https:\/\/www\.aviasales\.com\/search\/[A-Za-z0-9]{3}\d{4}[A-Za-z0-9]{3})(\d+)(?=[?#]|$)/;
 
+/** The link with its passenger code replaced, or null when it is not a recognisable Aviasales search link. Throws like partyCode. */
+function rewritePassengers(link: string, party: Party): string | null {
+  const m = SEARCH_LINK.exec(link);
+  if (!m) return null;
+  // After the destination: a one-way has just the passenger code (1-3 digits), a round trip has DDMM + code (5-7).
+  const digits = m[2] as string;
+  const dateLen = digits.length >= 5 && digits.length <= 7 ? 4 : digits.length <= 3 ? 0 : -1;
+  if (dateLen < 0) return null;
+  return m[1] + digits.slice(0, dateLen) + partyCode(party) + link.slice(m[0].length);
+}
+
 /**
  * Rewrites the passenger code of an Aviasales search link to the whole party. The API's links are always for one
  * adult, while the card's price is for everybody; the rest of the link (the `t=` ticket id, the marker) is kept.
@@ -136,13 +147,22 @@ const SEARCH_LINK = /^(https:\/\/www\.aviasales\.com\/search\/[A-Za-z0-9]{3}\d{4
  */
 export function withPartySize(link: string | null, party: Party): string | null {
   if (!link) return link;
-  const m = SEARCH_LINK.exec(link);
-  if (!m) return link;
-  // After the destination: a one-way has just the passenger code (1-3 digits), a round trip has DDMM + code (5-7).
-  const digits = m[2] as string;
-  const dateLen = digits.length >= 5 && digits.length <= 7 ? 4 : digits.length <= 3 ? 0 : -1;
-  if (dateLen < 0) return link;
-  return m[1] + digits.slice(0, dateLen) + partyCode(party) + link.slice(m[0].length);
+  return rewritePassengers(link, party) ?? link;
+}
+
+/**
+ * ADDITIVE (party check, src/partycheck.ts): like withPartySize, but null instead of the link unchanged when it is not a
+ * recognisable Aviasales search link (or the party is impossible), so a caller can tell "rewritten" from "left alone" and
+ * never offers a link it could not point at the asked party. Same caveat as partyCode for more than one adult: the
+ * passenger code is inferred from the single-adult links the API returns, not verified against the live service.
+ */
+export function partySizedLink(link: string | null | undefined, party: Party): string | null {
+  if (!link) return null;
+  try {
+    return rewritePassengers(link, party);
+  } catch {
+    return null;
+  }
 }
 
 /** "YYYY-MM" for every month from start's to end's, inclusive; empty when start is after end. */

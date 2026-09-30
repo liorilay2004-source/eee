@@ -76,13 +76,29 @@ export function quotaSpecIsSafe(spec: QuotaSpec): boolean {
   return Number.isSafeInteger(spec.cap) && Number.isSafeInteger(spec.allowance) && spec.cap >= 1 && spec.cap * 100 <= spec.allowance * percent;
 }
 
-/** One date pair. Vendors are asked for ONE adult; `party` only shapes the booking link. */
+/** One date pair. Vendors are asked for ONE adult (only the party check sets `adults`); `party` only shapes the booking link. */
 export interface QuoteQuery {
   origin: string; // primary airport pair only
   destination: string;
   departDate: string;
   returnDate: string;
   party: Party;
+  /**
+   * ADDITIVE (party check, src/partycheck.ts): how many adults the VENDOR is asked to price, 1-9. Absent = 1, and then every
+   * adapter builds exactly the request it built before this field existed. The search's quote phase never sets it (one adult,
+   * scaled to the party later); only the party check does. `party` stays what shapes the booking link.
+   */
+  adults?: number;
+}
+
+/**
+ * The adults a vendor request is for: q.adults, or 1 when absent. Anything but a whole number 1-9 throws (a RangeError, like
+ * every other bad query), so it fails before a unit of the allowance is reserved.
+ */
+export function vendorAdults(q: Pick<QuoteQuery, "adults">): number {
+  const n = q.adults ?? 1;
+  if (typeof n !== "number" || !Number.isInteger(n) || n < 1 || n > 9) throw new RangeError("quote: adults must be a whole number from 1 to 9");
+  return n;
 }
 
 export interface FareQuoteSource {
@@ -103,6 +119,18 @@ export interface FareQuoteSource {
    * TravelpayoutsClient.roundTrips). Rejects with QuoteError; never retries; costs one reserved unit per request.
    */
   quote(q: QuoteQuery): Promise<Offer[]>;
+  /** ADDITIVE (party check): how a multi-adult price is read, from the vendor's docs (see PartyPricing). Absent = "unknown": never used. */
+  readonly partyPricing?: PartyPricing;
+  /**
+   * ADDITIVE (party check): one vendor search per query, IN ORDER. Every unit is reserved up front, all or none (fewer units left
+   * than queries, in the cap or in the day's share, means no request at all), BEFORE the first request. The first failure
+   * rejects (QuoteError) and no later request is made; nothing is retried. An answer that holds no usable fare ends the series
+   * too, without an error: nothing later is asked (it could only be compared with nothing), so the result then has FEWER lists
+   * than queries. `comparable` (optional) is the caller's own test of a fare (the party check: its currency has a rate today);
+   * an answer in which no fare passes it ends the series the same way (see answerUsable). Resolves to the fares of each query
+   * that was asked, in order.
+   */
+  partySeries?(queries: QuoteQuery[], comparable?: (fare: PartyFare) => boolean): Promise<PartyFare[][]>;
 }
 
 export type QuoteErrorCode = "not_configured" | "quota_exhausted" | "ration_exhausted" | "timeout" | "network" | "http" | "response";
@@ -122,18 +150,49 @@ export class QuoteError extends Error {
 
 /** One fare of a vendor response, as an adapter reads it. Unknown values stay null (never guessed). */
 export interface ParsedFare {
-  price: number; // ONE adult
+  price: number; // ONE adult (or, in a party check, what the vendor states for the adults it was asked: see PartyPricing)
   currency: string; // ISO 4217, upper case, as the vendor stated it
   outbound: Leg;
   inbound: Leg;
   checkedBag?: boolean;
+  /**
+   * ADDITIVE (party check): the vendor's own identity of this itinerary (flight numbers + local departure times of both legs),
+   * so the same flight can be found in two answers. Only set when the vendor states all of it; absent = unknown (never guessed).
+   */
+  flightKey?: string | null;
+}
+
+/**
+ * ADDITIVE (party check): how the price of a search for several adults is read, and on what grounds.
+ *   total       the price is for all the adults asked: stated in the vendor's docs, or INFERRED from them and then checked on
+ *               every fare by the adapter against the fare's own per-passenger figures (Wego: see partyTotalAgrees). The
+ *               adapter's header says which, with the doc's URL.
+ *   per_person  the price is for one of them (same rule)
+ *   unknown     the docs give no basis: such a source is never used for the party check (a guess could invert the verdict)
+ */
+export type PartyPricing = "total" | "per_person" | "unknown";
+
+/** ADDITIVE (party check): one fare of a party-check answer, as the vendor priced it for the adults the request asked for. */
+export interface PartyFare {
+  /** The vendor's price for the request's adults, read the way the source's PartyPricing says. */
+  amount: number;
+  currency: string;
+  /** See ParsedFare.flightKey: null = the vendor did not state the flight's identity. */
+  flightKey: string | null;
+  outbound: Leg;
+  inbound: Leg;
 }
 
 /** What differs per vendor: the request for one date pair and the reading of the answer. Everything else is shared. */
 export interface QuoteAdapter {
   readonly name: QuoteSourceName;
   readonly quota: QuotaSpec;
-  /** Pure: builds ONE request for ONE date pair, one adult. `key` is the trimmed secret (a header wherever the vendor allows). */
+  /** ADDITIVE (party check): how a multi-adult price is read (see PartyPricing; the doc's URL where it is set). Absent = "unknown". */
+  readonly partyPricing?: PartyPricing;
+  /**
+   * Pure: builds ONE request for ONE date pair, one adult (or q.adults when the party check sets it; see vendorAdults). `key` is the
+   * trimmed secret (a header wherever the vendor allows).
+   */
   request(q: QuoteQuery, key: string): { url: string; method?: "GET" | "POST"; headers: Record<string, string>; body?: string };
   /** Pure: drops what it cannot read, never guesses. May throw on garbage (mapped to a "response" error). */
   parse(body: unknown, q: QuoteQuery): ParsedFare[];
@@ -159,6 +218,8 @@ export function dailyShare(period: string, cap: number): number {
  * A Repo whose reserveQuota first takes one unit of today's share, THEN one of the real counter: a refusal by the share costs
  * nothing of the allowance. Same rule as the counter: a share that is spent or cannot be read means no request (fail closed),
  * reported as "ration_exhausted". Wraps the repo only where the Worker wires the vendors, so the caps themselves stay testable alone.
+ * ADDITIVE: reserveQuotaUnits (the party check's several units at once) goes through the share the same way, all or none: fewer
+ * units left in today's share than asked means nothing is taken from the real counter and no request is made.
  */
 export function withDailyShare(repo: Repo): Repo {
   return {
@@ -173,7 +234,47 @@ export function withDailyShare(repo: Repo): Repo {
       if (!granted) throw new QuoteError("ration_exhausted");
       return repo.reserveQuota(source, period, cap, now);
     },
+    async reserveQuotaUnits(source, period, cap, units, now) {
+      let granted = false;
+      try {
+        granted = typeof repo.reserveDailyUnits === "function" && (await repo.reserveDailyUnits(`quota:${source}`, dailyShare(period, cap), units, now)) === true;
+      } catch {
+        granted = false;
+      }
+      if (!granted) throw new QuoteError("ration_exhausted");
+      return typeof repo.reserveQuotaUnits === "function" ? repo.reserveQuotaUnits(source, period, cap, units, now) : false;
+    },
   };
+}
+
+/**
+ * ADDITIVE (party check): whether a series may go on after this answer: it holds a fare, and (with `comparable`) at least one
+ * fare the caller can compare. A `comparable` that throws counts as "none": the series stops (fewer requests, never more).
+ */
+export function answerUsable(fares: readonly PartyFare[], comparable?: (fare: PartyFare) => boolean): boolean {
+  if (fares.length === 0) return false;
+  if (comparable === undefined) return true;
+  try {
+    return fares.some((fare) => comparable(fare) === true);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * ADDITIVE (party check): reserves `units` of a source's allowance at once, all or none, BEFORE any request (the party check's two
+ * searches). A repo that cannot reserve several units, a refusal, or a counter that cannot be read means no request: QuoteError
+ * "quota_exhausted" (or the daily share's own "ration_exhausted"). Used by createQuoteSource and the Wego source alike.
+ */
+export async function reserveUnits(repo: Repo, source: QuoteSourceName, quota: QuotaSpec, units: number, now: Date): Promise<void> {
+  let reserved = false;
+  try {
+    reserved = typeof repo.reserveQuotaUnits === "function" && (await repo.reserveQuotaUnits(source, quotaPeriodKey(quota.period, now), quota.cap, units, now)) === true;
+  } catch (err) {
+    if (err instanceof QuoteError) throw err; // the daily share (withDailyShare) says why it refused
+    reserved = false;
+  }
+  if (!reserved) throw new QuoteError("quota_exhausted");
 }
 
 // --- the one place that talks to a vendor ---------------------------------------------------------------
@@ -203,6 +304,11 @@ export function createQuoteSource(
       reserved = false;
     }
     if (!reserved) throw new QuoteError("quota_exhausted");
+    return send(req);
+  }
+
+  /** ONE request whose unit is already reserved: counted, sent, read. Every failure is a bare QuoteError (no body, URL or key). */
+  async function send(req: ReturnType<QuoteAdapter["request"]>): Promise<unknown> {
     calls += 1;
 
     let status: number;
@@ -238,22 +344,48 @@ export function createQuoteSource(
     }
   }
 
+  /** The adapter's reading of an answer; a reader that throws is a "response" error, never a crash. */
+  function readFares(body: unknown, q: QuoteQuery): ParsedFare[] {
+    try {
+      return adapter.parse(body, q);
+    } catch {
+      throw new QuoteError("response");
+    }
+  }
+
   return {
     name: adapter.name,
     quota,
+    partyPricing: adapter.partyPricing ?? "unknown",
     get configured() {
       return usable;
     },
     callCount: () => calls,
 
+    async partySeries(queries, comparable) {
+      if (!usable) throw new QuoteError("not_configured");
+      // Build (and so validate) every request first: a bad query must not burn a unit.
+      const reqs = queries.map((q) => adapter.request(q, key));
+      if (reqs.length === 0) return [];
+      // ALL the units, all or none, BEFORE the first request (fail closed; no refund, like quote()).
+      await reserveUnits(opts.repo, adapter.name, quota, reqs.length, opts.now);
+      const out: PartyFare[][] = [];
+      for (const [i, req] of reqs.entries()) {
+        const q = queries[i] as QuoteQuery;
+        // A failure rejects right here: no later request is made, and nothing is retried.
+        const fares = toPartyFares(readFares(await send(req), q));
+        out.push(fares);
+        // An answer without a usable fare (HTTP 200 with nothing, nothing readable, or nothing the caller can compare) ends the
+        // series as well: a later answer could only be compared with nothing, so its request is never sent (its unit stays
+        // spent: it can only overcount).
+        if (!answerUsable(fares, comparable)) break;
+      }
+      return out;
+    },
+
     async quote(q) {
       const body = await call(q);
-      let fares: ParsedFare[];
-      try {
-        fares = adapter.parse(body, q);
-      } catch {
-        throw new QuoteError("response");
-      }
+      const fares = readFares(body, q);
       const checkedAt = opts.now.toISOString();
       const seen = new Set<string>();
       const offers: Offer[] = [];
@@ -285,6 +417,22 @@ export function createQuoteSource(
       return offers.sort((a, b) => a.priceAmount - b.priceAmount).slice(0, MAX_QUOTE_OFFERS_PER_CALL);
     },
   };
+}
+
+/** The fares of a party-check answer that can be compared: a positive price in a stated ISO currency. Legs are copied. */
+function toPartyFares(fares: ParsedFare[]): PartyFare[] {
+  const out: PartyFare[] = [];
+  for (const f of fares) {
+    if (!Number.isFinite(f.price) || f.price <= 0 || !/^[A-Z]{3}$/.test(f.currency)) continue;
+    out.push({
+      amount: f.price,
+      currency: f.currency,
+      flightKey: typeof f.flightKey === "string" && f.flightKey !== "" ? f.flightKey : null,
+      outbound: { ...f.outbound, airlines: [...f.outbound.airlines] },
+      inbound: { ...f.inbound, airlines: [...f.inbound.airlines] },
+    });
+  }
+  return out;
 }
 
 // --- choosing the pairs, merging the answers ------------------------------------------------------------

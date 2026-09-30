@@ -17,8 +17,13 @@
  *  - `airline` is a NAME ("Iberia"), the IATA code is only inside `flight_number` ("IB 212"): the code is read from there;
  *  - the docs give no baggage data for the price, so `checkedBag` is never set, and no booking link (only opaque tokens
  *    for a further billed request), so the adapter builds none (the core attaches an Aviasales search link).
+ *  - PARTY CHECK (src/partycheck.ts): the docs list `adults` ("Defines the number of adults. Default is 1. Note: Maximum number
+ *    of passengers is 9.", https://www.searchapi.io/docs/google-flights-api, "Number of Passengers"), so a query may ask for
+ *    more than one adult (QuoteQuery.adults; absent = 1 and the request is byte for byte what it was). But `price` has no
+ *    description at all there, only example values: whether a price for several adults is per person or for all of them is
+ *    UNKNOWN, so partyPricing is "unknown" and the party check never uses this source (read on 2026-09-30).
  */
-import { createQuoteSource, type FareQuoteSource, type ParsedFare, type QuoteAdapter, type QuotaSpec, type QuoteQuery } from "../quotes";
+import { createQuoteSource, vendorAdults, type FareQuoteSource, type ParsedFare, type QuoteAdapter, type QuotaSpec, type QuoteQuery } from "../quotes";
 import type { Leg, Repo } from "../types";
 
 // --- quota ----------------------------------------------------------------------------------------------
@@ -117,6 +122,8 @@ function readFare(it: unknown, q: QuoteQuery): ParsedFare | null {
 export const searchApiAdapter: QuoteAdapter = {
   name: "searchapi",
   quota: SEARCHAPI_QUOTA,
+  // The docs do not say whether a multi-adult `price` is per person or for all (see the header): never guessed.
+  partyPricing: "unknown",
 
   request(q, key) {
     // Validated here so that a bad query fails before a unit of the allowance is reserved.
@@ -126,6 +133,7 @@ export const searchApiAdapter: QuoteAdapter = {
     if (!isRealDate(q.departDate) || !isRealDate(q.returnDate) || q.returnDate < q.departDate) {
       throw new RangeError("searchapi: dates must be YYYY-MM-DD, the return on or after the departure");
     }
+    const adults = vendorAdults(q); // 1 unless the party check asks for more (a bad value throws here, before any unit)
     // ONE adult: the pipeline scales the price to the party. Cheapest first, and no separate / self-transfer tickets.
     const params = new URLSearchParams({
       engine: "google_flights",
@@ -134,7 +142,7 @@ export const searchApiAdapter: QuoteAdapter = {
       arrival_id: q.destination,
       outbound_date: q.departDate,
       return_date: q.returnDate,
-      adults: "1",
+      adults: String(adults),
       travel_class: "economy",
       currency: CURRENCY,
       sort_by: "price",
