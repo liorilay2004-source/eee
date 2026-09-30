@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { ArrowRight, Compass } from "lucide-react";
 import { SiteFooter, SiteHeader } from "./components/Chrome";
+import { AccessGate } from "./components/LockScreen";
 import { SearchPage } from "./pages/SearchPage";
 import { ExplorePage } from "./pages/ExplorePage";
 import { DealsPage } from "./pages/DealsPage";
@@ -8,9 +9,9 @@ import { AlertsPage } from "./pages/AlertsPage";
 import { PRODUCT_NAME } from "./config";
 
 const pages = {
-  "/privacy": { title: "מדיניות פרטיות", kicker: "המידע שלכם נשאר בשליטתכם", updated: "29 בספטמבר 2026", sections: [
+  "/privacy": { title: "מדיניות פרטיות", kicker: "המידע שלכם נשאר בשליטתכם", updated: "30 בספטמבר 2026", sections: [
     ["איזה מידע נשלח", "כשמבצעים חיפוש, פרטי החיפוש — מוצא, יעד, תאריכים, מספר נוסעים והעדפות — נשלחים לשירות כדי לבדוק מחירים. המערכת אינה דורשת חשבון או כתובת דוא״ל."],
-    ["שמירה במכשיר", "החיפוש האחרון יכול להישמר בדפדפן במכשיר שלכם כדי למלא את הטופס בפעם הבאה. אפשר למחוק אותו מהקישור ״מחקו חיפוש שמור במכשיר הזה״ בתחתית עמוד החיפוש."],
+    ["שמירה במכשיר", "החיפוש האחרון יכול להישמר בדפדפן במכשיר שלכם כדי למלא את הטופס בפעם הבאה. אפשר למחוק אותו מהקישור ״מחקו חיפוש שמור במכשיר הזה״ בתחתית עמוד החיפוש. כשהאתר נעול לשימוש אישי, גם מפתח הגישה שהזנתם נשמר בדפדפן הזה (localStorage, בשם eee.accessKey; בגלישה פרטית הוא נמחק לכל המאוחר כשסוגרים את החלון הפרטי). הוא נשלח רק לשרת של האתר, בכותרת של כל בקשה ולא בכתובת, ונמחק בלחיצה על ״יציאה (מחיקת המפתח מהמכשיר)״ בתחתית העמוד."],
     ["שמירה בשרת", "פרטי חיפוש ותוצאות עשויים להישמר במסד הנתונים של המערכת לצורך הצגת תוצאות, מטמון והשוואת מחירים. לצורך מניעת שימוש לרעה נשמר מזהה מגובב ומלוח, ולא כתובת IP גולמית."],
     ["ספקים חיצוניים", "בקשות חיפוש מועברות לתשתית Cloudflare ולמקורות מחירי הטיסות כאשר הם מופעלים. לחיצה על קישור הזמנה תעביר אתכם לאתר של ספק חיצוני, שמדיניות הפרטיות שלו חלה שם."],
     ["עוגיות ופרסום", "גרסת התצוגה אינה משתמשת בעוגיות של המערכת, בכלי מעקב או בסקריפטים של פרסום. אין בה חשבונות משתמשים."],
@@ -69,7 +70,7 @@ function NotFound() {
   </div>;
 }
 
-export default function App() {
+function Pages() {
   const path = location.pathname.replace(/\/+$/, "") || "/";
   if (Object.hasOwn(pages, path)) return <LegalPage path={path as LegalPath} />;
   if (path === "/explore") return <ExplorePage />;
@@ -77,4 +78,9 @@ export default function App() {
   if (path === "/alerts") return <AlertsPage />;
   if (path !== "/") return <NotFound />;
   return <SearchPage />;
+}
+
+/** Every page sits behind the private-use lock's gate: with the lock on and no key, only the lock screen shows. */
+export default function App() {
+  return <AccessGate><Pages /></AccessGate>;
 }

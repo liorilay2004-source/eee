@@ -739,7 +739,8 @@ describe("CORS (never a wildcard)", () => {
     expect(res.headers.get("Access-Control-Allow-Origin")).toBe(ORIGIN);
     expect(res.headers.get("Access-Control-Expose-Headers")).toBe("Retry-After"); // else a cross-origin fetch cannot read the 429 wait
     expect(res.headers.get("Access-Control-Allow-Methods")).toContain("POST");
-    expect(res.headers.get("Access-Control-Allow-Headers")).toBe("Content-Type");
+    // Authorization carries the private-use lock's key (src/access.ts), granted whether or not the lock is on.
+    expect(res.headers.get("Access-Control-Allow-Headers")).toBe("Content-Type, Authorization");
     expect(res.headers.get("Access-Control-Max-Age")).toBeTruthy();
     expect(res.headers.get("Vary")).toContain("Origin");
     expect(await res.text()).toBe("");
@@ -902,8 +903,11 @@ describe("GET /api/health", () => {
   it("checks D1", async () => {
     const res = await call(makeEnv(), "/api/health");
     expect(res.status).toBe(200);
-    // {status, db} unchanged; the additive fields: the stand-in build info, and no d1_migrations table in the test shim.
-    expect(await res.json()).toEqual({ status: "ok", db: "ok", build: { sha: "unknown", time: null }, migration: null, migrationsPending: null });
+    // {status, db} unchanged; the additive fields: the stand-in build info, no d1_migrations table in the test shim, and the
+    // private-use lock's state (no ACCESS_KEY here: off).
+    expect(await res.json()).toEqual({
+      status: "ok", db: "ok", build: { sha: "unknown", time: null }, migration: null, migrationsPending: null, locked: false, lockStatus: "off",
+    });
   });
 
   it("503 without details when D1 is down", async () => {
