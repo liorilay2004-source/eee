@@ -2,6 +2,18 @@ name = "eee-api"
 main = "src/index.ts"
 compatibility_date = "2026-09-01"
 
+# Build info for GET /api/health (commit + time): wrangler runs this before every `npx wrangler deploy` (and `wrangler dev`),
+# no extra step. It writes build/build-info.js (git-ignored), which the alias below serves as the module "eee-build-info".
+# Without git the commit reads "unknown"; the script never fails the deploy.
+# Wrangler runs this in the shell's current folder, not this file's, so the fallback keeps
+# `npx wrangler deploy --config worker/wrangler.toml` from the repo root working too (from worker/ the first part runs;
+# from the root node first prints a harmless "Cannot find module", then the second part runs).
+[build]
+command = "node scripts/gen-build-info.mjs || node worker/scripts/gen-build-info.mjs"
+
+[alias]
+"eee-build-info" = "./build/build-info.js"
+
 [vars]
 ALLOWED_ORIGIN = "https://eee-web-bly.pages.dev"
 

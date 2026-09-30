@@ -11,7 +11,8 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "paths": { "eee-build-info": ["./src/build-info.default.ts"] }
   },
   "include": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts"]
 }
