@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from "react";
 import { ChevronLeft, ChevronRight, Info } from "lucide-react";
 import { fetchCalendar } from "../api/client";
 import type { CalendarResponse } from "../api/contract";
+import { CalendarInsightsBlock, HolidayCredit } from "./Holidays";
 import {
   LEVEL_LABELS, WEEKDAYS_SHORT, buildCalendarGrid, calendarFailureText, calendarKey, calendarParams, calendarStatusText, cellLabel, datesForCell,
   shiftMonth, type CalendarCell,
@@ -93,6 +94,7 @@ export function PriceCalendar({ form, today, months, initialMonth, stay, onPick 
   const weeks = data ? buildCalendarGrid(month, data.days, today, data.meta.cheapest?.date ?? null) : null;
   const priced = data ? data.days.filter((d) => d.fare).length : 0;
   const hasLevels = data ? data.days.some((d) => d.fare?.level) : false;
+  const hasHolidays = weeks ? weeks.some((w) => w.some((c) => c.holidayHe)) : false;
 
   const selected = (cell: CalendarCell) => cell.kind === "priced" && cell.date === form.windowStart && cell.returnDate === form.windowEnd;
   const status = calendarStatusText(monthName(month), current.status === "done" ? { status: "done", priced } : current);
@@ -115,10 +117,8 @@ export function PriceCalendar({ form, today, months, initialMonth, stay, onPick 
     {current.status === "failed" && <p className="pcal-fail"><Info size={16} aria-hidden="true" />{current.text}</p>}
 
     {current.status !== "failed" && <>
-      {hasLevels && <ul className="pcal-legend" aria-label="מקרא">
-        {(["low", "mid", "high"] as const).map((level) => <li key={level}><span className={`pcal-swatch lvl-${level}`} aria-hidden="true" />{LEVEL_LABELS[level]}</li>)}
-        <li><span className="pcal-swatch lvl-none" aria-hidden="true" />אין מחיר שמור</li>
-      </ul>}
+      {data && <CalendarInsightsBlock insights={data.meta.insights} />}
+      <CalendarLegend hasLevels={hasLevels} hasHolidays={hasHolidays} />
       <div className="pcal-grid" role="group" aria-labelledby={titleId} aria-busy={current.status === "loading"}>
         {WEEKDAYS_SHORT.map((d) => <span key={d} className="pcal-wd" aria-hidden="true">{d}</span>)}
         {weeks
@@ -129,9 +129,22 @@ export function PriceCalendar({ form, today, months, initialMonth, stay, onPick 
         {priced === 0 && <p className="pcal-empty">אין מחירים שמורים לחודש הזה במסלול הזה. זה לא אומר שאין טיסות: אפשר עדיין לחפש.</p>}
         {data.meta.unavailableHe && <p className="pcal-empty">{data.meta.unavailableHe}</p>}
         <p className="pcal-notice">{data.meta.noticeHe}</p>
+        {hasHolidays && <HolidayCredit attribution={data.meta.holidaysAttribution} />}
       </div>}
     </>}
   </section>;
+}
+
+/** The legend: price levels when the month has them, and the holiday dot whenever a holiday is on the grid. */
+export function CalendarLegend({ hasLevels, hasHolidays }: { hasLevels: boolean; hasHolidays: boolean }) {
+  if (!hasLevels && !hasHolidays) return null;
+  return <ul className="pcal-legend" aria-label="מקרא">
+    {hasLevels && <>
+      {(["low", "mid", "high"] as const).map((level) => <li key={level}><span className={`pcal-swatch lvl-${level}`} aria-hidden="true" />{LEVEL_LABELS[level]}</li>)}
+      <li><span className="pcal-swatch lvl-none" aria-hidden="true" />אין מחיר שמור</li>
+    </>}
+    {hasHolidays && <li><span className="pcal-holiday-dot is-legend" aria-hidden="true" />חג</li>}
+  </ul>;
 }
 
 function Cell({ cell, selected, onPick }: { cell: CalendarCell; selected: boolean; onPick: (dates: Dates) => void }) {
@@ -139,13 +152,15 @@ function Cell({ cell, selected, onPick }: { cell: CalendarCell; selected: boolea
   const label = cellLabel(cell);
   const dates = datesForCell(cell);
   if (!dates) {
-    return <span className={`pcal-cell is-${cell.kind}`} role="img" aria-label={label}>
+    return <span className={`pcal-cell is-${cell.kind} ${cell.holidayHe ? "is-holiday" : ""}`} role="img" aria-label={label} title={cell.holidayHe}>
+      {cell.holidayHe && <span className="pcal-holiday-dot" aria-hidden="true" />}
       <span className="pcal-day num">{cell.day}</span>
       <span className="pcal-mark" aria-hidden="true">{cell.kind === "unknown" ? "?" : "–"}</span>
     </span>;
   }
-  return <button type="button" className={`pcal-cell is-priced lvl-${cell.level ?? "none"} ${cell.cheapest ? "is-cheapest" : ""} ${selected ? "is-on" : ""}`} aria-pressed={selected} aria-label={label} onClick={() => onPick(dates)}>
+  return <button type="button" className={`pcal-cell is-priced lvl-${cell.level ?? "none"} ${cell.cheapest ? "is-cheapest" : ""} ${selected ? "is-on" : ""} ${cell.holidayHe ? "is-holiday" : ""}`} aria-pressed={selected} aria-label={label} title={cell.holidayHe} onClick={() => onPick(dates)}>
     {selected && <span className="pcal-check" aria-hidden="true">✓</span>}
+    {cell.holidayHe && <span className="pcal-holiday-dot" aria-hidden="true" />}
     <span className="pcal-day num">{cell.day}</span>
     <span className="pcal-price num" dir="ltr">{Math.ceil(cell.priceIls as number).toLocaleString("en-US")}</span>
     {cell.level && <span className="pcal-level" aria-hidden="true">{LEVEL_LABELS[cell.level]}</span>}

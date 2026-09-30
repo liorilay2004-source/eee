@@ -2,6 +2,8 @@ import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { ArrowLeft, CalendarDays, Compass, ExternalLink, Info, Search, Sparkles, SunMedium, WifiOff } from "lucide-react";
 import { SiteFooter, SiteHeader } from "../components/Chrome";
 import { FailureBox, LiveRegion } from "../components/Notice";
+import { HolidayCredit, TripHolidays } from "../components/Holidays";
+import { resultsNeedHolidayCredit } from "../lib/holidays";
 import { fetchExplore } from "../api/client";
 import type { ExploreResponse, ExploreResult } from "../api/contract";
 import { PRODUCT_NAME } from "../config";
@@ -278,6 +280,7 @@ function ExploreResults({ response, sort, sorting, sortError, onSort, onFill }: 
     </span></p>}
 
     {meta.notes.length > 0 && <ul className="xnotes">{meta.notes.map((n) => <li key={n}><Info size={16} aria-hidden="true" /><span>{n}</span></li>)}</ul>}
+    {resultsNeedHolidayCredit(results) && <HolidayCredit attribution={meta.holidaysAttribution} />}
   </div>;
 }
 
@@ -309,6 +312,7 @@ function ExploreCard({ result, rank, now, onFill }: { result: ExploreResult; ran
       {result.departTime && <span>המראה <span className="num" dir="ltr">{result.departTime}</span></span>}
     </p></div>
     {climate && <p className="xline"><SunMedium size={16} aria-hidden="true" />{climate}</p>}
+    <TripHolidays holidayHe={result.holidayHe} vacationDaysUsed={result.vacationDaysUsed} />
     <p className="freshness">{found ?? "מחיר שמור מהימים האחרונים"} · עשוי להשתנות</p>
 
     <details className="score-details">

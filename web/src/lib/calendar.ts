@@ -58,6 +58,8 @@ export interface CalendarCell {
   returnDate: string | null;
   nights: number | null;
   cheapest: boolean;
+  /** Israeli holiday(s) on this day (Hebcal), present only on a holiday. */
+  holidayHe?: string;
 }
 
 const pad = (): CalendarCell => ({ kind: "pad", date: null, day: null, priceIls: null, level: null, returnDate: null, nights: null, cheapest: false });
@@ -77,7 +79,8 @@ export function buildCalendarGrid(month: string, days: readonly CalendarDay[], t
   for (let i = 0; i < count; i += 1) {
     const date = addDays(first, i);
     const listed = byDate.get(date);
-    const base = { date, day: i + 1, priceIls: null, level: null, returnDate: null, nights: null, cheapest: false };
+    const holidayHe = typeof listed?.holidayHe === "string" && listed.holidayHe.trim() ? listed.holidayHe.trim() : undefined;
+    const base = { date, day: i + 1, priceIls: null, level: null, returnDate: null, nights: null, cheapest: false, ...(holidayHe ? { holidayHe } : {}) };
     if (!listed) cells.push({ ...base, kind: date < today ? "past" : "unknown" });
     else if (!listed.known) cells.push({ ...base, kind: "unknown" });
     else if (!listed.fare) cells.push({ ...base, kind: "none" });
@@ -102,7 +105,7 @@ export function cellLabel(cell: CalendarCell): string {
   if (cell.kind === "pad" || !cell.date) return "";
   const [y, m, d] = cell.date.split("-").map(Number);
   const weekday = WEEKDAYS_LONG[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
-  const head = `יום ${weekday}, ${d} ב${HEBREW_MONTHS[m - 1]}`;
+  const head = `יום ${weekday}, ${d} ב${HEBREW_MONTHS[m - 1]}${cell.holidayHe ? ` (${cell.holidayHe})` : ""}`;
   switch (cell.kind) {
     case "past": return `${head}: עבר`;
     case "unknown": return `${head}: לא הצלחנו לטעון מחיר`;
