@@ -36,12 +36,49 @@ export interface CalendarInsights {
 }
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
+const WEEKDAY_OFFSETS = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4] as const;
+const cache = new WeakMap<object, WeakMap<object, CalendarInsights | null>>();
+
+function cloneInsights(v: CalendarInsights | null): CalendarInsights | null {
+  return v
+    ? {
+      ...v,
+      byWeekday: v.byWeekday.map((x) => ({ ...x })),
+      byNights: v.byNights.map((x) => ({ ...x })),
+    }
+    : null;
+}
+
+function cached(days: readonly CalendarDay[], fitting: readonly InsightFare[]): { hit: true; value: CalendarInsights | null } | { hit: false } {
+  const inner = cache.get(days as object);
+  return inner?.has(fitting as object) ? { hit: true, value: inner.get(fitting as object) ?? null } : { hit: false };
+}
+
+function remember(days: readonly CalendarDay[], fitting: readonly InsightFare[], value: CalendarInsights | null): CalendarInsights | null {
+  let inner = cache.get(days as object);
+  if (!inner) {
+    inner = new WeakMap<object, CalendarInsights | null>();
+    cache.set(days as object, inner);
+  }
+  inner.set(fitting as object, value);
+  return cloneInsights(value);
+}
+
+function leapYear(year: number): boolean {
+  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+}
 
 /** 0..6 for a YYYY-MM-DD date (UTC, so independent of the process time zone), or null when malformed. */
 function weekdayOf(date: unknown): number | null {
   if (typeof date !== "string" || !DAY_RE.test(date)) return null;
-  const w = new Date(`${date}T00:00:00Z`).getUTCDay();
-  return Number.isInteger(w) ? w : null;
+  const year = Number(date.slice(0, 4));
+  const month = Number(date.slice(5, 7));
+  const day = Number(date.slice(8, 10));
+  const max = month === 2 && leapYear(year) ? 29 : MONTH_DAYS[month - 1];
+  if (!max || day < 1 || day > max) return null;
+  const y = month < 3 ? year - 1 : year;
+  return (y + Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400) + (WEEKDAY_OFFSETS[month - 1] as number) + day) % 7;
 }
 
 const validPrice = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v > 0;
@@ -52,6 +89,10 @@ const validPrice = (v: unknown): v is number => typeof v === "number" && Number.
  */
 export function medianIls(values: readonly number[]): number {
   const s = [...values].sort((a, b) => a - b);
+  return medianSorted(s);
+}
+
+function medianSorted(s: number[]): number {
   const mid = Math.floor(s.length / 2);
   const m = s.length % 2 === 1 ? (s[mid] as number) : ((s[mid - 1] as number) + (s[mid] as number)) / 2;
   return Math.round(m);
@@ -74,23 +115,29 @@ const dayPhrase = (w: number): string => `ביום ${WEEKDAY_HE[w]}`;
 export function computeInsights(days: readonly CalendarDay[], fitting: readonly InsightFare[]): CalendarInsights | null {
   try {
     if (!Array.isArray(days) || !Array.isArray(fitting) || days.length === 0) return null;
+    const hit = cached(days, fitting);
+    if (hit.hit) return cloneInsights(hit.value);
 
-    const perWeekday = new Map<number, number[]>();
+    const perWeekday: number[][] = [[], [], [], [], [], [], []];
+    const minByWeekday = [Infinity, Infinity, Infinity, Infinity, Infinity, Infinity, Infinity];
     for (const d of days as readonly CalendarDay[]) {
       if (d.known !== true || d.fare === null || typeof d.fare !== "object") continue;
       const price = d.fare.priceIls;
       const w = weekdayOf(d.date);
       if (w === null || !validPrice(price)) continue;
-      const list = perWeekday.get(w);
-      if (list) list.push(price);
-      else perWeekday.set(w, [price]);
+      perWeekday[w]!.push(price);
+      if (price < minByWeekday[w]!) minByWeekday[w] = price;
     }
 
-    const byWeekday = [...perWeekday.entries()]
-      .sort((a, b) => a[0] - b[0])
-      .map(([weekday, prices]) => ({ weekday, minIls: Math.round(Math.min(...prices)), medianIls: medianIls(prices), count: prices.length }));
+    const byWeekday: CalendarInsights["byWeekday"] = [];
+    for (let weekday = 0; weekday < perWeekday.length; weekday++) {
+      const prices = perWeekday[weekday] as number[];
+      if (prices.length === 0) continue;
+      prices.sort((a, b) => a - b);
+      byWeekday.push({ weekday, minIls: Math.round(minByWeekday[weekday] as number), medianIls: medianSorted(prices), count: prices.length });
+    }
     const candidates = byWeekday.filter((b) => b.count >= 2);
-    if (candidates.length < INSIGHTS_MIN_BUCKETS) return null;
+    if (candidates.length < INSIGHTS_MIN_BUCKETS) return remember(days, fitting, null);
 
     let cheapest = candidates[0] as (typeof candidates)[number];
     let dearest = cheapest;
@@ -100,20 +147,22 @@ export function computeInsights(days: readonly CalendarDay[], fitting: readonly 
       if (b.medianIls > dearest.medianIls || (b.medianIls === dearest.medianIls && b.minIls > dearest.minIls)) dearest = b;
     }
 
-    const perNights = new Map<number, { min: number; count: number }>();
+    const nightMins: number[] = [];
+    const nightCounts: number[] = [];
+    let maxNight = 0;
     for (const f of fitting as readonly InsightFare[]) {
       const n = f.nights;
       if (!Number.isInteger(n) || n <= 0 || !validPrice(f.priceIls)) continue;
-      const g = perNights.get(n);
-      if (g) {
-        g.count++;
-        if (f.priceIls < g.min) g.min = f.priceIls;
-      } else perNights.set(n, { min: f.priceIls, count: 1 });
+      nightCounts[n] = (nightCounts[n] ?? 0) + 1;
+      const min = nightMins[n];
+      if (min === undefined || f.priceIls < min) nightMins[n] = f.priceIls;
+      if (n > maxNight) maxNight = n;
     }
-    const byNights = [...perNights.entries()]
-      .filter(([, g]) => g.count >= 2)
-      .sort((a, b) => a[0] - b[0])
-      .map(([nights, g]) => ({ nights, minIls: Math.round(g.min), count: g.count }));
+    const byNights: CalendarInsights["byNights"] = [];
+    for (let nights = 1; nights <= maxNight; nights++) {
+      const count = nightCounts[nights] ?? 0;
+      if (count >= 2) byNights.push({ nights, minIls: Math.round(nightMins[nights] as number), count });
+    }
     let cheapestNights: number | null = null;
     let cheapestNightsMin = Number.POSITIVE_INFINITY;
     for (const g of byNights) {
@@ -131,7 +180,7 @@ export function computeInsights(days: readonly CalendarDay[], fitting: readonly 
       ? `יציאה ${dayPhrase(cheapest.weekday)} זולה בממוצע ב-${pct}% מיציאה ${dayPhrase(dearest.weekday)}`
       : `המחיר הנמוך ביותר בממוצע: יציאה ${dayPhrase(cheapest.weekday)}`;
 
-    return {
+    return remember(days, fitting, {
       byWeekday,
       byNights,
       cheapestWeekday: cheapest.weekday,
@@ -140,7 +189,7 @@ export function computeInsights(days: readonly CalendarDay[], fitting: readonly 
       summaryHe,
       labelHe: INSIGHTS_LABEL_HE,
       basis: "cached_fares",
-    };
+    });
   } catch {
     return null;
   }

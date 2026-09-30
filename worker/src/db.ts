@@ -20,8 +20,13 @@ const HISTORY_MAX_PER_PAIR = 100;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 /** The only period keys a quota row may have: a one-off allowance, or a UTC month (see quotaPeriodKey in quotes.ts). */
 const QUOTA_PERIOD = /^(lifetime|\d{4}-(0[1-9]|1[0-2]))$/;
-/** The only keys a daily share may have: "quota:" and a vendor name (see withDailyShare in quotes.ts). */
-const DAILY_KEY = /^quota:[a-z_]{1,32}$/;
+/**
+ * The only keys a daily share may have: "quota:" and a vendor name (see withDailyShare in quotes.ts), or "party:" and a vendor
+ * name (the party check's own daily cap, src/partycheck.ts).
+ */
+const DAILY_KEY = /^(quota|party):[a-z_]{1,32}$/;
+/** reserveQuotaUnits / reserveDailyUnits take at most this many units at once (a party check takes 2). */
+const MAX_UNITS_AT_ONCE = 10;
 const CURRENCY = /^[A-Za-z]{3}$/;
 
 type Bind = string | number | null;
@@ -576,6 +581,76 @@ export function createRepo(db: D1Database): Repo {
       } catch {
         return false;
       }
+    },
+
+    async reserveQuotaUnits(source, period, cap, units, now) {
+      // reserveQuota for several units, ALL OR NONE, in one atomic statement: a row is inserted with used = units only when units
+      // <= cap, and an existing row is raised only while used + units <= cap; otherwise nothing changes and RETURNING yields no
+      // row. Fail closed on anything but a confirmed increment, like reserveQuota.
+      try {
+        if (!Number.isSafeInteger(cap) || cap < 1 || !Number.isSafeInteger(units) || units < 1 || units > MAX_UNITS_AT_ONCE || !QUOTA_PERIOD.test(period)) return false;
+        const res = await db
+          .prepare(
+            "INSERT INTO source_quota (source, period, used, updated_at) SELECT ?, ?, ?, ? WHERE ? <= ? " +
+              "ON CONFLICT(source, period) DO UPDATE SET used = used + ?, updated_at = excluded.updated_at WHERE used + ? <= ? " +
+              "RETURNING used",
+          )
+          .bind(source, period, units, now.toISOString(), units, cap, units, units, cap)
+          .all<{ used: number }>();
+        const used = res.results.length === 1 ? res.results[0]?.used : undefined;
+        return typeof used === "number" && Number.isInteger(used) && used >= units && used <= cap;
+      } catch {
+        return false;
+      }
+    },
+
+    async reserveDailyUnits(key, cap, units, now) {
+      // reserveDaily for several units, all or none, fail closed (same table, same day rows).
+      try {
+        const day = Math.floor(now.getTime() / DAY_MS) * (DAY_MS / 1000);
+        if (!Number.isSafeInteger(cap) || cap < 1 || !Number.isSafeInteger(units) || units < 1 || units > MAX_UNITS_AT_ONCE) return false;
+        if (!DAILY_KEY.test(key) || !Number.isSafeInteger(day)) return false;
+        const res = await db
+          .prepare(
+            "INSERT INTO rate_limits (key, window_start, count) SELECT ?, ?, ? WHERE ? <= ? " +
+              "ON CONFLICT(key, window_start) DO UPDATE SET count = count + ? WHERE count + ? <= ? " +
+              "RETURNING count",
+          )
+          .bind(key, day, units, units, cap, units, units, cap)
+          .all<{ count: number }>();
+        const count = res.results.length === 1 ? res.results[0]?.count : undefined;
+        return typeof count === "number" && Number.isInteger(count) && count >= units && count <= cap;
+      } catch {
+        return false;
+      }
+    },
+
+    async readAllowance(source, period, dailyKeys, now) {
+      // READ ONLY (nothing is reserved): what reserveQuota(Units) and reserveDaily(Units) have counted, in one statement. A missing
+      // row is 0. Odd input or an unreadable answer rejects; the caller (partycheck.ts partyCheckRoom) reads that as "no room".
+      const day = Math.floor(now.getTime() / DAY_MS) * (DAY_MS / 1000);
+      const keys = [...new Set(dailyKeys)];
+      if (!QUOTA_PERIOD.test(period) || !Number.isSafeInteger(day) || keys.length > 4 || !keys.every((k) => DAILY_KEY.test(k))) {
+        throw new Error("readAllowance: invalid arguments");
+      }
+      const columns = ["(SELECT used FROM source_quota WHERE source = ? AND period = ?) AS used"];
+      const binds: Bind[] = [source, period];
+      keys.forEach((k, i) => {
+        columns.push(`(SELECT count FROM rate_limits WHERE key = ? AND window_start = ?) AS d${i}`);
+        binds.push(k, day);
+      });
+      const row = await db.prepare(`SELECT ${columns.join(", ")}`).bind(...binds).first<Record<string, unknown>>();
+      const count = (v: unknown): number => {
+        if (v === null || v === undefined) return 0;
+        if (typeof v === "number" && Number.isSafeInteger(v) && v >= 0) return v;
+        throw new Error("readAllowance: unreadable counter");
+      };
+      if (!row) throw new Error("readAllowance: no row");
+      const daily: Record<string, number> = {};
+      keys.forEach((k, i) => {
+        daily[k] = count(row[`d${i}`]);
+      });
+      return { used: count(row.used), daily };
     },
 
     async claimWindowLock(key, windowSeconds, now) {

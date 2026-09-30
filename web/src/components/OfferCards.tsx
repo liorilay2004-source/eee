@@ -6,6 +6,7 @@ import {
 } from "../lib/builder";
 import { formatDuration, formatILS, formatShortDate, trustedBookingUrl } from "../lib/search";
 import { SUSPICIOUS_BADGE, SUSPICIOUS_TEXT, airlineLabels, cardAirlines, freshnessLine, freshnessTone, isSuspicious, type AirlineLabel } from "../lib/cards";
+import { PartyCheckBox } from "./PartyCheck";
 
 interface CardProps {
   card: CardView;
@@ -14,6 +15,8 @@ interface CardProps {
   originLabel: string;
   destinationLabel: string;
   demo?: boolean;
+  /** meta.partyCheck.available: offer the automatic "together or one by one?" check on this card (absent = no). */
+  autoCheck?: boolean;
 }
 
 function stopsText(stops: number | null): string {
@@ -76,7 +79,7 @@ export function BookingActions({ card, demo, compact }: { card: CardView; demo?:
 }
 
 /** The hero: the cheapest offer as a boarding pass. */
-export function BoardingPass({ card, request, originLabel, destinationLabel, demo }: CardProps) {
+export function BoardingPass({ card, request, originLabel, destinationLabel, demo, autoCheck }: CardProps) {
   const offer = card.offer;
   const people = totalPassengers(request);
   const nights = nightsBetween(offer.departDate, offer.returnDate);
@@ -135,11 +138,12 @@ export function BoardingPass({ card, request, originLabel, destinationLabel, dem
     </ul>
 
     <BookingActions card={card} demo={demo} />
+    <PartyCheckBox card={card} autoCheck={autoCheck} demo={demo} />
   </article>;
 }
 
 /** The other recommendations, smaller, each with a one-line reason. */
-export function CompactCard({ card, request, demo }: CardProps) {
+export function CompactCard({ card, request, demo, autoCheck }: CardProps) {
   const offer = card.offer;
   const kind = card.kinds.find((k) => k !== "cheapest") ?? primaryKind(card.kinds);
   const nights = nightsBetween(offer.departDate, offer.returnDate);
@@ -176,6 +180,7 @@ export function CompactCard({ card, request, demo }: CardProps) {
     <div className="mini-foot">
       <span className={`freshness tone-${freshnessTone(card)}`}>{demo ? "נתוני דוגמה" : freshnessLine(card)}</span>
       <BookingActions card={card} demo={demo} compact />
+      <PartyCheckBox card={card} autoCheck={autoCheck} demo={demo} />
     </div>
   </article>;
 }

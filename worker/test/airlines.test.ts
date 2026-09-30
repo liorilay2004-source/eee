@@ -200,11 +200,11 @@ describe("search answer: airlineNames and airlines on every card", () => {
     }
   });
 
-  it("adds only the two card fields: top level, meta and the ranking are what they were", async () => {
+  it("adds airline card fields without changing the top-level shape or ranking", async () => {
     stub();
     const data = await search(makeEnv());
     expect(Object.keys(data).sort()).toEqual(["cards", "meta"]);
-    expect(Object.keys(data.meta).sort()).toEqual(["apiVersion", "candidatePairs", "fromCache", "fxDate", "fxSource", "generatedAt", "recommendations", "searchKey", "sources"]);
+    expect(Object.keys(data.meta).sort()).toEqual(["airlinePriceLinks", "apiVersion", "candidatePairs", "fromCache", "fxDate", "fxSource", "generatedAt", "recommendations", "searchKey", "sourceRegistry", "sources"].sort());
     for (const card of data.cards) {
       expect(Object.keys(card).sort()).toEqual(["ageHours", "ageLabelHe", "ageLabelKey", "airlineNames", "airlines", "fareAgeBasis", "fareAgeHours", "fareAgeMaxMinutes", "fareAgeMinutes", "fareFoundAt", "freshness", "kinds", "offer", "priceContext", "savingsVsRoundtripIls", "scanAgeMinutes"]);
     }

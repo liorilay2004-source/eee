@@ -25,8 +25,14 @@
  *    an Aviasales search link for the same dates;
  *  - the default is a cached result, up to 1 hour old and free of charge at the vendor (`no_cache` is not sent). That is
  *    far fresher than the 2-7 days of the Travelpayouts cache this source exists to confirm.
+ *  - PARTY CHECK (src/partycheck.ts): the docs list `adults` ("Parameter defines the number of adults. Default to 1.",
+ *    https://serpapi.com/google-flights-api, "Number Of Passengers"), so a query may ask for more than one adult (QuoteQuery.
+ *    adults; absent = 1 and the request is byte for byte what it was). But the only description of `price` is "This ticket price
+ *    in the selected currency, the default currency is USD" (https://serpapi.com/google-flights-api, JSON structure; the same
+ *    words on https://serpapi.com/google-flights-results): it does NOT say whether a price for several adults is per person or
+ *    for all of them. So partyPricing is "unknown" and the party check never uses this source (read on 2026-09-30).
  */
-import { createQuoteSource, type FareQuoteSource, type ParsedFare, type QuoteAdapter, type QuotaSpec, type QuoteQuery } from "../quotes";
+import { createQuoteSource, vendorAdults, type FareQuoteSource, type ParsedFare, type QuoteAdapter, type QuotaSpec, type QuoteQuery } from "../quotes";
 import type { Leg, Repo } from "../types";
 
 // --- quota ----------------------------------------------------------------------------------------------
@@ -39,16 +45,14 @@ import type { Leg, Repo } from "../types";
  * auto-renewal documented is opt-in ("You can set your plan to Automatic Early Renewal. It will trigger an early renewal
  * once you've used all your searches.") and the docs do not say the Free plan is immune to it, so the owner must NEVER
  * enable it and never attach a payment method: the cap below, not the vendor's 429, is what stops us.
- * The cap is 100 = 40% of the allowance, tighter than the 80% the rule allows and than the 200 the vendor notes suggest
- * (200 is 80%, above the 45% the core allows a monthly cap and would make it refuse the spec): the counter is per UTC month
- * but the vendor's month runs from a `plan_renewal_date` that may start on another day, so two of our months can fall
- * into one vendor cycle (2 x 100 = 200 < 250), and the 150 spare also cover searches made with the same key outside this
- * Worker (a dashboard playground, a test script), which this counter cannot see. We count every reserved request, failed,
- * cached and empty ones too, although the vendor counts only successful uncached ones: we can only overcount.
+ * The cap is 240 of the 250 documented free searches. The owner explicitly supplied the SerpApi key so empty-cache routes
+ * can still return live prices, and the daily share keeps one day from burning the whole month. Ten searches stay spare for
+ * dashboard checks or vendor-side differences. We count every reserved request, failed, cached and empty ones too, although
+ * the vendor counts only successful uncached ones: we can only overcount.
  * Separately the vendor limits throughput to 50 searches per hour: an HTTP 429 stops the source for the rest of that
  * search (see runQuotes) and is never retried.
  */
-export const SERPAPI_QUOTA: QuotaSpec = Object.freeze({ period: "monthly", cap: 100, allowance: 250 });
+export const SERPAPI_QUOTA: QuotaSpec = Object.freeze({ period: "monthly", cap: 240, allowance: 250 });
 
 // --- request --------------------------------------------------------------------------------------------
 
@@ -134,6 +138,8 @@ function readFare(it: unknown, q: QuoteQuery): ParsedFare | null {
 export const serpApiAdapter: QuoteAdapter = {
   name: "serpapi",
   quota: SERPAPI_QUOTA,
+  // The docs do not say whether a multi-adult `price` is per person or for all (see the header): never guessed.
+  partyPricing: "unknown",
 
   request(q, key) {
     // Validated here so that a bad query fails before a unit of the allowance is reserved (a bad request is a 400 that
@@ -144,6 +150,7 @@ export const serpApiAdapter: QuoteAdapter = {
     if (!isRealDate(q.departDate) || !isRealDate(q.returnDate) || q.returnDate < q.departDate) {
       throw new RangeError("serpapi: dates must be YYYY-MM-DD, the return on or after the departure");
     }
+    const adults = vendorAdults(q); // 1 unless the party check asks for more (a bad value throws here, before any unit)
     // ONE adult: the pipeline scales the price to the party. Round trip (type 1), economy (travel_class 1), cheapest
     // first (sort_by 2). Not sent, on purpose: deep_search (slow), no_cache (a fresh search is never cheaper), async,
     // departure_token / booking_token (each would be a further counted search).
@@ -156,7 +163,7 @@ export const serpApiAdapter: QuoteAdapter = {
       type: "1",
       currency: CURRENCY,
       hl: "en",
-      adults: "1",
+      adults: String(adults),
       travel_class: "1",
       sort_by: "2",
       api_key: key, // the one documented way to authenticate; see the header for why this URL never leaves the core

@@ -1,0 +1,138 @@
+import type { AirlinePriceLink, Offer } from "../types";
+import { airlineInfo, offerAirlineCodes } from "./lookup";
+
+const URLS: Readonly<Record<string, string>> = Object.freeze({
+  "6H": "https://www.israir.co.il/",
+  "IZ": "https://www.arkia.com/",
+  LY: "https://www.elal.com/",
+  TK: "https://www.turkishairlines.com/",
+  PC: "https://www.flypgs.com/",
+  A3: "https://en.aegeanair.com/",
+  W6: "https://wizzair.com/",
+  W4: "https://wizzair.com/",
+  W9: "https://wizzair.com/",
+  FR: "https://www.ryanair.com/",
+  RK: "https://www.ryanair.com/",
+  U2: "https://www.easyjet.com/",
+  EC: "https://www.easyjet.com/",
+  LH: "https://www.lufthansa.com/",
+  LX: "https://www.swiss.com/",
+  OS: "https://www.austrian.com/",
+  EW: "https://www.eurowings.com/",
+  SN: "https://www.brusselsairlines.com/",
+  AF: "https://wwws.airfrance.com/",
+  KL: "https://www.klm.com/",
+  AZ: "https://www.ita-airways.com/",
+  IB: "https://www.iberia.com/",
+  I2: "https://www.iberia.com/",
+  VY: "https://www.vueling.com/",
+  TP: "https://www.flytap.com/",
+  LO: "https://www.lot.com/",
+  SK: "https://www.flysas.com/",
+  AY: "https://www.finnair.com/",
+  DY: "https://www.norwegian.com/",
+  FI: "https://www.icelandair.com/",
+  EI: "https://www.aerlingus.com/",
+  UX: "https://www.aireuropa.com/",
+  HV: "https://www.transavia.com/",
+  TO: "https://www.transavia.com/",
+  XQ: "https://www.sunexpress.com/",
+  LS: "https://www.jet2.com/",
+  V7: "https://www.volotea.com/",
+  BT: "https://www.airbaltic.com/",
+  EK: "https://www.emirates.com/",
+  QR: "https://www.qatarairways.com/",
+  EY: "https://www.etihad.com/",
+  FZ: "https://www.flydubai.com/",
+  G9: "https://www.airarabia.com/",
+  GF: "https://www.gulfair.com/",
+  WY: "https://www.omanair.com/",
+  SV: "https://www.saudia.com/",
+  RJ: "https://www.rj.com/",
+  KU: "https://www.kuwaitairways.com/",
+  MS: "https://www.egyptair.com/",
+  ET: "https://www.ethiopianairlines.com/",
+  KQ: "https://www.kenya-airways.com/",
+  SA: "https://www.flysaa.com/",
+  AT: "https://www.royalairmaroc.com/",
+  AC: "https://www.aircanada.com/",
+  AA: "https://www.aa.com/",
+  DL: "https://www.delta.com/",
+  UA: "https://www.united.com/",
+  WN: "https://www.southwest.com/",
+  AS: "https://www.alaskaair.com/",
+  B6: "https://www.jetblue.com/",
+  NK: "https://www.spirit.com/",
+  F9: "https://www.flyfrontier.com/",
+  HA: "https://www.hawaiianairlines.com/",
+  AM: "https://aeromexico.com/",
+  LA: "https://www.latamairlines.com/",
+  AV: "https://www.avianca.com/",
+  CM: "https://www.copaair.com/",
+  AD: "https://www.voeazul.com.br/",
+  G3: "https://www.voegol.com.br/",
+  CA: "https://www.airchina.com/",
+  MU: "https://www.ceair.com/",
+  CZ: "https://www.csair.com/",
+  HU: "https://www.hainanairlines.com/",
+  CX: "https://www.cathaypacific.com/",
+  SQ: "https://www.singaporeair.com/",
+  TR: "https://www.flyscoot.com/",
+  MH: "https://www.malaysiaairlines.com/",
+  TG: "https://www.thaiairways.com/",
+  VN: "https://www.vietnamairlines.com/",
+  PR: "https://www.philippineairlines.com/",
+  GA: "https://www.garuda-indonesia.com/",
+  JL: "https://www.jal.co.jp/",
+  NH: "https://www.ana.co.jp/",
+  KE: "https://www.koreanair.com/",
+  OZ: "https://flyasiana.com/",
+  BR: "https://www.evaair.com/",
+  CI: "https://www.china-airlines.com/",
+  AI: "https://www.airindia.com/",
+  "6E": "https://www.goindigo.in/",
+  QF: "https://www.qantas.com/",
+  VA: "https://www.virginaustralia.com/",
+  NZ: "https://www.airnewzealand.com/",
+  VS: "https://www.virginatlantic.com/",
+  JU: "https://www.airserbia.com/",
+  OU: "https://www.croatiaairlines.com/",
+  RO: "https://www.tarom.ro/",
+  FB: "https://www.air.bg/",
+  A9: "https://georgian-airways.com/",
+  J2: "https://www.azal.az/",
+  HY: "https://www.uzairways.com/",
+  KC: "https://airastana.com/",
+  PS: "https://www.flyuia.com/",
+  QS: "https://www.smartwings.com/",
+});
+
+export function airlineOfficialUrl(code: string): string | null {
+  return URLS[code.toUpperCase()] ?? null;
+}
+
+export function airlinePriceLinks(offers: Offer[], limit = 30): AirlinePriceLink[] {
+  const best = new Map<string, AirlinePriceLink>();
+  for (const offer of offers) {
+    if (offer.totalIls === null || !Number.isFinite(offer.totalIls) || offer.totalIls <= 0) continue;
+    for (const code of offerAirlineCodes(offer)) {
+      const url = airlineOfficialUrl(code);
+      if (!url) continue;
+      const info = airlineInfo(code);
+      const prev = best.get(code);
+      if (prev && prev.priceIls <= offer.totalIls) continue;
+      best.set(code, {
+        code,
+        nameHe: info?.nameHe ?? null,
+        nameEn: info?.nameEn ?? null,
+        lowCost: info?.lowCost ?? null,
+        homeUrl: url,
+        priceIls: Math.round(offer.totalIls * 100) / 100,
+        departDate: offer.departDate,
+        returnDate: offer.returnDate,
+        source: offer.source,
+      });
+    }
+  }
+  return [...best.values()].sort((a, b) => a.priceIls - b.priceIls || a.code.localeCompare(b.code)).slice(0, limit);
+}

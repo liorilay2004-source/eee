@@ -1,5 +1,8 @@
-import type { ReactNode } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
+import { LogOut } from "lucide-react";
 import { PRODUCT_NAME } from "../config";
+import { logout } from "../lib/access";
+import { hasAccessKey, subscribeAccessKey } from "../lib/access-key";
 
 export function PlaneMark() {
   return <svg className="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
@@ -40,6 +43,15 @@ export function SiteHeader({ children, current }: { children?: ReactNode; curren
   </>;
 }
 
+/** The private-use lock's "log out": shown only while an access key is stored on this device (lib/access-key.ts). */
+export function AccessLogout() {
+  const stored = useSyncExternalStore(subscribeAccessKey, hasAccessKey, hasAccessKey);
+  if (!stored) return null;
+  return <button type="button" className="link-button footer-logout" onClick={logout}>
+    <LogOut size={16} aria-hidden="true" />יציאה (מחיקת המפתח מהמכשיר)
+  </button>;
+}
+
 export function SiteFooter({ children }: { children?: ReactNode }) {
   return <footer className="site-footer">
     <nav aria-label="מידע ומדיניות" className="footer-links">
@@ -49,6 +61,7 @@ export function SiteFooter({ children }: { children?: ReactNode }) {
       <a href="/accessibility">נגישות</a>
     </nav>
     {children}
+    <AccessLogout />
     <p className="footer-note">{PRODUCT_NAME} מחפש ומשווה מחירים ומפנה לאתרי הזמנה. אנחנו לא מוכרים כרטיסים. גרסת תצוגה מקדימה.</p>
   </footer>;
 }

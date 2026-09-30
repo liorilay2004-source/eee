@@ -1,5 +1,7 @@
 # travel-price-engine
 
+**Owner, start here:** [docs/OWNER_START.md](docs/OWNER_START.md), a short Hebrew checklist of what to do now, in order.
+
 > Working name. The brand lives in [`config/project.json`](config/project.json), and only there.
 
 A free Hebrew (RTL) web app that finds the cheapest real round-trip price across a flexible date window, gives three recommendations (💰 cheapest, ⚖️ best value, 🎯 matches my times) and watches for price drops. The full spec is in [`docs/SPEC.md`](docs/SPEC.md).

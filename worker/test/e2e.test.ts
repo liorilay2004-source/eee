@@ -739,7 +739,8 @@ describe("CORS (never a wildcard)", () => {
     expect(res.headers.get("Access-Control-Allow-Origin")).toBe(ORIGIN);
     expect(res.headers.get("Access-Control-Expose-Headers")).toBe("Retry-After"); // else a cross-origin fetch cannot read the 429 wait
     expect(res.headers.get("Access-Control-Allow-Methods")).toContain("POST");
-    expect(res.headers.get("Access-Control-Allow-Headers")).toBe("Content-Type");
+    // Authorization carries the private-use lock's key (src/access.ts), granted whether or not the lock is on.
+    expect(res.headers.get("Access-Control-Allow-Headers")).toBe("Content-Type, Authorization");
     expect(res.headers.get("Access-Control-Max-Age")).toBeTruthy();
     expect(res.headers.get("Vary")).toContain("Origin");
     expect(await res.text()).toBe("");
@@ -902,8 +903,11 @@ describe("GET /api/health", () => {
   it("checks D1", async () => {
     const res = await call(makeEnv(), "/api/health");
     expect(res.status).toBe(200);
-    // {status, db} unchanged; the additive fields: the stand-in build info, and no d1_migrations table in the test shim.
-    expect(await res.json()).toEqual({ status: "ok", db: "ok", build: { sha: "unknown", time: null }, migration: null, migrationsPending: null });
+    // {status, db} unchanged; the additive fields: the stand-in build info, no d1_migrations table in the test shim, and the
+    // private-use lock's state (no ACCESS_KEY here: off).
+    expect(await res.json()).toEqual({
+      status: "ok", db: "ok", build: { sha: "unknown", time: null }, migration: null, migrationsPending: null, locked: false, lockStatus: "off",
+    });
   });
 
   it("503 without details when D1 is down", async () => {
@@ -926,6 +930,15 @@ describe("routing and response hygiene", () => {
     expect((await call(env, "/api/health", { method: "POST" })).status).toBe(405);
     expect((await call(env, "/api/health/")).status).toBe(200);
     expect((await call(env, "/api/airports/?q=tel")).status).toBe(200);
+  });
+
+  it("a path of 60,000 slashes plus a letter is a quick 404, not a CPU spike (the old trailing-slash regex was quadratic)", async () => {
+    const env = makeEnv();
+    const t0 = performance.now();
+    const res = await call(env, `/${"/".repeat(60_000)}x`);
+    expect(res.status).toBe(404);
+    expect((await call(env, `/api/health${"/".repeat(60_000)}`)).status).toBe(200);
+    expect(performance.now() - t0).toBeLessThan(500);
   });
 
   it("every response is no-store, nosniff, JSON, and errors follow { error: { code, message } }", async () => {

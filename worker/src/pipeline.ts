@@ -17,6 +17,7 @@
  * `prices` history stores PER-PASSENGER amounts so searches with different party sizes stay comparable.
  */
 import { airlineFieldsFor } from "./airlines/lookup";
+import { airlinePriceLinks } from "./airlines/official-links";
 import { logMatchAudit } from "./audit";
 import * as airportData from "./airports/resolve";
 import { orderPairsByService } from "./airports/served";
@@ -30,6 +31,7 @@ import {
   cheapestCachedByPair,
   coverKey,
   isQuoteSource,
+  MAX_QUOTE_PAIRS,
   mergeQuoted,
   pickQuotePairs,
   plausibleQuotes,
@@ -52,6 +54,8 @@ import {
   type PriceGuard,
 } from "./priceguard";
 import { fareExpired, fareFreshness, vendorTimestamp } from "./freshness";
+import { partyCheckMetaNow, signedPartyCheckFields, type PartyTokenSigner } from "./partycheck";
+import { sourceRegistryForRoute } from "./source-registry";
 import { buildSplits, dayNumber, pairOk } from "./splits";
 import { monthsBetween, TravelpayoutsError, withPartySize, type Party } from "./travelpayouts";
 import type {
@@ -172,6 +176,11 @@ export interface SearchDeps {
    * the response.
    */
   audit?: boolean;
+  /**
+   * ADDITIVE (party check, partycheck.ts): signs a round-trip card's route, dates and adults for POST /api/party-check. Used only
+   * when meta.partyCheck.available is true; absent (the scheduled snapshot, background rescans, tests) = no card gets a token.
+   */
+  partyToken?: PartyTokenSigner;
 }
 
 export const defaultResolver: Resolver = {
@@ -659,6 +668,40 @@ function linkParty(o: Offer, party: Party): void {
   }
 }
 
+function isoDay(ms: number): string {
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+const DAY = 86_400_000;
+
+function fallbackQuotePairs(req: SearchRequest, max: number = MAX_QUOTE_PAIRS): Array<[string, string]> {
+  const start = Date.parse(`${req.windowStart}T00:00:00.000Z`);
+  const end = Date.parse(`${req.windowEnd}T00:00:00.000Z`);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return [];
+  const min = Math.max(0, req.stayMin);
+  const maxStay = Math.max(min, req.stayMax);
+  const windowDays = Math.floor((end - start) / DAY);
+  const offsets = [...new Set([0, Math.floor(windowDays / 2), windowDays])].filter((n) => n >= 0 && n <= windowDays);
+  const stays = [...new Set([min, Math.floor((min + maxStay) / 2), maxStay])].filter((n) => n >= min && n <= maxStay);
+  const out: Array<[string, string]> = [];
+  const seen = new Set<string>();
+  for (const offset of offsets) {
+    const depart = start + offset * DAY;
+    for (const stay of stays) {
+      const ret = depart + stay * DAY;
+      if (ret > end + maxStay * DAY) continue;
+      const pair: [string, string] = [isoDay(depart), isoDay(ret)];
+      if (!pairOk(req, pair[0], pair[1])) continue;
+      const key = pair.join("|");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(pair);
+      if (out.length >= max) return out;
+    }
+  }
+  return out;
+}
+
 // --- the pipeline ---------------------------------------------------------------------------------------
 
 export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<SearchResponse> {
@@ -854,7 +897,10 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   // Failures here never fail the search.
   const quoters = (deps.quoteSources ?? []).filter((s) => s.configured);
   const primary = pairs[0];
-  const dates = scanComplete && quoters.length > 0 && primary ? pickQuotePairs(working, primary) : [];
+  const emptyCachedAnswer = fromCache && working.length === 0 && carriedQuotes.length === 0;
+  const canAskQuotes = quoters.length > 0 && primary && (scanComplete || emptyCachedAnswer);
+  const cachedDates = scanComplete && canAskQuotes && primary ? pickQuotePairs(working, primary) : [];
+  const dates = canAskQuotes ? (cachedDates.length > 0 ? cachedDates : fallbackQuotePairs(req)) : [];
   let scanStored: Promise<void> | null = null; // the scan's own write, when it was made before the quote phase
   let quotesTotal = 0; // match_audit only: live quotes this search's quote phase considered...
   let quotesDisbelieved = 0; // ...and how many of them were not believed (far below the cached fare)
@@ -909,6 +955,11 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   const pairsWithPrice = new Set<string>();
   for (const o of ranking) if (o.totalIls !== null) pairsWithPrice.add(`${o.departDate}|${o.returnDate}`);
 
+  // "Together or one by one?" (partycheck.ts): only on a search for 2+ adults. Whether the live check can run for this answer (a
+  // capable source with room for a check: one D1 read, made only when such a source is configured); only then do round-trip
+  // cards carry the token the check needs.
+  const partyMeta = await partyCheckMetaNow(req, quoters, { repo, now });
+  const partySigner = partyMeta.partyCheck?.available === true ? deps.partyToken : undefined;
   const views: CardView[] = await Promise.all(
     cards.map(async (card) => ({
       ...card,
@@ -916,6 +967,8 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
       ageHours: ageHours(card.offer.checkedAt, now),
       ...airlineFieldsFor(card.offer),
       ...fareFreshness(card.offer, now),
+      // From the card's own (already party-sized) links.
+      ...(await signedPartyCheckFields(card.offer, req, partySigner)),
     })),
   );
 
@@ -982,6 +1035,10 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
       // Only when something was flagged: an ordinary answer keeps exactly the fields it had before the guard.
       ...(guarded.suspicious.size > 0 ? { priceGuard: { suspicious: guarded.suspicious.size, excluded: guarded.excluded } } : {}),
       recommendations: recommendationsMeta(ranking, req, cards),
+      airlinePriceLinks: airlinePriceLinks(guarded.pool),
+      sourceRegistry: sourceRegistryForRoute(req, resolver),
+      // Only on a search for 2+ adults: whether the live party check can run (a configured source qualifies and has room, no children).
+      ...partyMeta,
     },
   };
 }
