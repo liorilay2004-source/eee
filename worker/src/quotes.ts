@@ -24,7 +24,7 @@ export const MAX_QUOTE_PAIRS = 4;
 /** Vendor requests per search. Free Workers: 50 subrequests = Travelpayouts 30 + FX 1-3 + this 12 + 5 spare. */
 export const MAX_QUOTE_CALLS = 12;
 /** One vendor request, headers and body included. The phase costs at most ceil(MAX_QUOTE_CALLS / QUOTE_CONCURRENCY) waves of this. */
-export const QUOTE_TIMEOUT_MS = 5_000;
+export const QUOTE_TIMEOUT_MS = 12_000;
 /** workerd keeps 6 connections open at once: more in flight would only queue, and the queue time would eat the timeout. */
 export const QUOTE_CONCURRENCY = 6;
 /** Offers kept per vendor request (the cheapest): ranking needs a few alternatives, not a whole result page. */
@@ -34,7 +34,7 @@ export const MAX_QUOTE_OFFERS_PER_CALL = 20;
  * so a slow or hanging vendor cannot hold a search (whose Travelpayouts scan is already stored by then) for ceil(calls / lanes)
  * timeouts. A request that was in flight still used its reserved unit: abandoning it can only overcount.
  */
-export const QUOTE_PHASE_DEADLINE_MS = 6_000;
+export const QUOTE_PHASE_DEADLINE_MS = 16_000;
 /** A stored quote older than this is no longer shown as a "live" fare on later searches. */
 export const QUOTE_MAX_AGE_HOURS = 6;
 /**

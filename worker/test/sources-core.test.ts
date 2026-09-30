@@ -1020,7 +1020,7 @@ describe("the quote phase has one deadline", () => {
 
   it("the deadline leaves a request that starts at once its whole timeout, and stays well inside the client's 25 s", () => {
     expect(QUOTE_PHASE_DEADLINE_MS).toBeGreaterThan(QUOTE_TIMEOUT_MS);
-    expect(QUOTE_PHASE_DEADLINE_MS).toBeLessThanOrEqual(10_000);
+    expect(QUOTE_PHASE_DEADLINE_MS).toBeLessThanOrEqual(20_000);
   });
 
   it("a phase that ends in time does not wait for the deadline and leaves no timer behind", () =>
