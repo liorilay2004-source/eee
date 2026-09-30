@@ -1,0 +1,16 @@
+{
+  "name": "eee-extension",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser extension (Chromium MV3): the cheapest known fare while searching flights on Google. No build step, no dependencies.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\"",
+    "gen:index": "node scripts/gen-index.mjs",
+    "check:index": "node scripts/gen-index.mjs --check",
+    "gen:icons": "node scripts/gen-icons.mjs"
+  }
+}

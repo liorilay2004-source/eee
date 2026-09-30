@@ -1,0 +1,40 @@
+{
+  "days": [
+    { "date": "2026-11-01", "known": true, "fare": null },
+    { "date": "2026-11-02", "known": true, "fare": { "priceIls": 384, "priceAmount": 125, "priceCurrency": "USD", "returnDate": "2026-11-10", "nights": 8, "stops": 0, "returnStops": 0, "airlines": ["W4"], "departTime": "12:50", "returnTime": "09:50", "deeplink": "https://www.aviasales.com/search/TLV0211ATH10111?t=fixture-a", "checkedAt": "2026-09-30T06:15:16.222Z", "level": "low" } },
+    { "date": "2026-11-06", "known": true, "fare": { "priceIls": 365.57, "priceAmount": 119, "priceCurrency": "USD", "returnDate": "2026-11-13", "nights": 7, "stops": 0, "returnStops": 0, "airlines": ["W4"], "departTime": "12:50", "returnTime": "09:50", "deeplink": "https://www.aviasales.com/search/TLV0611ATH13111?t=fixture-b", "checkedAt": "2026-09-30T06:15:16.222Z", "level": "low" } },
+    { "date": "2026-11-10", "known": true, "fare": { "priceIls": 350.21, "priceAmount": 114, "priceCurrency": "USD", "returnDate": "2026-11-20", "nights": 10, "stops": 0, "returnStops": 0, "airlines": ["W4"], "departTime": "12:50", "returnTime": "09:50", "deeplink": "https://www.aviasales.com/search/TLV1011ATH20111?t=fixture-c", "checkedAt": "2026-09-30T06:15:16.222Z", "level": "low" } },
+    { "date": "2026-11-12", "known": true, "fare": { "priceIls": 457.73, "priceAmount": 149, "priceCurrency": "USD", "returnDate": "2026-11-15", "nights": 3, "stops": 1, "returnStops": 0, "airlines": ["A3"], "departTime": null, "returnTime": null, "deeplink": "https://evil.example/aviasales.com/search", "checkedAt": "2026-09-30T06:15:16.222Z", "level": "high" } },
+    { "date": "2026-11-14", "known": false, "fare": null },
+    { "date": "2026-11-15", "known": true, "fare": { "priceIls": "cheap", "returnDate": "2026-11-20" } },
+    { "date": "2026-11-16", "known": true, "fare": { "priceIls": 300, "returnDate": "2026-11-16" } },
+    { "date": "2026-12-01", "known": true, "fare": { "priceIls": 99, "returnDate": "2026-12-05", "nights": 4, "stops": 0, "returnStops": 0, "deeplink": "https://www.aviasales.com/search/x" } }
+  ],
+  "meta": {
+    "apiVersion": 1,
+    "origin": "TLV",
+    "destination": "ATH",
+    "minNights": 1,
+    "maxNights": 30,
+    "maxStops": null,
+    "priceBasis": "roundtrip_one_adult",
+    "months": [{ "month": "2026-11", "status": "cached", "checkedAt": "2026-09-30T06:15:16.222Z", "truncated": false }],
+    "fromCache": true,
+    "upstreamCalls": 0,
+    "cheapest": { "date": "2026-11-10", "priceIls": 350.21 },
+    "insights": {
+      "cheapestWeekday": 2,
+      "cheapestNights": 7,
+      "savingVsDearestWeekdayPct": 26,
+      "summaryHe": "יציאה ביום ג׳ זולה בממוצע ב-26% מיציאה ביום ה׳",
+      "labelHe": "לפי מחירים שנמצאו לאחרונה (מטמון, 2-7 ימים)",
+      "basis": "cached_fares"
+    },
+    "fxSource": "bank_of_israel",
+    "fxDate": "2026-09-30",
+    "source": "travelpayouts",
+    "noticeHe": "המחירים הם מחירים שמורים של מקור הנתונים (לרוב בני 2–7 ימים), הלוך-חזור למבוגר אחד. יום בלי מחיר פירושו שאין מחיר שמור, לא שאין טיסות. המחיר הסופי מאומת באתר ההזמנה.",
+    "holidaysAttribution": "Hebcal.com, CC BY 4.0",
+    "generatedAt": "2026-09-30T07:55:00.051Z"
+  }
+}

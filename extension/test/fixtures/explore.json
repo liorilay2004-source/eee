@@ -1,0 +1,21 @@
+{
+  "results": [
+    { "destination": { "code": "PMO", "nameHe": "פלרמו", "nameEn": "Palermo", "countryCode": "IT", "category": null }, "departDate": "2026-11-14", "returnDate": "2026-11-16", "nights": 2, "price": { "amount": 90, "currency": "USD", "ils": 276 }, "stops": 0, "departTime": null, "foundAt": "2026-09-26T16:32:11.000Z", "expiresAt": null, "links": { "book": "https://www.aviasales.com/search/TLV1411PMO16111" } },
+    { "destination": { "code": "LCA", "nameHe": "לרנקה", "nameEn": "Larnaca", "countryCode": "CY", "countryHe": "קפריסין", "category": "beach" }, "departDate": "2026-11-08", "returnDate": "2026-11-13", "nights": 5, "price": { "amount": 58, "currency": "USD", "ils": 178 }, "stops": 0, "departTime": null, "foundAt": "2026-09-29T09:31:13.000Z", "expiresAt": null, "links": { "book": "https://www.aviasales.com/search/TLV0811LCA13111" } },
+    { "destination": { "code": "ETM", "nameHe": "אילת", "nameEn": "Eilat", "countryCode": "IL", "category": null }, "departDate": "2026-11-03", "returnDate": "2026-11-05", "nights": 2, "price": { "amount": 20, "currency": "USD", "ils": 61 }, "stops": 0, "links": { "book": "https://www.aviasales.com/search/TLV0311ETM05111" } },
+    { "destination": { "code": "PFO", "nameHe": "פאפוס", "nameEn": "Paphos", "countryCode": "CY", "category": "beach" }, "departDate": "2026-11-06", "returnDate": "2026-11-13", "nights": 7, "price": { "amount": 97, "currency": "USD", "ils": 298 }, "stops": 0, "links": { "book": "http://www.aviasales.com/search/TLV0611PFO13111" } },
+    { "destination": { "code": "BUD", "nameHe": "בודפשט", "nameEn": "Budapest", "countryCode": "HU", "category": null }, "departDate": "2026-11-20", "returnDate": "2026-11-24", "nights": 4, "price": { "amount": 110, "currency": "USD", "ils": 337 }, "stops": 1, "links": { "book": null } },
+    { "destination": { "code": "xx1" }, "departDate": "2026-11-20", "returnDate": "2026-11-24", "price": { "ils": 1 } }
+  ],
+  "meta": {
+    "origin": { "code": "TLV", "nameHe": "תל אביב" },
+    "window": { "start": "2026-11-01", "end": "2026-11-30" },
+    "cached": true,
+    "stale": false,
+    "partial": false,
+    "notes": [
+      "המחירים הם מחירי מטמון שנמצאו בחיפושים של משתמשים בימים האחרונים, הלוך-חזור למבוגר אחד. המחיר העדכני ייבדק בקישור ההזמנה ועשוי להיות שונה.",
+      "נתוני מזג האוויר הם ממוצעים רב-שנתיים משוערים לחודש, לא תחזית."
+    ]
+  }
+}
