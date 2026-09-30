@@ -8,7 +8,7 @@ import { fetchExplore } from "../api/client";
 import type { ExploreResponse, ExploreResult } from "../api/contract";
 import { PRODUCT_NAME } from "../config";
 import {
-  EXPLORE_MAX_TEXT, EXPLORE_NIGHTS, EXPLORE_ORIGINS, buildExploreParams, climateText, describeExploreFailure, destinationName,
+  EXPLORE_MAX_TEXT, EXPLORE_NIGHTS, EXPLORE_ORIGINS, buildExploreParams, climateText, describeExploreFailure, destinationName, destinationTitle,
   emptyExploreInput, exploreMonths, foundAgeText, prefillFromExplore, previewText, scoreParts, sortFailureText, sortResults,
   stopsLabel, understoodSummary, type ExploreField, type ExploreInput, type ExploreSort,
 } from "../lib/explore";
@@ -284,9 +284,10 @@ function ExploreResults({ response, sort, sorting, sortError, onSort, onFill }: 
   </div>;
 }
 
-function ExploreCard({ result, rank, now, onFill }: { result: ExploreResult; rank: number; now: Date; onFill: (r: ExploreResult) => void }) {
+export function ExploreCard({ result, rank, now, onFill }: { result: ExploreResult; rank: number; now: Date; onFill: (r: ExploreResult) => void }) {
   const titleId = useId();
   const name = destinationName(result.destination);
+  const title = destinationTitle(result.destination);
   const book = trustedBookingUrl(result.links.book);
   const climate = climateText(result.climate);
   const found = foundAgeText(result.foundAt, now);
@@ -294,7 +295,7 @@ function ExploreCard({ result, rank, now, onFill }: { result: ExploreResult; ran
   return <article className="xcard" aria-labelledby={titleId}>
     <div className="xcard-top">
       <div>
-        <h3 id={titleId} className="xcard-title"><span className="xrank num" aria-hidden="true">{rank}</span>{name}</h3>
+        <h3 id={titleId} className="xcard-title"><span className="xrank num" aria-hidden="true">{rank}</span>{title}</h3>
         <p className="xcard-sub">
           <span dir="ltr" className="num">{result.destination.code}</span>
           {result.destination.category && <span> · {CATEGORY_HE[result.destination.category] ?? ""}</span>}

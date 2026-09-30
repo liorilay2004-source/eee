@@ -53,7 +53,8 @@ export interface ExploreScore {
 
 /** worker/src/explore.ts ExploreResult */
 export interface ExploreResult {
-  destination: { code: string; nameHe: string | null; nameEn: string | null; countryCode: string | null; category: "beach" | "city" | "ski" | "nature" | null };
+  /** countryHe: Hebrew country name (Unicode CLDR). Optional only for older Worker deploys. */
+  destination: { code: string; nameHe: string | null; nameEn: string | null; countryCode: string | null; countryHe?: string | null; category: "beach" | "city" | "ski" | "nature" | null };
   departDate: string;
   returnDate: string;
   nights: number;
@@ -105,6 +106,8 @@ export interface ExploreResponse {
     notes: string[];
     /** Credit for results[].holidayHe and vacationDaysUsed: "Hebcal.com, CC BY 4.0". */
     holidaysAttribution?: string;
+    /** Credit for results[].destination.countryHe: "Unicode CLDR, Unicode License V3". Optional only for older Worker deploys. */
+    countriesAttribution?: string;
   };
 }
 

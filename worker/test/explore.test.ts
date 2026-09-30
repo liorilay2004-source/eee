@@ -23,6 +23,7 @@ import {
   type ExploreResponse,
 } from "../src/explore";
 import { bundledHolidays, buildHolidayIndex, HOLIDAYS_ATTRIBUTION } from "../src/holidays";
+import { COUNTRIES_ATTRIBUTION, countryNameHe } from "../src/countries/countries";
 import { defaultResolver } from "../src/pipeline";
 import type { Env } from "../src/types";
 import { GLOBAL_SCAN_LIMIT, GLOBAL_SCAN_WINDOW_SECONDS } from "../src/validate";
@@ -142,7 +143,7 @@ describe("GET /api/explore: results", () => {
     expect(codes(data)).toEqual(["ROM", "LCA", "ATH", "BUD", "QQQ"]);
     const [rom, lca, ath, bud, qqq] = data.results;
     expect(ath).toMatchObject({
-      destination: { code: "ATH", nameHe: "אתונה", nameEn: "Athens", countryCode: "GR", category: "city" },
+      destination: { code: "ATH", nameHe: "אתונה", nameEn: "Athens", countryCode: "GR", countryHe: "יוון", category: "city" },
       departDate: "2026-11-10",
       returnDate: "2026-11-13",
       nights: 3,
@@ -155,7 +156,7 @@ describe("GET /api/explore: results", () => {
     expect(lca).toMatchObject({ destination: { nameHe: "לרנקה" }, departTime: "06:30", stops: null, expiresAt: "2026-10-05T00:00:00.000Z" });
     expect(bud?.stops).toBe(1);
     expect(rom?.price.amount).toBe(25);
-    expect(qqq?.destination).toEqual({ code: "QQQ", nameHe: null, nameEn: null, countryCode: null, category: null });
+    expect(qqq?.destination).toEqual({ code: "QQQ", nameHe: null, nameEn: null, countryCode: null, countryHe: null, category: null });
     expect(data.meta).toMatchObject({
       origin: { code: "TLV", nameHe: "תל אביב" },
       window: { start: "2026-11-01", end: "2026-11-30" },
@@ -668,5 +669,20 @@ describe("holidays (holidays.ts): results[].holidayHe, vacationDaysUsed and meta
       expect(r.holidayHe, r.destination.code).toBe(bundledHolidays.holidayHeBetween(r.departDate, r.returnDate));
       expect(r.vacationDaysUsed, r.destination.code).toBe(bundledHolidays.vacationDaysUsed(r.departDate, r.returnDate));
     }
+  });
+});
+
+describe("countries (countries/countries.ts): results[].destination.countryHe and meta.countriesAttribution", () => {
+  it("names each result's country in Hebrew from the bundled CLDR table (null when the country is unknown), with credit", async () => {
+    const up = stubUpstream();
+    const { res, data } = await explore(makeEnv(), "origin=TLV&month=2026-11");
+    expect(res.status).toBe(200);
+    expect(data.meta.countriesAttribution).toBe("Unicode CLDR, Unicode License V3");
+    expect(data.meta.countriesAttribution).toBe(COUNTRIES_ATTRIBUTION);
+    const byCode = new Map(data.results.map((r) => [r.destination.code, r.destination]));
+    expect(byCode.get("ATH")).toMatchObject({ countryCode: "GR", countryHe: "יוון" });
+    expect(byCode.get("QQQ")).toMatchObject({ countryCode: null, countryHe: null });
+    for (const r of data.results) expect(r.destination.countryHe, r.destination.code).toBe(countryNameHe(r.destination.countryCode));
+    expect(up.calls.every((c) => !c.url.hostname.includes("jsdelivr") && !c.url.hostname.includes("unicode"))).toBe(true);
   });
 });

@@ -167,6 +167,18 @@ export function destinationName(d: ExploreResult["destination"]): string {
   return d.nameHe || d.nameEn || d.code;
 }
 
+/**
+ * Card title: "עיר, מדינה" when the API gives the Hebrew country name (older deploys do not), else the city alone.
+ * The country is left out when one name contains the other, so a city-state or a country named after its capital is
+ * not repeated ("סינגפור, סינגפור", "סיישל, איי סיישל").
+ */
+export function destinationTitle(d: ExploreResult["destination"]): string {
+  const name = destinationName(d);
+  const country = typeof d.countryHe === "string" ? d.countryHe.trim() : "";
+  if (!country || country.includes(name) || name.includes(country)) return name;
+  return `${name}, ${country}`;
+}
+
 export interface ScorePart { key: keyof Omit<ExploreScore, "total" | "weights">; label: string; value: number | null; weightPct: number; hint: string }
 
 /** The four parts of the score, in the order the breakdown shows them. A null part is left out of the total. */

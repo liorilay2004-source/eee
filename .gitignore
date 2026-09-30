@@ -7,6 +7,8 @@ __pycache__/
 .venv/
 venv/
 node_modules/
+# also a symlinked node_modules (a file, which "node_modules/" does not match)
+node_modules
 dist/
 build/
 .wrangler/

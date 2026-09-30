@@ -19,6 +19,7 @@
 import type { Resolver } from "./airports/types";
 import { CLIMATE_SOURCE, weatherFit, type DestinationCategory } from "./explore-climate";
 import { MAX_NIGHTS, MIN_NIGHTS, MAX_TEXT_LEN, parseExploreQuery, type NightsRange } from "./explore-text";
+import { COUNTRIES_ATTRIBUTION, countryNameHe } from "./countries/countries";
 import { bundledHolidays, HOLIDAYS_ATTRIBUTION, type HolidayIndex } from "./holidays";
 import { aviasalesSearchLink } from "./travelpayouts";
 import type { FxRates } from "./types";
@@ -582,7 +583,8 @@ export function combineScore(parts: Omit<ScoreBreakdown, "total" | "weights">): 
 }
 
 export interface ExploreResult {
-  destination: { code: string; nameHe: string | null; nameEn: string | null; countryCode: string | null; category: DestinationCategory | null };
+  /** countryHe: Hebrew name of countryCode from Unicode CLDR (countries/countries.ts), e.g. "יוון". additive; null when unknown. */
+  destination: { code: string; nameHe: string | null; nameEn: string | null; countryCode: string | null; countryHe: string | null; category: DestinationCategory | null };
   departDate: string;
   returnDate: string;
   nights: number;
@@ -635,6 +637,8 @@ export interface ExploreResponse {
     climateSource: string;
     /** Credit for results[].holidayHe and vacationDaysUsed (additive): "Hebcal.com, CC BY 4.0". */
     holidaysAttribution: string;
+    /** Credit for results[].destination.countryHe (additive): "Unicode CLDR, Unicode License V3". */
+    countriesAttribution: string;
     notes: string[];
   };
 }
@@ -757,7 +761,7 @@ export async function runExplore(deps: ExploreDeps, params: ExploreParams): Prom
       book = null;
     }
     return {
-      destination: { code: c.dest, nameHe: city.nameHe, nameEn: city.nameEn, countryCode: city.countryCode, category: w ? w.category : null },
+      destination: { code: c.dest, nameHe: city.nameHe, nameEn: city.nameEn, countryCode: city.countryCode, countryHe: countryNameHe(city.countryCode), category: w ? w.category : null },
       departDate: c.depart,
       returnDate: c.ret,
       nights,
@@ -809,6 +813,7 @@ export async function runExplore(deps: ExploreDeps, params: ExploreParams): Prom
       fx: { date: fx.date, source: fx.source },
       climateSource: CLIMATE_SOURCE,
       holidaysAttribution: HOLIDAYS_ATTRIBUTION,
+      countriesAttribution: COUNTRIES_ATTRIBUTION,
       notes,
     },
   };
