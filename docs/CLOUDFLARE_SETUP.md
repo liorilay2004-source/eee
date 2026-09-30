@@ -121,6 +121,18 @@ npx wrangler deploy
 
 בסוף מודפסת הכתובת `https://eee-api.<…>.workers.dev`.
 
+### אחרי כל העלאה — בדיקת עשן
+אחרי כל `npx wrangler deploy` (או בנייה ב-Workers Builds) מריצים מהמחשב, מתיקיית השורש של הריפו:
+
+```bash
+bash scripts/smoke.sh                                   # ברירת מחדל: https://eee-api.liorilay2004.workers.dev
+bash scripts/smoke.sh https://eee-api.<שלך>.workers.dev   # כתובת אחרת
+```
+
+הסקריפט צריך רק `bash`, `curl` ו-`python3`. הוא לא משנה כלום: קריאות GET ל-`/api/health`, `/api/deals`, `/api/calendar` (תל אביב–אתונה, החודש הבא) ו-`/api/explore` (מתל אביב, החודש הבא), וחיפוש אחד בלבד ב-`POST /api/search` (רחוק ממגבלת הקצב). בסוף מודפסת טבלת PASS/FAIL, וקוד היציאה הוא 0 רק כשהכול עבר. שורת הבריאות מראה את הקומיט שהועלה (`build`) ואת המיגרציה האחרונה שהוחלה על D1. אם מופיע `migrations pending` — הקוד חדש יותר מהמסד: מריצים את המיגרציות (שלב א') ובודקים שוב.
+
+המזהה של הקומיט נכתב אוטומטית בזמן ההעלאה (`[build]` ב-`wrangler.toml` מריץ את `worker/scripts/gen-build-info.mjs`); אין צורך בשום צעד נוסף. בלי git הוא יופיע כ-`unknown`, ואם העלית מהמחשב עם שינויים שלא נשמרו בקומיט בתיקיית `worker/` יתווסף לו `-dirty`. אפשר להריץ את ההעלאה מתוך `worker/` (הדרך הרגילה) או מהשורש עם `--config worker/wrangler.toml`.
+
 ### דרך ג' — GitHub Actions
 לא נוצר workflow להעלאה: מערכת ההרשאות חסמה אותו כ"Production Deploy", וביקשת לטפל ב-Cloudflare בעצמך. אם תרצה אותו, תגיד. הוא ידרוש שני סודות ב-GitHub: `CLOUDFLARE_API_TOKEN` (התבנית "Edit Cloudflare Workers" בתוספת "Account → D1 → Edit") ו-`CLOUDFLARE_ACCOUNT_ID`.
 
@@ -263,7 +275,7 @@ URL=https://eee-api.<שלך>.workers.dev
 # 1) בריאות (כולל בדיקת D1)
 curl -i $URL/api/health
 #   HTTP 200, Cache-Control: no-store, X-Content-Type-Options: nosniff
-#   {"status":"ok","db":"ok"}
+#   {"status":"ok","db":"ok","build":{"sha":"<קומיט>","time":"<זמן ההעלאה>"},"migration":"0006_m11_price_alerts.sql","migrationsPending":false}
 
 # 2) השלמה אוטומטית בעברית
 curl -G $URL/api/airports --data-urlencode "q=ברצלונה"

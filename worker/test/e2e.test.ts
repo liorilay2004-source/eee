@@ -878,7 +878,8 @@ describe("GET /api/health", () => {
   it("checks D1", async () => {
     const res = await call(makeEnv(), "/api/health");
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ status: "ok", db: "ok" });
+    // {status, db} unchanged; the additive fields: the stand-in build info, and no d1_migrations table in the test shim.
+    expect(await res.json()).toEqual({ status: "ok", db: "ok", build: { sha: "unknown", time: null }, migration: null, migrationsPending: null });
   });
 
   it("503 without details when D1 is down", async () => {
