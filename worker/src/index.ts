@@ -4,7 +4,7 @@
  *   GET  /api/airports  autocomplete over the Hebrew/English city dataset, plus country suggestions (src/countries/search.ts)
  *   GET  /api/calendar  cheapest cached round trip per departure day (rate limited, src/calendar.ts)
  *   GET  /api/explore   cheapest destinations from TLV/ETM in a month or window (rate limited, src/explore.ts)
- *   GET  /api/health    D1 liveness
+ *   GET  /api/health    D1 liveness, deployed commit, newest applied migration
  *   POST /api/watches, GET|DELETE /api/watches/<token>, POST /api/telegram/webhook   price alerts (src/watches.ts)
  *   GET  /api/deals     unusual fares per watched route, precomputed by the hourly snapshot cron (dealreports.ts)
  *
@@ -28,6 +28,7 @@ import { createRepo, pruneHistory } from "./db";
 import { loadDeals, refreshDealReport } from "./dealreports";
 import { EXPLORE_RATE_LIMIT_MAX, EXPLORE_RATE_LIMIT_WINDOW_SECONDS, ExploreError, parseExploreParams, runExplore } from "./explore";
 import { getFxRates } from "./fx";
+import { checkHealth } from "./health";
 import { defaultResolver, PipelineError, runSearch, sha256Hex, type ScanBudgetVerdict } from "./pipeline";
 import { withDailyShare, type FareQuoteSource } from "./quotes";
 import { clientIdentity, createMemoryLimiter, limiterSalt } from "./ratelimit";
@@ -425,12 +426,7 @@ async function handleDeals(env: Env): Promise<ApiResult> {
 }
 
 async function handleHealth(env: Env): Promise<ApiResult> {
-  try {
-    await env.DB.prepare("SELECT 1 AS ok").first();
-    return { status: 200, body: { status: "ok", db: "ok" } };
-  } catch {
-    return { status: 503, body: { status: "degraded", db: "error" } };
-  }
+  return checkHealth(env.DB);
 }
 
 /**
