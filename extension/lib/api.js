@@ -5,6 +5,17 @@
  * &limit=3. Nothing else: no query text, no page address, no cookies (credentials: "omit"), no referrer, no identifier,
  * no analytics. Requests are validated here again, whatever the caller sent.
  *
+ * A locked API (worker/src/access.ts): when the user saved an access key (lib/settings.js, chrome.storage.local), every
+ * request also carries `Authorization: Bearer <key>`, and nothing else changes (still no cookies, no referrer). The key
+ * is never put in a URL, never cached, never logged. A 401 marks the key as rejected (the popup says "המפתח נדחה"),
+ * and a rejected key is not sent again until the popup checks or replaces it: the API counts every wrong key as a guess
+ * and blocks the address after 20 of them, and a request WITHOUT a key is not counted. The key is never removed by the
+ * code. A 401 is otherwise an ordinary failure (nothing shown, the usual pause). A 429 pauses everything as before.
+ * checkAuth() is the popup's "בדיקה": GET /api/auth/check through the service worker, mapped to a few outcomes. While
+ * the API blocks this address for guessing (a 429 whose code is too_many_attempts, from a lookup or from a check), a
+ * check is answered "blocked" here, without a request, until the Retry-After has passed. After a check the API
+ * accepted, cached failures (nothing to show) are forgotten, so the next search after the pause asks again.
+ *
  * Politeness, well below the API's own per-client limits (worker/src/calendar.ts and explore.ts: 30 per 10 minutes each):
  *   - every answer is cached for 30 minutes (an answer with nothing to show, or a failure, for less);
  *   - at most LIMIT_MAX calls per LIMIT_WINDOW_MS for the whole browser, kept in chrome.storage.session so a restarted
@@ -41,6 +52,7 @@
   const EXPLORE_LIMIT = 3;
   const STATE_KEY = "apiLimiter";
   const CACHE_KEY = "apiCache";
+  const AUTH_CHECK_PATH = "/api/auth/check";
 
   const IATA = /^[A-Z]{3}$/;
   const MONTH = /^(\d{4})-(0[1-9]|1[0-2])$/;
@@ -259,12 +271,39 @@
   // --- the client ---------------------------------------------------------------------------------------------
 
   /**
+   * @typedef {{ key: string | null, rejected: boolean }} AccessKeyState
+   * @typedef {{ load: () => Promise<AccessKeyState>, setRejected: (rejected: boolean, key: string) => Promise<void> }} AccessKeyStore
+   * @typedef {{ outcome: "ok" | "wrong" | "no_key" | "unlocked" | "blocked" | "unavailable" | "offline", retryAfterMin?: number }} AuthCheck
+   */
+
+  /**
+   * The key to send now, or null: none saved, or the saved one was rejected (see the header). Never throws.
+   * @param {AccessKeyStore | undefined} access
+   */
+  async function currentKey(access) {
+    if (!access) return null;
+    try {
+      const st = await access.load();
+      return typeof st?.key === "string" && st.key !== "" && st.rejected !== true ? st.key : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * The request headers: Accept, plus the key when there is one. Never anything else.
+   * @param {string | null} key
+   */
+  const headersFor = (key) => (key === null ? { Accept: "application/json" } : { Accept: "application/json", Authorization: `Bearer ${key}` });
+
+  /**
    * @param {{
    *   fetch: (url: string, init: Record<string, unknown>) => Promise<{ status: number, ok: boolean, headers: { get(n: string): string | null }, text(): Promise<string>, body?: { getReader?: () => any } | null }>,
    *   now: () => number,
    *   storage: KeyValue,
    *   setTimeout: (fn: () => void, ms: number) => unknown,
    *   clearTimeout: (t: unknown) => void,
+   *   access?: AccessKeyStore,
    * }} deps
    */
   function createClient(deps) {
@@ -287,21 +326,31 @@
     /**
      * The limiter as this service worker last wrote it. Storage is the truth across restarts; this copy keeps the limit
      * (and a pause) in force when storage reads or writes fail, so a broken storage never means unlimited calls.
-     * @type {{ calls: number[], pausedUntil: number }}
+     * `blockedUntil` is the access lock's own 429 (too many wrong keys from this address): until then a key check is
+     * answered here, without a request.
+     * @typedef {{ calls: number[], pausedUntil: number, blockedUntil: number }} LimiterState
+     * @type {LimiterState}
      */
-    let memState = { calls: [], pausedUntil: 0 };
+    let memState = { calls: [], pausedUntil: 0, blockedUntil: 0 };
 
+    /** @param {unknown} v */
+    const timeOr0 = (v) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+
+    /** @returns {Promise<LimiterState>} */
     async function readState() {
       const raw = /** @type {any} */ (await deps.storage.get(STATE_KEY).catch(() => undefined));
       const stored = Array.isArray(raw?.calls) ? raw.calls.filter((/** @type {unknown} */ t) => typeof t === "number" && Number.isFinite(t)) : [];
-      const storedPause = typeof raw?.pausedUntil === "number" && Number.isFinite(raw.pausedUntil) ? raw.pausedUntil : 0;
       const calls = stored.length >= memState.calls.length ? stored : [...memState.calls];
-      return { calls, pausedUntil: Math.max(storedPause, memState.pausedUntil) };
+      return {
+        calls,
+        pausedUntil: Math.max(timeOr0(raw?.pausedUntil), memState.pausedUntil),
+        blockedUntil: Math.max(timeOr0(raw?.blockedUntil), memState.blockedUntil),
+      };
     }
 
-    /** @param {{ calls: number[], pausedUntil: number }} st */
+    /** @param {LimiterState} st */
     const writeState = (st) => {
-      memState = { calls: [...st.calls], pausedUntil: st.pausedUntil };
+      memState = { calls: [...st.calls], pausedUntil: st.pausedUntil, blockedUntil: st.blockedUntil };
       return deps.storage.set(STATE_KEY, st).catch(() => undefined);
     };
 
@@ -394,10 +443,24 @@
       return text + decoder.decode();
     }
 
+    /** Forgets every cached answer that has nothing to show (failures, empties); good data stays. */
+    async function forgetFailures() {
+      const all = await readCacheAll();
+      const kept = Object.entries(all).filter(([, e]) => isRecord(e) && e.data !== null && e.data !== undefined);
+      if (kept.length === Object.keys(all).length) return;
+      await deps.storage.set(CACHE_KEY, Object.fromEntries(kept)).catch(() => undefined);
+    }
+
+    /**
+     * A 429 body: is it the access lock's (too many wrong keys from this address) rather than a route's rate limit?
+     * @param {unknown} body
+     */
+    const isLockout = (body) => isRecord(body) && isRecord(/** @type {any} */ (body).error) && /** @type {any} */ (body).error.code === "too_many_attempts";
+
     /**
      * One API call. Never throws.
      * @param {ApiRequest} req
-     * @returns {Promise<{ data: CalendarData | ExploreData | null, ttl: number, pauseMs: number }>}
+     * @returns {Promise<{ data: CalendarData | ExploreData | null, ttl: number, pauseMs: number, blocked?: boolean }>}
      */
     async function call(req) {
       /** @type {unknown} */
@@ -412,6 +475,7 @@
             reject(new Error("timeout"));
           }, TIMEOUT_MS);
         });
+        const key = await currentKey(deps.access);
         const res = await Promise.race([
           deps.fetch(buildUrl(req), {
             method: "GET",
@@ -419,7 +483,7 @@
             cache: "no-store",
             redirect: "error",
             referrerPolicy: "no-referrer",
-            headers: { Accept: "application/json" },
+            headers: headersFor(key),
             ...(controller ? { signal: controller.signal } : {}),
           }),
           timeout,
@@ -432,7 +496,14 @@
           } catch {
             /* the header decides */
           }
-          return { data: null, ttl: 0, pauseMs: retryAfterMs(res.headers, body, deps.now()) };
+          return { data: null, ttl: 0, pauseMs: retryAfterMs(res.headers, body, deps.now()), blocked: isLockout(body) };
+        }
+        if (res.status === 401) {
+          // The lock is on and our key (if any) is wrong: note it for the popup, keep the key, show nothing. The
+          // rejected key is not sent again (see the header), and the usual failure pause applies. The verdict is
+          // about the key this request carried: a key saved meanwhile is not flagged.
+          if (key !== null && deps.access) await deps.access.setRejected(true, key).catch(() => undefined);
+          return { data: null, ttl: FAILURE_TTL_MS, pauseMs: FAILURE_PAUSE_MS };
         }
         if (res.status === 400 || res.status === 404) return { data: null, ttl: INVALID_TTL_MS, pauseMs: 0 };
         if (!res.ok || res.status !== 200) return { data: null, ttl: FAILURE_TTL_MS, pauseMs: FAILURE_PAUSE_MS };
@@ -478,6 +549,7 @@
           if (out.pauseMs > 0) {
             const st = await readState();
             st.pausedUntil = Math.max(st.pausedUntil, nowMs + out.pauseMs);
+            if (out.blocked) st.blockedUntil = Math.max(st.blockedUntil, nowMs + out.pauseMs);
             await writeState(st);
           }
           await remember(key, nowMs, out.ttl, out.data);
@@ -490,7 +562,106 @@
       return work;
     }
 
-    return { lookup };
+    /** @type {Promise<AuthCheck> | null} */
+    let authInflight = null;
+
+    /** Minutes to wait, never "0 minutes". @param {number} ms */
+    const minutesOf = (ms) => Math.max(1, Math.ceil(ms / 60_000));
+
+    /**
+     * The popup's "בדיקה": GET /api/auth/check with the saved key (a rejected one included: the user asked). Not cached,
+     * not counted in the lookup limiter (one click, one request; one at a time), but a 429 pauses lookups like any other.
+     *   204 -> "ok" (the flag is cleared, cached failures are forgotten) or, with no key saved, "unlocked" (the lock is
+     *          off, or the API predates it);
+     *   401 -> "wrong" (flag set) or, with no key saved, "no_key";  404 -> "unlocked" (the deployed API has no lock);
+     *   429 -> "blocked" with the minutes to wait, and until then every check answers "blocked" without a request;
+     *   5xx and other -> "unavailable";  network error / timeout -> "offline".
+     * An ordinary failure pause (a minute after a 401 or a 5xx) does not hold a check back: the user asked, and one
+     * request is what it costs. Never throws.
+     * @returns {Promise<AuthCheck>}
+     */
+    function checkAuth() {
+      if (authInflight) return authInflight;
+      authInflight = (async () => {
+        /** @type {unknown} */
+        let timer;
+        try {
+          const st = await locked(readState).catch(() => memState);
+          const nowMs = deps.now();
+          // Clamped like a pause: a clock that jumped back must not block the check for hours.
+          const blockedUntil = Math.min(st.blockedUntil, nowMs + MAX_PAUSE_MS);
+          if (blockedUntil > nowMs) return { outcome: "blocked", retryAfterMin: minutesOf(blockedUntil - nowMs) };
+          const controller = typeof AbortController === "function" ? new AbortController() : null;
+          /** @type {Promise<never>} */
+          const timeout = new Promise((_, reject) => {
+            timer = deps.setTimeout(() => {
+              controller?.abort();
+              reject(new Error("timeout"));
+            }, TIMEOUT_MS);
+          });
+          /** @type {string | null} */
+          let key = null;
+          if (deps.access) {
+            const st = await deps.access.load().catch(() => null);
+            key = typeof st?.key === "string" && st.key !== "" ? st.key : null;
+          }
+          const res = await Promise.race([
+            deps.fetch(new URL(AUTH_CHECK_PATH, API_BASE).toString(), {
+              method: "GET",
+              credentials: "omit",
+              cache: "no-store",
+              redirect: "error",
+              referrerPolicy: "no-referrer",
+              headers: headersFor(key),
+              ...(controller ? { signal: controller.signal } : {}),
+            }),
+            timeout,
+          ]);
+          if (res.status === 429) {
+            let body = null;
+            try {
+              const text = await readBody(res, timeout, MAX_ERROR_BODY_BYTES);
+              body = text === null ? null : JSON.parse(text);
+            } catch {
+              /* the header decides */
+            }
+            const pauseMs = retryAfterMs(res.headers, body, deps.now());
+            await locked(async () => {
+              const cur = await readState();
+              const until = deps.now() + pauseMs;
+              cur.pausedUntil = Math.max(cur.pausedUntil, until);
+              // /api/auth/check answers 429 only from the access lock: the check itself has no other limit.
+              cur.blockedUntil = Math.max(cur.blockedUntil, until);
+              await writeState(cur);
+            });
+            return { outcome: "blocked", retryAfterMin: minutesOf(pauseMs) };
+          }
+          if (res.status === 204 || res.status === 200) {
+            if (key === null) return { outcome: "unlocked" };
+            if (deps.access) await deps.access.setRejected(false, key).catch(() => undefined);
+            // Searches that came back 401 with the wrong key are cached as "nothing to show" for a while: let them ask again.
+            await locked(forgetFailures).catch(() => undefined);
+            return { outcome: "ok" };
+          }
+          if (res.status === 401) {
+            if (key === null) return { outcome: "no_key" };
+            if (deps.access) await deps.access.setRejected(true, key).catch(() => undefined);
+            return { outcome: "wrong" };
+          }
+          if (res.status === 404) return { outcome: "unlocked" };
+          return { outcome: "unavailable" };
+        } catch {
+          return { outcome: "offline" };
+        } finally {
+          if (timer !== undefined) deps.clearTimeout(timer);
+        }
+      })().finally(() => {
+        authInflight = null;
+      });
+      return authInflight;
+    }
+
+    return { lookup, checkAuth };
   }
 
   EEE.api = Object.freeze({
@@ -506,6 +677,7 @@
     MAX_PAUSE_MS,
     TIMEOUT_MS,
     EXPLORE_LIMIT,
+    AUTH_CHECK_PATH,
     validateRequest,
     buildUrl,
     trustedBookingUrl,

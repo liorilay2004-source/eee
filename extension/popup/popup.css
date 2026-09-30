@@ -133,3 +133,72 @@ summary:focus-visible {
   color: var(--muted);
   font-size: 12px;
 }
+.access {
+  margin: 6px 0;
+  padding: 4px 10px 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--fg);
+  font-size: 13px;
+}
+.access summary {
+  color: var(--muted);
+  font-size: 12px;
+}
+.access-lead,
+.access-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+.access label {
+  display: block;
+  margin-top: 4px;
+  font-weight: 600;
+}
+.access-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.access-field input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+/* The key is typed into a text field (never type="password", see popup.html) and hidden with a mask instead. */
+.access-field input.masked {
+  -webkit-text-security: disc;
+}
+/* The field is dir="ltr" for the key; its Hebrew placeholder still reads right to left. */
+.access-field input::placeholder {
+  direction: rtl;
+  text-align: right;
+}
+.access-field button,
+.access-actions button {
+  margin-inline-start: 0;
+}
+.access-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.access-status {
+  margin-top: 4px;
+  color: var(--fg);
+}
+.access-status.bad {
+  color: #b91c1c;
+}
+@media (prefers-color-scheme: dark) {
+  .access-status.bad {
+    color: #fca5a5;
+  }
+}

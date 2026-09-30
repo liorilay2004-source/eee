@@ -4,6 +4,10 @@
  *   origin    default departure airport when the query names none: TLV or ETM
  *   hiddenOn  surfaces where the user chose "לא להציג יותר באתר הזה": "search" (Google Search), "flights" (Google Flights)
  * Anything else read from storage is ignored; a damaged value falls back to the default.
+ *
+ * The access key of a locked API is NOT here: this file is loaded into the content scripts (inside Google's pages), and
+ * the key must never be near them. It lives in lib/access.js (chrome.storage.local), loaded by the service worker and
+ * the toolbar popup only.
  */
 (() => {
   "use strict";

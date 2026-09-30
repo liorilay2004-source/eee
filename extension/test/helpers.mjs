@@ -11,6 +11,7 @@ await import("../lib/tfs.js");
 await import("../lib/query.js");
 await import("../lib/view.js");
 await import("../lib/settings.js");
+await import("../lib/access.js");
 await import("../lib/api.js");
 
 /** @type {any} */

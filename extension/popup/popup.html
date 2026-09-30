@@ -32,6 +32,24 @@
 
       <p id="status" class="status" role="status" aria-live="polite"></p>
 
+      <details class="access" id="access">
+        <summary>אם נעלתם את האתר: מפתח גישה</summary>
+        <p class="access-lead">רק אם בעל האתר הגדיר מפתח גישה (נעילה לשימוש אישי). בלי נעילה אין צורך במפתח.</p>
+        <label for="access-key">מפתח גישה</label>
+        <div class="access-field">
+          <!-- A text field masked by CSS, never a password field: Chrome's password manager never sees it, so the key cannot be offered for saving (and syncing). -->
+          <input type="text" class="masked" id="access-key" autocomplete="off" spellcheck="false" autocapitalize="off" dir="ltr" maxlength="300" placeholder="הדביקו את המפתח" />
+          <button type="button" id="access-toggle" aria-pressed="false" aria-controls="access-key">הצגה</button>
+        </div>
+        <div class="access-actions">
+          <button type="button" id="access-save">שמירה</button>
+          <button type="button" id="access-check">בדיקה</button>
+          <button type="button" id="access-clear">מחיקה</button>
+        </div>
+        <p id="access-status" class="status access-status" role="status" aria-live="polite"></p>
+        <p class="access-note">המפתח נשמר רק במכשיר הזה, בדפדפן הזה, ולא מסונכרן לחשבון Google. הוא נשלח לשרת שלנו בלבד, בכותרת הבקשה, ואף פעם לא בכתובת.</p>
+      </details>
+
       <section class="privacy">
         <h2>פרטיות</h2>
         <p>
@@ -57,6 +75,7 @@
       <p class="meta">גרסה <span id="version"></span> · שמות מדינות: Unicode CLDR</p>
     </main>
     <script src="../lib/settings.js"></script>
+    <script src="../lib/access.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>
