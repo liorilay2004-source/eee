@@ -1,10 +1,11 @@
 import { useId } from "react";
-import { ArrowLeft, BaggageClaim, Clock3, ExternalLink, Info, Plane, Split } from "lucide-react";
+import { ArrowLeft, BaggageClaim, Clock3, ExternalLink, Info, Plane, Split, TriangleAlert } from "lucide-react";
 import type { CardView, Leg, RecKind, SearchRequest } from "../api/contract";
 import {
   KIND_REASONS, KIND_TITLES, bagView, isMinimumPrice, nightsBetween, originalPriceLabel, partyPriceLine, totalPassengers,
 } from "../lib/builder";
 import { formatDuration, formatILS, formatShortDate, trustedBookingUrl } from "../lib/search";
+import { SUSPICIOUS_BADGE, SUSPICIOUS_TEXT, airlineLabels, cardAirlines, freshnessLine, freshnessTone, isSuspicious, type AirlineLabel } from "../lib/cards";
 
 interface CardProps {
   card: CardView;
@@ -20,17 +21,20 @@ function stopsText(stops: number | null): string {
   return stops === 0 ? "טיסה ישירה" : stops === 1 ? "עצירה אחת" : `${stops} עצירות`;
 }
 
-function freshnessText(source: string): string {
-  return source === "travelpayouts"
-    ? "מחיר מהמטמון של Aviasales · עשוי להשתנות"
-    : "מחיר שנשמר לאחרונה · עשוי להשתנות";
+/** Hebrew airline names where the API knows them; an unknown code is shown as the code, left to right. */
+function Airlines({ items }: { items: AirlineLabel[] }) {
+  return <>{items.map((a, i) => <span key={a.code}>
+    {i > 0 && " · "}
+    {a.name ? <span title={a.code}>{a.name}</span> : <span dir="ltr">{a.code}</span>}
+  </span>)}</>;
 }
 
 function primaryKind(kinds: RecKind[]): RecKind {
   return kinds.includes("cheapest") ? "cheapest" : kinds[0] ?? "cheapest";
 }
 
-function LegRow({ title, date, leg }: { title: string; date: string; leg: Leg }) {
+function LegRow({ title, date, leg, names }: { title: string; date: string; leg: Leg; names: Record<string, string> | undefined }) {
+  const airlines = airlineLabels(leg.airlines, names);
   const times = leg.departTime && leg.arriveTime ? `${leg.departTime} – ${leg.arriveTime}` : leg.departTime ? `המראה ${leg.departTime}` : null;
   return <div className="leg">
     <div className="leg-head"><span className="leg-title">{title}</span><span className="leg-date num" dir="ltr">{formatShortDate(date)}</span></div>
@@ -38,7 +42,7 @@ function LegRow({ title, date, leg }: { title: string; date: string; leg: Leg })
     <div className="leg-meta">
       <span>{stopsText(leg.stops)}</span>
       {leg.durationMin !== null && <span>{formatDuration(leg.durationMin)}</span>}
-      {leg.airlines.length > 0 && <span><span className="sr-only">חברות תעופה: </span><span dir="ltr" className="leg-airlines">{leg.airlines.join(" · ")}</span></span>}
+      {airlines.length > 0 && <span><span className="sr-only">חברות תעופה: </span><span className="leg-airlines"><Airlines items={airlines} /></span></span>}
     </div>
   </div>;
 }
@@ -84,14 +88,16 @@ export function BoardingPass({ card, request, originLabel, destinationLabel, dem
   const destinationName = offer.destination === request.destination ? destinationLabel : "";
   const kind = primaryKind(card.kinds);
   const alsoKinds = card.kinds.filter((k) => k !== kind);
+  const suspicious = !demo && isSuspicious(card);
   return <article className={`pass ${demo ? "is-demo" : ""}`} aria-labelledby={titleId}>
     {demo && <div className="demo-ribbon">דוגמה להמחשה · לא מחיר אמיתי</div>}
     <div className="pass-top">
       <div className="pass-badges">
         <h3 className="badge badge-accent pass-title" id={titleId}>{KIND_TITLES[kind]}</h3>
         {alsoKinds.map((k) => <span className="badge" key={k}>גם {KIND_TITLES[k]}</span>)}
+        {suspicious && <span className="badge badge-warn"><TriangleAlert size={14} aria-hidden="true" />{SUSPICIOUS_BADGE}</span>}
       </div>
-      <span className="freshness">{demo ? "נתוני דוגמה" : freshnessText(offer.source)}</span>
+      <span className={`freshness tone-${freshnessTone(card)}`}>{demo ? "נתוני דוגמה" : freshnessLine(card)}</span>
     </div>
 
     <div className="pass-route">
@@ -116,11 +122,12 @@ export function BoardingPass({ card, request, originLabel, destinationLabel, dem
     <div className="perforation" aria-hidden="true" />
 
     <div className="pass-legs">
-      <LegRow title="הלוך" date={offer.departDate} leg={offer.outbound} />
-      <LegRow title="חזור" date={offer.returnDate} leg={offer.inbound} />
+      <LegRow title="הלוך" date={offer.departDate} leg={offer.outbound} names={card.airlineNames} />
+      <LegRow title="חזור" date={offer.returnDate} leg={offer.inbound} names={card.airlineNames} />
     </div>
 
     <ul className="pass-notes">
+      {suspicious && <li className="note note-warn"><TriangleAlert size={16} aria-hidden="true" /><span>{SUSPICIOUS_TEXT}</span></li>}
       <li className={`note note-${bag.tone}`}><BaggageClaim size={16} aria-hidden="true" />{bag.text}</li>
       {split && <li className="note note-warn"><Split size={16} aria-hidden="true" /><span><strong>שני כרטיסים נפרדים.</strong> מזמינים כל כיוון בנפרד. אם טיסה אחת משתנה או מתבטלת, השנייה לא מוגנת.</span></li>}
       {card.savingsVsRoundtripIls !== null && card.savingsVsRoundtripIls > 0 && <li className="note note-good">זול ב־{formatILS(card.savingsVsRoundtripIls)} מהלוך־חזור הזול ביותר</li>}
@@ -142,9 +149,14 @@ export function CompactCard({ card, request, demo }: CardProps) {
   const split = offer.ticketStructure === "split";
   const stops = [offer.outbound.stops, offer.inbound.stops];
   const titleId = useId();
+  const suspicious = !demo && isSuspicious(card);
+  const airlines = cardAirlines(card);
   return <article className={`mini ${demo ? "is-demo" : ""}`} aria-labelledby={titleId}>
     <div className="mini-top">
-      <div><h3 className="mini-title" id={titleId}>{KIND_TITLES[kind]}</h3><p className="mini-reason">{KIND_REASONS[kind]}</p></div>
+      <div>
+        <h3 className="mini-title" id={titleId}>{KIND_TITLES[kind]}</h3><p className="mini-reason">{KIND_REASONS[kind]}</p>
+        {suspicious && <span className="mini-flag"><TriangleAlert size={14} aria-hidden="true" />{SUSPICIOUS_BADGE}</span>}
+      </div>
       <div className="mini-price-block">
         <div className="mini-price num">{atLeast && <span className="price-prefix">לפחות </span>}<span dir="ltr">{formatILS(offer.totalIls)}</span></div>
         <div className="mini-party num">{partyPriceLine(offer.totalIls, people, atLeast)}</div>
@@ -157,11 +169,12 @@ export function CompactCard({ card, request, demo }: CardProps) {
     </p></div>
     <div className="dots"><p className="dots-row mini-line mini-sub">
       {offer.outbound.departTime ? <span>המראה בהלוך <span className="num" dir="ltr">{offer.outbound.departTime}</span></span> : <span>השעות יופיעו באתר ההזמנה</span>}
+      {airlines.length > 0 && <span><span className="sr-only">חברות תעופה: </span><Airlines items={airlines} /></span>}
       {split && <strong className="mini-split">שני כרטיסים נפרדים</strong>}
     </p></div>
     <p className={`mini-bag tone-${bag.tone}`}><BaggageClaim size={15} aria-hidden="true" />{bag.text}</p>
     <div className="mini-foot">
-      <span className="freshness">{demo ? "נתוני דוגמה" : freshnessText(offer.source)}</span>
+      <span className={`freshness tone-${freshnessTone(card)}`}>{demo ? "נתוני דוגמה" : freshnessLine(card)}</span>
       <BookingActions card={card} demo={demo} compact />
     </div>
   </article>;

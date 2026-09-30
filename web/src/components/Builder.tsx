@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
-import { ChevronDown, CircleAlert, Clock3, MapPinned, Search, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, CircleAlert, Clock3, Compass, MapPinned, Search, SlidersHorizontal } from "lucide-react";
 import { Sheet } from "./Sheet";
 import { FromQuestion, PairHint, ToQuestion, WhenQuestion, StayQuestion, WhoQuestion, type Patch } from "./Questions";
 import {
@@ -153,6 +153,7 @@ export function Builder({ form, patch, today, errors, rawErrors, openQuestion, s
       <p className="kicker">חיפוש גמיש · שאלה אחת בכל פעם</p>
       <h1 id="builder-title">{editing ? "מה משנים?" : "לאן בא לכם לטוס?"}</h1>
       <p className="builder-sub">הקישו על כל חלק במשפט כדי לבחור. אנחנו נמצא את הצירוף הזול ביותר.</p>
+      {!editing && <a className="explore-link" href="/explore"><Compass size={18} aria-hidden="true" /><span>לא יודע לאן? <strong>גלו יעדים זולים</strong></span></a>}
     </div>
 
     <div className="sentence" role="group" aria-label="פרטי החיפוש">

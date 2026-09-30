@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  bagView, clearQuestionErrors, describeFailure, firstErrorQuestion, hasTruncation, inferWhen, isMinimumPrice, mapFieldErrors, monthOptions,
+  bagView, clearQuestionErrors, describeFailure, firstErrorQuestion, firstMonthOffset, hasTruncation, inferWhen, isMinimumPrice, mapFieldErrors, monthOptions,
   nextMonthWindow, originalPriceLabel, otherDuration, pairCheck, partyPriceLine, passengersLabel, placeLabel,
   pricePerPerson, priceText, questionForField, questionsTouchedBy, scanGaps, shorterWindow, sourceNote, stayLabel, stayPresetFor,
   STAY_PRESETS, toggleMonth, waitText, whenLabel, widenWindow, windowForMonths, withNearby,
@@ -22,6 +22,10 @@ describe("month chips -> window", () => {
   it("keeps the current month when enough of it is left", () => {
     expect(monthOptions("2026-10-05")[0].key).toBe("2026-10");
     expect(monthOptions("2026-10-25")[0].key).toBe("2026-11");
+    expect(monthOptions("2026-10-31")[0].key).toBe("2026-11");
+    expect(firstMonthOffset("2026-10-31")).toBe(1);
+    expect(firstMonthOffset("2026-10-21")).toBe(0);
+    expect(firstMonthOffset("2026-10-22")).toBe(1);
   });
 
   it("maps one or two consecutive months to a window, clamped to today", () => {
