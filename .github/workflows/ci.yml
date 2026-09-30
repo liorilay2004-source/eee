@@ -55,3 +55,20 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+
+  # The browser extension (extension/): no dependencies and no build step, so no npm ci. Tests only; never a deploy
+  # or a store upload.
+  extension:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: extension
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test "test/*.test.mjs"
+      # data/index.json must equal a fresh build from worker/src/airports and worker/src/countries.
+      - run: node scripts/gen-index.mjs --check

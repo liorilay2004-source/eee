@@ -21,6 +21,10 @@ A free Hebrew (RTL) web app that finds the cheapest real round-trip price across
 
 The preview supports a clearly labeled demonstration mode. Live prices are unavailable until `TRAVELPAYOUTS_TOKEN` is added as a Cloudflare Worker secret. The privacy, terms, affiliate, and accessibility pages are draft copy and need review before a public launch.
 
+## תוסף לדפדפן: מחיר זול בזמן חיפוש בגוגל
+
+תוסף ל־Chrome,‏ Edge ו־Brave: כשמחפשים טיסה בגוגל או ב־Google Flights, מופיע בפינת המסך המחיר הזול ביותר שמצאנו לאותו מסלול וחודש, עם קישור להזמנה ולאתר. התוסף קורא רק את מה שהקלדתם (לא את תוכן הדף ולא את המחירים של גוגל), ושולח לשרת שלנו רק מוצא, יעד וחודש. הוא לא פורסם בחנות (Chrome Web Store גובה 5 דולר), ומתקינים אותו ידנית ב„מצב מפתח”. הוראות התקנה, פרטיות ומגבלות: [extension/README.md](extension/README.md).
+
 ## Run Phase 0 (no local computer needed)
 
 GitHub → **Actions** → **Phase 0 - price proof** → **Run workflow**. You can do this from the GitHub mobile app too.
@@ -55,6 +59,7 @@ engine/                 Python engine (Phase 0 now, the background monitor in Ph
   tests/                offline tests for the SPEC §16 acceptance criteria
 .github/workflows/      ci.yml (tests on every push) · phase0-proof.yml (manual run)
 web/                    React/Vite Hebrew RTL PWA (Cloudflare Pages)
+extension/              browser extension (Chromium MV3, no build step): cheapest known fare while searching on Google
 ```
 
 Run the tests locally (optional): `pip install -r engine/requirements.txt && python -m pytest -q engine/tests`

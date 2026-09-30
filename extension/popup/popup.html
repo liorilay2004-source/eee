@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>מנוע מחירי טיסות</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <img src="../icons/icon32.png" width="32" height="32" alt="" />
+        <h1 id="name">מנוע מחירי טיסות</h1>
+      </header>
+      <p class="lead">כשמחפשים טיסה בגוגל או ב־Google Flights, מופיע בפינת המסך המחיר הזול ביותר שמצאנו.</p>
+
+      <label class="switch">
+        <input type="checkbox" id="enabled" />
+        <span>הצגת מחירים בזמן חיפוש בגוגל</span>
+      </label>
+
+      <fieldset>
+        <legend>שדה תעופה ליציאה, כשהחיפוש לא מציין</legend>
+        <label><input type="radio" name="origin" value="TLV" /> נתב״ג, תל אביב (TLV)</label>
+        <label><input type="radio" name="origin" value="ETM" /> רמון, אילת (ETM)</label>
+      </fieldset>
+
+      <section id="hidden" class="hidden-list" aria-label="מוסתר לפי בקשתכם" hidden>
+        <p id="hidden-search" hidden>מוסתר בחיפוש של Google <button type="button" data-surface="search">להציג שוב</button></p>
+        <p id="hidden-flights" hidden>מוסתר ב־Google Flights <button type="button" data-surface="flights">להציג שוב</button></p>
+      </section>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+
+      <section class="privacy">
+        <h2>פרטיות</h2>
+        <p>
+          התוסף קורא רק את מה שהקלדתם (בכתובת הדף, ובגוגל טיסות גם בכותרת), לא את תוכן הדף ולא את המחירים של גוגל. לשרת
+          שלנו נשלחים רק קוד שדה התעופה ביציאה, קוד היעד (או בקשה ל״יעדים זולים״) והחודש: בלי מילות החיפוש, בלי כתובת
+          הדף, בלי עוגיות ובלי מזהה. אין סטטיסטיקות ואין מעקב.
+        </p>
+        <details>
+          <summary>עוד על פרטיות ועל הקישורים</summary>
+          <ul>
+            <li>כשאין לשרת מחיר שמור למסלול ולחודש, הוא שואל עליהם את מקור המחירים (Travelpayouts/Aviasales): רק מסלול וחודש, בלי שום פרט עליכם.</li>
+            <li>כמו בכל בקשה באינטרנט השרת רואה את כתובת ה־IP; להגבלת קצב נשמר ממנה רק גיבוב מלוח.</li>
+            <li>ההגדרות (מופעל או כבוי, שדה היציאה, איפה הסתרתם) נשמרות ב־chrome.storage.sync: אם הסנכרון של הדפדפן פעיל, הן עוברות גם לחשבון Google שלכם. חיפושים לא נשמרים.</li>
+            <li>„להזמנה” מוביל ל־Aviasales. כשזה קישור שותפים הכרטיס אומר זאת: ייתכן שהאתר יקבל עמלה, בלי תוספת למחיר שלכם.</li>
+          </ul>
+        </details>
+      </section>
+
+      <p class="links">
+        <a href="https://eee-web-bly.pages.dev" target="_blank" rel="noopener noreferrer">לאתר: כל התאריכים וכל היעדים</a>
+        · <a href="https://eee-web-bly.pages.dev/privacy" target="_blank" rel="noopener noreferrer">מדיניות הפרטיות</a>
+      </p>
+      <p class="meta">גרסה <span id="version"></span> · שמות מדינות: Unicode CLDR</p>
+    </main>
+    <script src="../lib/settings.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -630,6 +630,20 @@ describe("GET /api/calendar: budget, limits and failures", () => {
     expect(pre.status).toBe(204);
     expect(pre.headers.get("Access-Control-Allow-Methods")).toBe("GET, OPTIONS");
   });
+
+  it("serves the browser extension like any client: a chrome-extension:// Origin is answered, never rejected, never granted CORS", async () => {
+    // extension/ calls this from its service worker under host_permissions, which needs no CORS grant. The single-origin
+    // CORS policy stays as it is; what must not change is that such a request is served.
+    stubUpstream();
+    const env = makeEnv({ ALLOWED_ORIGIN: ORIGIN });
+    const extensionOrigin = "chrome-extension://abcdefghijklmnopabcdefghijklmnop";
+    const { res, data } = await cal(env, Q, { Origin: extensionOrigin });
+    expect(res.status).toBe(200);
+    expect(data.days.some((d) => d.fare !== null)).toBe(true);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBeNull();
+    const pre = await call(env, "/api/calendar", { method: "OPTIONS", headers: { Origin: extensionOrigin } });
+    expect(pre.headers.get("Access-Control-Allow-Origin")).toBeNull();
+  });
 });
 
 describe("runCalendar directly", () => {
