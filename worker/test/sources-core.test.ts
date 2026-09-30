@@ -786,11 +786,11 @@ describe("live quotes inside runSearch", () => {
     expect(await rowsOf(w.db, "SELECT * FROM source_quota")).toEqual([]);
   });
 
-  it("a search with no Travelpayouts fares asks nobody", async () => {
+  it("a search with no Travelpayouts fares samples dates from live sources", async () => {
     const w = world([]);
     const res = await w.run([w.mk("serpapi")]);
-    expect(w.fetchFn).not.toHaveBeenCalled();
-    expect(res.meta.sources[2]).toMatchObject({ name: "serpapi", ok: false, calls: 0 });
+    expect(datesOf(w.fetchFn)).toEqual(["2026-11-10", "2026-11-10", "2026-11-10", "2026-11-17"]);
+    expect(res.meta.sources[2]).toMatchObject({ name: "serpapi", ok: true, calls: 4 });
   });
 });
 

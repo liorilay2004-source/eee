@@ -259,6 +259,16 @@ describe("a live quote reaches the ranking", () => {
     expect(data.meta.sources[2]).toMatchObject({ name: "ignav", ok: true, calls: 2, offers: 2, error: null });
   });
 
+  it("asks live sources on sampled dates even when Travelpayouts finds no fare to confirm", async () => {
+    const emptyTp = (url: URL) => (url.searchParams.get("one_way") === "true" ? json({ success: true, currency: "usd", data: [] }) : json({ success: true, currency: "usd", data: [] }));
+    const up = stubUpstream({ tp: emptyTp, vendors: { "ignav.com": (_url, init) => ignavAnswer(init) } });
+    const { data } = await search(makeEnv({ IGNAV_API_KEY: KEYS.IGNAV_API_KEY }));
+    const cheapest = data.cards.find((c) => (c.kinds as string[]).includes("cheapest"));
+    expect(cheapest?.offer.source).toBe("ignav");
+    expect(up.host("ignav.com").length).toBeGreaterThan(0);
+    expect(data.meta.sources.find((s) => s.name === "ignav")).toMatchObject({ ok: true, offers: expect.any(Number) });
+  });
+
   it("the same search again inside the cache TTL asks no vendor and spends no unit", async () => {
     const up = stubUpstream({ vendors: { "ignav.com": (_url, init) => ignavAnswer(init) } });
     const env = makeEnv({ IGNAV_API_KEY: KEYS.IGNAV_API_KEY, SERPAPI_KEY: KEYS.SERPAPI_KEY });
