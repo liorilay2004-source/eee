@@ -57,7 +57,7 @@ export function ToQuestion({ form, patch, error, errorId }: QuestionProps) {
   const wide = window.matchMedia("(min-width: 720px)").matches;
   return <div className="q">
     <QuestionError id={errorId} message={error} />
-    <AirportCombobox label="חפשו עיר, שדה תעופה או קוד" inputId="destination-search" placeholder="למשל: אתונה, ATH" autoFocus={wide} describedBy={error ? errorId : undefined} onSelect={(code, label) => patch({ destination: code, destinationLabel: label })} />
+    <AirportCombobox label="חפשו עיר, מדינה, שדה תעופה או קוד" inputId="destination-search" placeholder="למשל: אתונה, יוון, ATH" countries value={form.destination} autoFocus={wide} describedBy={error ? errorId : undefined} onSelect={(code, label) => patch({ destination: code, destinationLabel: label })} />
     {form.destination && !chosenIsPopular && <p className="q-picked"><Check size={16} aria-hidden="true" />נבחר: {form.destinationLabel || form.destination} <span dir="ltr" className="num">({form.destination})</span></p>}
     <h3 className="q-subtitle" id="popular-title">יעדים אהובים</h3>
     <div className="choice-grid three" role="group" aria-labelledby="popular-title">

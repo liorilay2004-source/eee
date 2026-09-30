@@ -1,7 +1,7 @@
 /**
  * Worker entry point: the public REST API (SPEC §6).
  *   POST /api/search    the search pipeline (rate limited)
- *   GET  /api/airports  autocomplete over the Hebrew/English city dataset
+ *   GET  /api/airports  autocomplete over the Hebrew/English city dataset, plus country suggestions (src/countries/search.ts)
  *   GET  /api/calendar  cheapest cached round trip per departure day (rate limited, src/calendar.ts)
  *   GET  /api/explore   cheapest destinations from TLV/ETM in a month or window (rate limited, src/explore.ts)
  *   GET  /api/health    D1 liveness, deployed commit, newest applied migration
@@ -22,6 +22,8 @@ import {
   parseCalendarQuery,
   runCalendar,
 } from "./calendar";
+import { COUNTRIES_ATTRIBUTION } from "./countries/countries";
+import { DEFAULT_COUNTRY_LIMIT, searchCountries } from "./countries/search";
 import { createRepo, pruneHistory } from "./db";
 import { loadDeals, refreshDealReport } from "./dealreports";
 import { EXPLORE_RATE_LIMIT_MAX, EXPLORE_RATE_LIMIT_WINDOW_SECONDS, ExploreError, parseExploreParams, runExplore } from "./explore";
@@ -405,7 +407,13 @@ function handleAirports(url: URL): ApiResult {
   const q = url.searchParams.get("q") ?? "";
   const asked = Number(url.searchParams.get("limit") ?? AIRPORTS_DEFAULT_LIMIT);
   const limit = Number.isInteger(asked) && asked >= 1 ? Math.min(asked, AIRPORTS_MAX_LIMIT) : AIRPORTS_DEFAULT_LIMIT;
-  return { status: 200, body: { results: defaultResolver.resolveLocation(q, limit) } };
+  const results = defaultResolver.resolveLocation(q, limit);
+  // Additive: older web builds read only `results`. Country names are CLDR data, so the attribution rides along.
+  const countries = searchCountries(q, DEFAULT_COUNTRY_LIMIT, new Set(results.flatMap((r) => r.airports)));
+  return {
+    status: 200,
+    body: countries.length > 0 ? { results, countries, countriesAttribution: COUNTRIES_ATTRIBUTION } : { results, countries },
+  };
 }
 
 /** Precomputed by the hourly cron (dealreports.ts): one small bounded D1 read, cached per isolate, no external calls. */

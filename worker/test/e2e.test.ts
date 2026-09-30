@@ -874,6 +874,30 @@ describe("GET /api/airports", () => {
   });
 });
 
+describe("GET /api/airports country suggestions", () => {
+  type Body = { results: { code: string }[]; countries: { type: string; code: string; nameHe: string; airports: string[] }[]; countriesAttribution?: string };
+  const get = async (q: string) => (await (await call(makeEnv(), `/api/airports?q=${encodeURIComponent(q)}`)).json()) as Body;
+
+  it("adds a separate countries array, leaving results as before", async () => {
+    const body = await get("יוון");
+    expect(body.countries[0]).toMatchObject({ type: "country", code: "GR", nameHe: "יוון" });
+    expect(body.countries[0]?.airports[0]).toBe("ATH");
+    expect(body.countriesAttribution).toContain("CLDR");
+    expect(Array.isArray(body.results)).toBe(true);
+    const cy = await get("קפריסין");
+    expect(cy.results[0]?.code).toBe("LCA");
+    expect(cy.countries.map((c) => c.code)).toEqual(["CY"]);
+  });
+
+  it("empty countries for cities, one-airport countries the results cover, and garbage", async () => {
+    for (const q of ["אתונה", "מלטה", "", "zzzzzz"]) {
+      const body = await get(q);
+      expect(body.countries).toEqual([]);
+      expect(body.countriesAttribution).toBeUndefined();
+    }
+  });
+});
+
 describe("GET /api/health", () => {
   it("checks D1", async () => {
     const res = await call(makeEnv(), "/api/health");
