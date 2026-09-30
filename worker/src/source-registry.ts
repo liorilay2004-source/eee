@@ -1,4 +1,5 @@
-import type { SourceRegistryEntry, SourceRegistryStatus } from "./types";
+import type { Resolver } from "./airports/types";
+import type { SearchRequest, SourceRegistryEntry, SourceRegistryStatus } from "./types";
 
 const active = {
   livePrice: true,
@@ -135,6 +136,39 @@ const HOME_URLS: Readonly<Record<string, string>> = Object.freeze({
   ukraine_international: "https://www.flyuia.com/",
   smartwings: "https://www.smartwings.com/",
 });
+
+
+const EUROPE = new Set(["AL", "AD", "AT", "BE", "BA", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IS", "IE", "IT", "LV", "LT", "LU", "MT", "MD", "MC", "ME", "NL", "MK", "NO", "PL", "PT", "RO", "RS", "SK", "SI", "ES", "SE", "CH", "UA", "GB"]);
+const MIDDLE_EAST = new Set(["IL", "TR", "AE", "QA", "BH", "OM", "SA", "JO", "KW", "EG", "LB", "CY"]);
+const ASIA = new Set(["JP", "CN", "HK", "SG", "MY", "TH", "VN", "PH", "ID", "KR", "TW", "IN", "KZ", "UZ", "AZ", "GE"]);
+const AFRICA = new Set(["MA", "EG", "ET", "KE", "ZA"]);
+const LATAM = new Set(["MX", "BR", "AR", "CL", "CO", "PA", "PE", "EC", "UY"]);
+const OCEANIA = new Set(["AU", "NZ", "FJ"]);
+
+function regionTokens(country: string | null): string[] {
+  if (!country) return [];
+  const c = country.toUpperCase();
+  const out = [c];
+  if (c === "IL") out.push("ME");
+  if (c === "US") out.push("US");
+  if (c === "CA") out.push("CA", "US");
+  if (EUROPE.has(c)) out.push("EU");
+  if (MIDDLE_EAST.has(c)) out.push("ME");
+  if (ASIA.has(c)) out.push("Asia");
+  if (AFRICA.has(c)) out.push("Africa");
+  if (LATAM.has(c)) out.push("LATAM");
+  if (OCEANIA.has(c)) out.push("Oceania");
+  if (c === "TR") out.push("TR");
+  return [...new Set(out)];
+}
+
+function routeTokens(req: Pick<SearchRequest, "origin" | "destination">, resolver: Pick<Resolver, "countryOfAirport">): string[] {
+  return [...new Set([...regionTokens(resolver.countryOfAirport(req.origin)), ...regionTokens(resolver.countryOfAirport(req.destination))])];
+}
+
+function copy(source: SourceRegistryEntry): SourceRegistryEntry {
+  return { ...source, capabilities: { ...source.capabilities }, markets: [...source.markets] };
+}
 
 function homeUrl(id: string): string {
   const url = HOME_URLS[id];
@@ -377,6 +411,17 @@ export const SOURCE_REGISTRY: readonly SourceRegistryEntry[] = Object.freeze([
 ]);
 
 export function sourceRegistry(): SourceRegistryEntry[] {
-  return SOURCE_REGISTRY.map((source) => ({ ...source, capabilities: { ...source.capabilities }, markets: [...source.markets] }));
+  return SOURCE_REGISTRY.map(copy);
+}
+
+export function sourceRegistryForRoute(req: Pick<SearchRequest, "origin" | "destination">, resolver: Pick<Resolver, "countryOfAirport">): SourceRegistryEntry[] {
+  const tokens = new Set(routeTokens(req, resolver));
+  return SOURCE_REGISTRY.map((source) => {
+    const copied = copy(source);
+    const matched = source.markets.filter((market) => market === "global" || tokens.has(market));
+    copied.routeRelevant = matched.length > 0;
+    copied.routeReasonHe = copied.routeRelevant ? (matched.includes("global") ? "מקור גלובלי שמתאים לכל מסלול" : "השוק של המקור מתאים למוצא או ליעד") : null;
+    return copied;
+  });
 }
 

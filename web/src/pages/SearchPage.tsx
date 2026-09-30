@@ -412,7 +412,7 @@ function prioritizedRegistry(sources: SourceRegistryEntry[], statuses: readonly 
   const allowed = new Set<SourceRegistryStatus>(statuses);
   return sources
     .filter((source) => allowed.has(source.status))
-    .sort((a, b) => b.priority - a.priority || a.name.localeCompare(b.name, "he"))
+    .sort((a, b) => Number(b.routeRelevant === true) - Number(a.routeRelevant === true) || b.priority - a.priority || a.name.localeCompare(b.name, "he"))
     .slice(0, limit);
 }
 
@@ -433,7 +433,7 @@ function SourceRegistryPanel({ sources, compact = false }: { sources: SourceRegi
       <ul className="source-chips">
         {group.items.map((source) => <li key={source.id} className={`source-chip is-${source.status}`}>
           <a href={source.homeUrl} target="_blank" rel="noreferrer">{source.name}</a>
-          <small>{source.status === "api" && source.capabilities.livePrice ? "מחיר חי כשיש מפתח" : source.status === "manual-link" ? "פתיחה באתר" : SOURCE_STATUS_LABEL[source.status]}</small>
+          <small>{source.routeRelevant ? "רלוונטי למסלול" : source.status === "api" && source.capabilities.livePrice ? "מחיר חי כשיש מפתח" : source.status === "manual-link" ? "פתיחה באתר" : SOURCE_STATUS_LABEL[source.status]}</small>
         </li>)}
       </ul>
     </section>)}

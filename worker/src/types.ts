@@ -147,6 +147,10 @@ export interface SourceRegistryEntry {
   markets: string[];
   priority: number;
   noteHe: string;
+  /** ADDITIVE: set on /api/search when the source's market matches this route. */
+  routeRelevant?: boolean;
+  /** ADDITIVE: Hebrew explanation for routeRelevant. */
+  routeReasonHe?: string | null;
 }
 
 

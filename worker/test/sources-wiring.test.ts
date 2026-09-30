@@ -247,7 +247,9 @@ describe("no key: the extra sources do not exist", () => {
     stubUpstream();
     const { data } = await search(makeEnv());
     expect(Object.keys(data).sort()).toEqual(["cards", "meta"]);
-    expect(Object.keys(data.meta).sort()).toEqual(["apiVersion", "candidatePairs", "fromCache", "fxDate", "fxSource", "generatedAt", "recommendations", "searchKey", "sources"].sort());
+    expect(Object.keys(data.meta).sort()).toEqual(["apiVersion", "candidatePairs", "fromCache", "fxDate", "fxSource", "generatedAt", "recommendations", "searchKey", "sourceRegistry", "sources"].sort());
+    expect(data.meta.sourceRegistry?.some((s) => s.id === "elal" && s.routeRelevant === true)).toBe(true);
+    expect(data.meta.sourceRegistry?.some((s) => s.id === "jal" && s.routeRelevant === true)).toBe(false);
   });
 });
 

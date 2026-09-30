@@ -54,6 +54,7 @@ import {
 } from "./priceguard";
 import { fareExpired, fareFreshness, vendorTimestamp } from "./freshness";
 import { partyCheckMetaNow, signedPartyCheckFields, type PartyTokenSigner } from "./partycheck";
+import { sourceRegistryForRoute } from "./source-registry";
 import { buildSplits, dayNumber, pairOk } from "./splits";
 import { monthsBetween, TravelpayoutsError, withPartySize, type Party } from "./travelpayouts";
 import type {
@@ -1031,6 +1032,7 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
       // Only when something was flagged: an ordinary answer keeps exactly the fields it had before the guard.
       ...(guarded.suspicious.size > 0 ? { priceGuard: { suspicious: guarded.suspicious.size, excluded: guarded.excluded } } : {}),
       recommendations: recommendationsMeta(ranking, req, cards),
+      sourceRegistry: sourceRegistryForRoute(req, resolver),
       // Only on a search for 2+ adults: whether the live party check can run (a configured source qualifies and has room, no children).
       ...partyMeta,
     },
