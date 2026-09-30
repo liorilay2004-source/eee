@@ -1,4 +1,4 @@
-import type { Offer } from "../types";
+import type { AirlinePriceLink, Offer } from "../types";
 import { airlineInfo, offerAirlineCodes } from "./lookup";
 
 const URLS: Readonly<Record<string, string>> = Object.freeze({
@@ -111,8 +111,8 @@ export function airlineOfficialUrl(code: string): string | null {
   return URLS[code.toUpperCase()] ?? null;
 }
 
-export function airlinePriceLinks(offers: Offer[], limit = 30) {
-  const best = new Map<string, { code: string; nameHe: string | null; nameEn: string | null; lowCost: boolean | null; homeUrl: string; priceIls: number; departDate: string; returnDate: string; source: string }>();
+export function airlinePriceLinks(offers: Offer[], limit = 30): AirlinePriceLink[] {
+  const best = new Map<string, AirlinePriceLink>();
   for (const offer of offers) {
     if (offer.totalIls === null || !Number.isFinite(offer.totalIls) || offer.totalIls <= 0) continue;
     for (const code of offerAirlineCodes(offer)) {
