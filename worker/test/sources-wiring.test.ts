@@ -184,6 +184,19 @@ afterEach(() => {
 // ---------------------------------------------------------------------------------------------------------
 
 describe("no key: the extra sources do not exist", () => {
+  it("GET /api/sources returns the registry without outbound calls or quota writes", async () => {
+    const up = stubUpstream();
+    const env = makeEnv();
+    const res = await call(env, "/api/sources", { method: "GET", headers: { "CF-Connecting-IP": IP } });
+    const data = (await res.json()) as { sources: Array<{ id: string; name: string; homeUrl: string; capabilities: { livePrice: boolean } }> };
+    expect(res.status).toBe(200);
+    expect(data.sources.some((s) => s.id === "elal" && s.name === "El Al")).toBe(true);
+    expect(data.sources.some((s) => s.id === "serpapi" && s.capabilities.livePrice)).toBe(true);
+    expect(data.sources.every((s) => /^https:\/\//.test(s.homeUrl))).toBe(true);
+    expect(up.fn).not.toHaveBeenCalled();
+    expect(await quotaRows(env)).toEqual([]);
+  });
+
   it("makes no vendor request, keeps no counter and lists only the built-in sources", async () => {
     const up = stubUpstream();
     const env = makeEnv();

@@ -127,8 +127,30 @@ export interface SourceCoverage {
   abortedRequests: number;
 }
 
+export type SourceRegistryStatus = "active" | "planned" | "manual-link" | "api" | "browser" | "blocked";
+export type SourceRegistryKind = "metasearch" | "ota" | "airline";
+
+export interface SourceRegistryEntry {
+  id: string;
+  name: string;
+  kind: SourceRegistryKind;
+  status: SourceRegistryStatus;
+  /** Official source homepage or search surface. Never contains tokens or user data. */
+  homeUrl: string;
+  capabilities: {
+    livePrice: boolean;
+    cachedPrice: boolean;
+    bookingLink: boolean;
+    directBooking: boolean;
+    combinations: boolean;
+  };
+  markets: string[];
+  priority: number;
+  noteHe: string;
+}
+
 export interface SourceStatus {
-  name: SourceName;
+  name: string;
   enabled: boolean;
   ok: boolean;
   calls: number;
@@ -301,6 +323,8 @@ export interface SearchResponse {
     fxSource: string;
     fxDate: string;
     sources: SourceStatus[];
+    /** ADDITIVE: every source the engine knows about, including planned/manual-link sources that are not called live yet. */
+    sourceRegistry?: SourceRegistryEntry[];
     candidatePairs: number;
     generatedAt: string;
     /**

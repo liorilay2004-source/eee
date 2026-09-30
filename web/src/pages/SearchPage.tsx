@@ -10,8 +10,8 @@ import { WatchPanel } from "../components/WatchPanel";
 import { metaNotes, staleBadge } from "../lib/cards";
 import { autoCheckAvailable } from "../lib/partycheck";
 import { clearPrefillNotice, peekPrefillNotice } from "../lib/prefill";
-import { RequestError, searchFlights } from "../api/client";
-import type { CardView, SearchRequest, SearchResponse, SourceStatus } from "../api/contract";
+import { fetchSources, RequestError, searchFlights } from "../api/client";
+import type { CardView, SearchRequest, SearchResponse, SourceRegistryEntry, SourceStatus } from "../api/contract";
 import { he } from "../copy/he";
 import { PRODUCT_NAME } from "../config";
 import {
@@ -101,6 +101,7 @@ export function SearchPage() {
   const [announcement, setAnnouncement] = useState("");
   const [online, setOnline] = useState(() => navigator.onLine);
   const [copied, setCopied] = useState(false);
+  const [knownSources, setKnownSources] = useState<SourceRegistryEntry[]>([]);
   // Set when the explore screen filled this search (read once, then forgotten).
   // The notice text rides in sessionStorage; the search itself comes in the URL, so it arrives even when storage is blocked.
   const [prefilled, setPrefilled] = useState(() => (initial.fillOnly ? peekPrefillNotice() ?? FILLED_FALLBACK : null));
@@ -110,6 +111,12 @@ export function SearchPage() {
   const autoRan = useRef(false);
 
   useEffect(() => { document.title = `${PRODUCT_NAME} · מוצאים את הטיסה הזולה`; }, []);
+
+  useEffect(() => {
+    const abort = new AbortController();
+    void fetchSources(abort.signal).then((res) => setKnownSources(res.sources), () => undefined);
+    return () => abort.abort();
+  }, []);
 
   useEffect(() => {
     const refresh = () => { if (document.visibilityState === "visible") setToday(todayISO()); };
@@ -184,6 +191,7 @@ export function SearchPage() {
     try {
       const response = await searchFlights(submitted.request, abort.signal);
       if (seq !== searchSeq.current) return;
+      if (response.meta.sourceRegistry) setKnownSources(response.meta.sourceRegistry);
       setRun({ status: "done", submitted, response });
       const cheapest = response.cards.find((c) => c.kinds.includes("cheapest")) ?? response.cards[0];
       announce(response.cards.length
@@ -338,7 +346,7 @@ export function SearchPage() {
             <Info size={18} aria-hidden="true" /><span>{he.stale}.</span>
             {formChanged && <button type="button" className="btn btn-small" onClick={submit}>חפשו עם השינויים</button>}
           </div>}
-          {run.status === "idle" && (demo ? <DemoResults today={today} onClose={closeDemo} /> : <IdleIntro onDemo={showDemo} />)}
+          {run.status === "idle" && (demo ? <DemoResults today={today} onClose={closeDemo} /> : <IdleIntro onDemo={showDemo} knownSources={knownSources} />)}
           {run.status === "loading" && <Loading onCancel={cancelSearch} />}
           {run.status === "cancelled" && <StateCard icon={<X size={24} aria-hidden="true" />} title="החיפוש בוטל" body="אפשר לחפש שוב, או לשנות את פרטי החיפוש.">
             <button type="button" className="btn btn-primary" onClick={() => trySearch(run.submitted.form)}><RefreshCw size={18} aria-hidden="true" />חיפוש שוב</button>
@@ -346,7 +354,7 @@ export function SearchPage() {
           </StateCard>}
           {run.status === "failed" && <FailureCard failure={run.failure} retryAt={run.retryAt} onRetry={() => trySearch(run.submitted.form)} onEdit={editSearch} showEdit={!showBuilder} />}
           {run.status === "done" && (run.response.cards.length
-            ? <Results submitted={run.submitted} response={run.response} dimmed={stale} announce={announce} />
+            ? <Results submitted={run.submitted} response={run.response} dimmed={stale} announce={announce} knownSources={knownSources} />
             : <EmptyState submitted={run.submitted} response={run.response} onTry={trySearch} onEdit={editSearch} />)}
         </section>
       </main>
@@ -381,15 +389,22 @@ function SummaryBar({ submitted, onEdit, onShare, copied }: { submitted: Submitt
   </section>;
 }
 
-function IdleIntro({ onDemo }: { onDemo: () => void }) {
+function sourceRegistrySummary(sources: SourceRegistryEntry[]) {
+  const live = sources.filter((s) => s.capabilities.livePrice).length;
+  const manualLinks = sources.filter((s) => s.status === "manual-link").length;
+  return { total: sources.length, live, manualLinks };
+}
+
+function IdleIntro({ onDemo, knownSources }: { onDemo: () => void; knownSources: SourceRegistryEntry[] }) {
+  const sourceSummary = sourceRegistrySummary(knownSources);
   return <div className="idle">
     <h2 id="results-heading" tabIndex={-1}>איך זה עובד</h2>
     <ol className="steps">
       <li><span className="step-n num">1</span><span><strong>עונים על כמה שאלות קצרות.</strong> יעד, חודש, כמה לילות ומי טס.</span></li>
       <li><span className="step-n num">2</span><span><strong>אנחנו משווים עשרות צירופי תאריכים.</strong> כולל שני כרטיסים נפרדים כשזה זול יותר.</span></li>
-      <li><span className="step-n num">3</span><span><strong>מזמינים ישירות באתר Aviasales.</strong> המחיר הסופי מופיע שם.</span></li>
+      <li><span className="step-n num">3</span><span><strong>מזמינים באתר שבו נמצא המחיר.</strong> כשהמקור הוא רק קישור ידני, נפתח את החיפוש באתר שלו.</span></li>
     </ol>
-    <p className="honest"><Info size={16} aria-hidden="true" />המחירים מגיעים ממטמון של Aviasales ועשויים להשתנות. אנחנו לא מוכרים כרטיסים.</p>
+    <p className="honest"><Info size={16} aria-hidden="true" />המנוע מכיר {sourceSummary.total || "עשרות"} מקורות. {sourceSummary.live > 0 && <>מתוכם <span className="num">{sourceSummary.live}</span> יכולים להחזיר מחיר דרך API או מקור פעיל, ו־<span className="num">{sourceSummary.manualLinks}</span> מוכנים לקישור חיפוש ישיר.</>} אנחנו לא מוכרים כרטיסים.</p>
     <button type="button" id="demo-open" className="btn btn-ghost" onClick={onDemo}><Eye size={18} aria-hidden="true" />איך נראית תוצאה? הצגת דוגמה</button>
   </div>;
 }
@@ -487,7 +502,7 @@ function sourceName(source: SourceStatus): string {
   return names[source.name] ?? source.name;
 }
 
-function Results({ submitted, response, dimmed, announce }: { submitted: Submitted; response: SearchResponse; dimmed: boolean; announce: (text: string) => void }) {
+function Results({ submitted, response, dimmed, announce, knownSources }: { submitted: Submitted; response: SearchResponse; dimmed: boolean; announce: (text: string) => void; knownSources: SourceRegistryEntry[] }) {
   const cards = response.cards;
   const heroIndex = Math.max(0, cards.findIndex((c) => c.kinds.includes("cheapest")));
   const hero = cards[heroIndex];
@@ -500,6 +515,13 @@ function Results({ submitted, response, dimmed, announce }: { submitted: Submitt
   const cachedAnswer = staleBadge(response.meta);
   const extraNotes = metaNotes(response.meta);
   const autoCheck = autoCheckAvailable(response.meta);
+  const registry = response.meta.sourceRegistry ?? knownSources;
+  const known = sourceRegistrySummary(registry);
+  const sourceById = new Map(registry.map((s) => [s.id, s]));
+  const previewSources = registry
+    .filter((s) => s.status === "manual-link" || s.status === "planned")
+    .sort((a, b) => b.priority - a.priority || a.name.localeCompare(b.name))
+    .slice(0, 18);
   return <div className={`results-body ${dimmed ? "is-stale" : ""}`}>
     <h2 id="results-heading" tabIndex={-1} className="results-title">
       {cards.length === 1 ? "מצאנו הצעה אחת" : `מצאנו ${cards.length} הצעות`}
@@ -520,9 +542,10 @@ function Results({ submitted, response, dimmed, announce }: { submitted: Submitt
     <details className="data-details">
       <summary>על הנתונים של החיפוש הזה</summary>
       <dl className="details-grid">
-        <div><dt>מקור המחירים</dt><dd>מטמון של Aviasales. מחיר יכול להיות בן כמה ימים.</dd></div>
+        <div><dt>מקור המחירים</dt><dd>מקורות פעילים וקישורי חיפוש מתוכננים. מחיר יכול להשתנות באתר ההזמנה.</dd></div>
         <div><dt>הסריקה שלנו</dt><dd>{scanAge < 1 ? "בוצעה לפני פחות משעה" : `בוצעה לפני כ־${scanAge} שעות`}{response.meta.fromCache ? ", והתשובה נשמרה אצלנו" : ""}. זה הזמן של הבדיקה שלנו, לא של המחיר.</dd></div>
         <div><dt>צירופי תאריכים</dt><dd className="num">{response.meta.candidatePairs}</dd></div>
+        <div><dt>מקורות במנוע</dt><dd><span className="num">{known.total}</span> מוכרים · <span className="num">{known.live}</span> פעילים/API · <span className="num">{known.manualLinks}</span> קישור ישיר</dd></div>
         <div><dt>שער המטבע</dt><dd>{response.meta.fxSource} · <span dir="ltr" className="num">{response.meta.fxDate}</span></dd></div>
       </dl>
       {extraNotes.length > 0 && <ul className="source-list meta-notes">{extraNotes.map((n) => <li key={n}>{n}</li>)}</ul>}
@@ -532,10 +555,21 @@ function Results({ submitted, response, dimmed, announce }: { submitted: Submitt
           return <li key={source.name}>
             <strong>{sourceName(source)}</strong>
             <span>{!source.enabled ? "לא פעיל" : source.ok ? `${source.offers} מחירים` : "לא ענה הפעם"}</span>
+            {sourceById.get(source.name)?.noteHe && <small>{sourceById.get(source.name)?.noteHe}</small>}
             {note && <small>{note.text}{note.codes && <> <span dir="ltr">{note.codes}</span></>}</small>}
           </li>;
         })}
       </ul>
+      {previewSources.length > 0 && <div className="known-sources">
+        <h3>מקורות מוכרים שייכנסו בהדרגה</h3>
+        <p>הם לא נסרקים בכוח בכל חיפוש. קודם מוסיפים קישור/אדפטר יציב, ואז מפעילים מחיר חי רק כשיש API או דרך אמינה.</p>
+        <ul className="source-chips">
+          {previewSources.map((source) => <li key={source.id}>
+            <span>{source.name}</span>
+            <small>{source.status === "manual-link" ? "קישור חיפוש" : source.status === "blocked" ? "חסום" : "מתוכנן"}</small>
+          </li>)}
+        </ul>
+      </div>}
     </details>
   </div>;
 }

@@ -16,6 +16,9 @@ export type {
   RecKind,
   SearchRequest,
   SearchResponse,
+  SourceRegistryEntry,
+  SourceRegistryKind,
+  SourceRegistryStatus,
   SourceStatus,
   StaleInfo,
 } from "../../../worker/src/types";

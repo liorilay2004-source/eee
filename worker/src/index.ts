@@ -4,6 +4,7 @@
  *   GET  /api/airports  autocomplete over the Hebrew/English city dataset, plus country suggestions (src/countries/search.ts)
  *   GET  /api/calendar  cheapest cached round trip per departure day (rate limited, src/calendar.ts)
  *   GET  /api/explore   cheapest destinations from TLV/ETM in a month or window (rate limited, src/explore.ts)
+ *   GET  /api/sources   known airline/metasearch source registry, no external calls
  *   GET  /api/health    D1 liveness, deployed commit, newest applied migration, whether the private-use lock is on
  *   POST /api/watches, GET|DELETE /api/watches/<token>, POST /api/telegram/webhook   price alerts (src/watches.ts)
  *   GET  /api/deals     unusual fares per watched route, precomputed by the hourly snapshot cron (dealreports.ts)
@@ -43,6 +44,7 @@ import { defaultResolver, PipelineError, runSearch, sha256Hex, type ScanBudgetVe
 import { withDailyShare, type FareQuoteSource } from "./quotes";
 import { clientIdentity, createMemoryLimiter, limiterSalt } from "./ratelimit";
 import { createIgnavSource } from "./sources/ignav";
+import { sourceRegistry } from "./source-registry";
 import { createSearchApiSource } from "./sources/searchapi";
 import { createSerpApiSource } from "./sources/serpapi";
 import { createWegoSource } from "./sources/wego";
@@ -496,6 +498,7 @@ const ROUTES: Record<string, string> = {
   "/api/deals": "GET",
   "/api/calendar": "GET",
   "/api/explore": "GET",
+  "/api/sources": "GET",
   "/api/health": "GET",
   "/api/watches": "POST",
   "/api/telegram/webhook": "POST",
@@ -553,6 +556,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   if (path === "/api/party-check") return handlePartyCheckRoute(request, env);
   if (path === "/api/airports") return handleAirports(url);
   if (path === "/api/deals") return handleDeals(env);
+  if (path === "/api/sources") return { status: 200, body: { sources: sourceRegistry(), generatedAt: new Date().toISOString() } };
   if (path === "/api/calendar") return handleCalendar(request, url, env, ctx);
   if (path === "/api/explore") return handleExplore(request, url, env, ctx);
   return handleHealth(env);
