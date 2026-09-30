@@ -11,7 +11,7 @@ import { metaNotes, staleBadge } from "../lib/cards";
 import { autoCheckAvailable } from "../lib/partycheck";
 import { clearPrefillNotice, peekPrefillNotice } from "../lib/prefill";
 import { fetchFlightLinks, fetchSources, RequestError, saveFlightLink, searchFlights } from "../api/client";
-import type { CardView, FlightLinkMemory, SearchRequest, SearchResponse, SourceRegistryEntry, SourceStatus } from "../api/contract";
+import type { CardView, FlightLinkMemory, SearchRequest, SearchResponse, SourceRegistryEntry, SourceRegistryStatus, SourceStatus } from "../api/contract";
 import { he } from "../copy/he";
 import { PRODUCT_NAME } from "../config";
 import {
@@ -355,7 +355,7 @@ export function SearchPage() {
           {run.status === "failed" && <FailureCard failure={run.failure} retryAt={run.retryAt} onRetry={() => trySearch(run.submitted.form)} onEdit={editSearch} showEdit={!showBuilder} />}
           {run.status === "done" && (run.response.cards.length
             ? <Results submitted={run.submitted} response={run.response} dimmed={stale} announce={announce} knownSources={knownSources} />
-            : <EmptyState submitted={run.submitted} response={run.response} onTry={trySearch} onEdit={editSearch} />)}
+            : <EmptyState submitted={run.submitted} response={run.response} knownSources={knownSources} onTry={trySearch} onEdit={editSearch} />)}
         </section>
       </main>
       <SiteFooter>
@@ -389,10 +389,55 @@ function SummaryBar({ submitted, onEdit, onShare, copied }: { submitted: Submitt
   </section>;
 }
 
+const SOURCE_STATUS_LABEL: Record<SourceRegistryStatus, string> = {
+  active: "פעיל",
+  api: "API מוכן",
+  "manual-link": "קישור אתר",
+  planned: "מתוכנן",
+  browser: "דורש דפדפן",
+  blocked: "חסום כרגע",
+};
+
+const SOURCE_STATUS_ORDER: readonly SourceRegistryStatus[] = ["active", "api", "manual-link", "planned", "browser", "blocked"];
+
 function sourceRegistrySummary(sources: SourceRegistryEntry[]) {
+  const byStatus = Object.fromEntries(SOURCE_STATUS_ORDER.map((status) => [status, sources.filter((s) => s.status === status).length])) as Record<SourceRegistryStatus, number>;
   const live = sources.filter((s) => s.capabilities.livePrice).length;
-  const manualLinks = sources.filter((s) => s.status === "manual-link").length;
-  return { total: sources.length, live, manualLinks };
+  const api = byStatus.api + byStatus.active;
+  const manualLinks = byStatus["manual-link"];
+  return { total: sources.length, live, api, manualLinks, byStatus };
+}
+
+function prioritizedRegistry(sources: SourceRegistryEntry[], statuses: readonly SourceRegistryStatus[], limit: number): SourceRegistryEntry[] {
+  const allowed = new Set<SourceRegistryStatus>(statuses);
+  return sources
+    .filter((source) => allowed.has(source.status))
+    .sort((a, b) => b.priority - a.priority || a.name.localeCompare(b.name, "he"))
+    .slice(0, limit);
+}
+
+function SourceRegistryPanel({ sources, compact = false }: { sources: SourceRegistryEntry[]; compact?: boolean }) {
+  if (sources.length === 0) return null;
+  const shown = prioritizedRegistry(sources, ["active", "api", "manual-link", "planned", "blocked"], compact ? 12 : 24);
+  const summary = sourceRegistrySummary(sources);
+  const groups = SOURCE_STATUS_ORDER
+    .map((status) => ({ status, items: shown.filter((source) => source.status === status) }))
+    .filter((group) => group.items.length > 0);
+  return <div className="known-sources">
+    <h3>{compact ? "אתרים לבדיקה ידנית" : "מקורות ואתרי חברות במנוע"}</h3>
+    <p>{compact
+      ? "אין מחיר ודאי? פותחים את אתר החברה הרשמי, בודקים שם, ואפשר לשמור את הקישור למטה."
+      : <>מחיר מוצג רק ממקור שנבדק בחיפוש הזה. שאר המקורות הם API מוכן להפעלה או קישור רשמי לאתר החברה. במנוע יש <span className="num">{summary.total}</span> מקורות.</>}</p>
+    {groups.map((group) => <section className="source-group" key={group.status} aria-label={SOURCE_STATUS_LABEL[group.status]}>
+      <h4>{SOURCE_STATUS_LABEL[group.status]}</h4>
+      <ul className="source-chips">
+        {group.items.map((source) => <li key={source.id} className={`source-chip is-${source.status}`}>
+          <a href={source.homeUrl} target="_blank" rel="noreferrer">{source.name}</a>
+          <small>{source.status === "api" && source.capabilities.livePrice ? "מחיר חי כשיש מפתח" : source.status === "manual-link" ? "פתיחה באתר" : SOURCE_STATUS_LABEL[source.status]}</small>
+        </li>)}
+      </ul>
+    </section>)}
+  </div>;
 }
 
 function IdleIntro({ onDemo, knownSources }: { onDemo: () => void; knownSources: SourceRegistryEntry[] }) {
@@ -404,7 +449,7 @@ function IdleIntro({ onDemo, knownSources }: { onDemo: () => void; knownSources:
       <li><span className="step-n num">2</span><span><strong>אנחנו משווים עשרות צירופי תאריכים.</strong> כולל שני כרטיסים נפרדים כשזה זול יותר.</span></li>
       <li><span className="step-n num">3</span><span><strong>מזמינים באתר שבו נמצא המחיר.</strong> כשהמקור הוא רק קישור ידני, נפתח את החיפוש באתר שלו.</span></li>
     </ol>
-    <p className="honest"><Info size={16} aria-hidden="true" />המנוע מכיר {sourceSummary.total || "עשרות"} מקורות. {sourceSummary.live > 0 && <>מתוכם <span className="num">{sourceSummary.live}</span> יכולים להחזיר מחיר דרך API או מקור פעיל, ו־<span className="num">{sourceSummary.manualLinks}</span> מוכנים לקישור חיפוש ישיר.</>} אנחנו לא מוכרים כרטיסים.</p>
+    <p className="honest"><Info size={16} aria-hidden="true" />המנוע מכיר {sourceSummary.total || "עשרות"} מקורות. {sourceSummary.live > 0 && <>מתוכם <span className="num">{sourceSummary.api}</span> API/מקורות פעילים בקוד, ו־<span className="num">{sourceSummary.manualLinks}</span> קישורים רשמיים לאתרי חברות.</>} אנחנו לא מוכרים כרטיסים.</p>
     <button type="button" id="demo-open" className="btn btn-ghost" onClick={onDemo}><Eye size={18} aria-hidden="true" />איך נראית תוצאה? הצגת דוגמה</button>
   </div>;
 }
@@ -469,7 +514,7 @@ function FailureCard({ failure, retryAt, onRetry, onEdit, showEdit }: { failure:
   </StateCard>;
 }
 
-function EmptyState({ submitted, response, onTry, onEdit }: { submitted: Submitted; response: SearchResponse; onTry: (form: SearchForm) => void; onEdit: () => void }) {
+function EmptyState({ submitted, response, knownSources, onTry, onEdit }: { submitted: Submitted; response: SearchResponse; knownSources: SourceRegistryEntry[]; onTry: (form: SearchForm) => void; onEdit: () => void }) {
   const gaps = scanGaps(response.meta.sources);
   // A truncated scan did not check every pair: a shorter window checks them all, a wider one would skip more.
   const shorter = gaps.truncated ? shorterWindow(submitted.form) : null;
@@ -482,6 +527,7 @@ function EmptyState({ submitted, response, onTry, onEdit }: { submitted: Submitt
     : gaps.failed
       ? "חלק מהבדיקות לא הושלמו, ולכן אין לנו מחיר להציג. אפשר לנסות שוב בעוד כמה דקות, או אחת מההצעות האלה:"
       : "במטמון של Aviasales אין כרגע מחיר לצירוף הזה. אפשר לנסות אחת מההצעות האלה בלחיצה אחת:";
+  const registry = response.meta.sourceRegistry ?? knownSources;
   return <StateCard icon={<Compass size={24} aria-hidden="true" />} title={title} body={body}>
     <div className="suggestions">
       {shorter && <button type="button" className="suggestion" onClick={() => onTry(shorter)}>
@@ -494,6 +540,7 @@ function EmptyState({ submitted, response, onTry, onEdit }: { submitted: Submitt
         <Moon size={20} aria-hidden="true" /><span><strong>משך טיול אחר</strong><small>{nightsText(longer.stayMin, longer.stayMax)}</small></span></button>}
     </div>
     <button type="button" className="btn btn-ghost" onClick={onEdit}><PencilLine size={18} aria-hidden="true" />שינוי חיפוש</button>
+    <SourceRegistryPanel sources={registry} compact />
   </StateCard>;
 }
 
@@ -587,7 +634,7 @@ function FlightLinkMemoryPanel({ request, announce }: { request: SearchRequest; 
 }
 
 function sourceName(source: SourceStatus): string {
-  const names: Record<string, string> = { travelpayouts: "Aviasales (דרך Travelpayouts)", google_flights: "Google Flights", ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi" };
+  const names: Record<string, string> = { travelpayouts: "Aviasales (דרך Travelpayouts)", google_flights: "Google Flights", ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi", duffel: "Duffel" };
   return names[source.name] ?? source.name;
 }
 
@@ -607,10 +654,6 @@ function Results({ submitted, response, dimmed, announce, knownSources }: { subm
   const registry = response.meta.sourceRegistry ?? knownSources;
   const known = sourceRegistrySummary(registry);
   const sourceById = new Map(registry.map((s) => [s.id, s]));
-  const previewSources = registry
-    .filter((s) => s.status === "manual-link" || s.status === "planned")
-    .sort((a, b) => b.priority - a.priority || a.name.localeCompare(b.name))
-    .slice(0, 18);
   return <div className={`results-body ${dimmed ? "is-stale" : ""}`}>
     <h2 id="results-heading" tabIndex={-1} className="results-title">
       {cards.length === 1 ? "מצאנו הצעה אחת" : `מצאנו ${cards.length} הצעות`}
@@ -635,7 +678,7 @@ function Results({ submitted, response, dimmed, announce, knownSources }: { subm
         <div><dt>מקור המחירים</dt><dd>מקורות פעילים וקישורי חיפוש מתוכננים. מחיר יכול להשתנות באתר ההזמנה.</dd></div>
         <div><dt>הסריקה שלנו</dt><dd>{scanAge < 1 ? "בוצעה לפני פחות משעה" : `בוצעה לפני כ־${scanAge} שעות`}{response.meta.fromCache ? ", והתשובה נשמרה אצלנו" : ""}. זה הזמן של הבדיקה שלנו, לא של המחיר.</dd></div>
         <div><dt>צירופי תאריכים</dt><dd className="num">{response.meta.candidatePairs}</dd></div>
-        <div><dt>מקורות במנוע</dt><dd><span className="num">{known.total}</span> מוכרים · <span className="num">{known.live}</span> פעילים/API · <span className="num">{known.manualLinks}</span> קישור ישיר</dd></div>
+        <div><dt>מקורות במנוע</dt><dd><span className="num">{known.total}</span> מוכרים · <span className="num">{known.api}</span> API/פעילים · <span className="num">{known.manualLinks}</span> קישור אתר</dd></div>
         <div><dt>שער המטבע</dt><dd>{response.meta.fxSource} · <span dir="ltr" className="num">{response.meta.fxDate}</span></dd></div>
       </dl>
       {extraNotes.length > 0 && <ul className="source-list meta-notes">{extraNotes.map((n) => <li key={n}>{n}</li>)}</ul>}
@@ -650,16 +693,7 @@ function Results({ submitted, response, dimmed, announce, knownSources }: { subm
           </li>;
         })}
       </ul>
-      {previewSources.length > 0 && <div className="known-sources">
-        <h3>מקורות מוכרים שייכנסו בהדרגה</h3>
-        <p>הם לא נסרקים בכוח בכל חיפוש. קודם מוסיפים קישור/אדפטר יציב, ואז מפעילים מחיר חי רק כשיש API או דרך אמינה.</p>
-        <ul className="source-chips">
-          {previewSources.map((source) => <li key={source.id}>
-            <span>{source.name}</span>
-            <small>{source.status === "manual-link" ? "קישור חיפוש" : source.status === "blocked" ? "חסום" : "מתוכנן"}</small>
-          </li>)}
-        </ul>
-      </div>}
+<SourceRegistryPanel sources={registry} />
     </details>
   </div>;
 }

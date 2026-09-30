@@ -533,12 +533,19 @@ p { text-wrap: pretty; }
 .source-list { margin: 0; padding: 8px 16px 16px; list-style: none; display: grid; gap: 8px; }
 .source-list li { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 15px; color: var(--ink-2); }
 .source-list small { flex-basis: 100%; color: var(--muted); font-size: 13px; }
-.known-sources { padding: 0 16px 16px; display: grid; gap: 8px; }
+.known-sources { padding: 0 16px 16px; display: grid; gap: 10px; }
+.state .known-sources { margin-top: 16px; padding: 14px; width: 100%; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); text-align: start; }
 .known-sources h3 { margin: 0; font-size: 15px; color: var(--ink); }
 .known-sources p { margin: 0; color: var(--muted); font-size: 13px; }
+.source-group { display: grid; gap: 6px; }
+.source-group h4 { margin: 0; color: var(--ink-2); font-size: 13px; }
 .source-chips { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }
-.source-chips li { max-width: 100%; display: inline-flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); font-size: 13px; }
-.source-chips small { color: var(--muted); font-size: 12px; }
+.source-chip { max-width: 100%; display: inline-flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); font-size: 13px; }
+.source-chip a { color: var(--select-ink); font-weight: 800; text-decoration: none; }
+.source-chip a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.source-chip small { color: var(--muted); font-size: 12px; }
+.source-chip.is-api, .source-chip.is-active { background: var(--good-soft); }
+.source-chip.is-blocked { background: var(--warn-soft); }
 
 /* idle, loading, states */
 .idle { padding: 4px 0; }
