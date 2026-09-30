@@ -82,8 +82,10 @@ describe("network code", () => {
     const fetches = [...bg.matchAll(/\bfetch\s*\(([^)]*)/g)].map((m) => /** @type {string} */ (m[1]).trim());
     assert.deepEqual(fetches, ["url, init", 'chrome.runtime.getURL("data/index.json"']);
     const api = code("lib/api.js");
-    assert.deepEqual([...api.matchAll(/\bfetch\s*\(/g)].length, 1);
+    // Two call sites, both to the API: the lookup, and the popup's key check (through the service worker).
+    assert.deepEqual([...api.matchAll(/\bfetch\s*\(/g)].length, 2);
     assert.match(api, /deps\.fetch\(buildUrl\(req\)/);
+    assert.match(api, /deps\.fetch\(new URL\(AUTH_CHECK_PATH, API_BASE\)\.toString\(\)/);
     for (const f of ["popup/popup.js", ...contentFiles]) assert.doesNotMatch(code(f), /\bfetch\s*\(/, f);
   });
 
@@ -103,9 +105,16 @@ describe("network code", () => {
     assert.match(main, /const req = Q\.apiRequest\(lookup\)/);
   });
 
-  it("the service worker answers only this extension's content scripts", () => {
+  it("the service worker answers only this extension's own scripts: lookups from content scripts (a tab), the key check from its own pages", () => {
     const bg = code("background.js");
-    assert.match(bg, /sender\.id !== chrome\.runtime\.id \|\| !sender\.tab/);
+    assert.match(bg, /if \(sender\.id !== chrome\.runtime\.id \|\| !message \|\| typeof message !== "object"\) return false;/);
+    // Without a tab (the toolbar popup) only "authCheck" is answered; "index" and "lookup" come after the tab check.
+    const noTab = bg.indexOf("if (!sender.tab) {");
+    assert.ok(noTab > 0);
+    const noTabBlock = bg.slice(noTab, bg.indexOf('if (message.type === "index")'));
+    assert.match(noTabBlock, /message\.type === "authCheck"/);
+    assert.match(noTabBlock, /return false;\s*\}\s*$/);
+    assert.doesNotMatch(noTabBlock, /"index"|"lookup"/);
     assert.equal(manifest.externally_connectable, undefined);
   });
 
