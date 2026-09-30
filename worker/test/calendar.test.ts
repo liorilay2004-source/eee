@@ -647,3 +647,168 @@ describe("Travelpayouts monthRoundTrips", () => {
     expect(fetchFn).not.toHaveBeenCalled();
   });
 });
+
+// --- meta.insights (calendar-insights.ts) -------------------------------------------------------------------
+
+import { INSIGHTS_LABEL_HE } from "../src/calendar-insights";
+
+describe("GET /api/calendar: meta.insights", () => {
+  const p2 = (n: number) => String(n).padStart(2, "0");
+  const plusDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+  /** 2026-11-01..21 (three of every weekday; the 1st is a Sunday), 5 nights, direct; price by weekday and week. */
+  const WEEK: RowSpec[] = Array.from({ length: 21 }, (_, i) => ({
+    dep: `2026-11-${p2(i + 1)}`,
+    ret: `2026-11-${p2(i + 6)}`,
+    price: 100 + (i % 7) * 10 + Math.floor(i / 7) * 5,
+  }));
+  const weekdayOf = (date: string) => new Date(`${date}T00:00:00Z`).getUTCDay();
+  const insightsOf = (data: CalendarResponse) => {
+    expect(data.meta.insights).toBeDefined();
+    return data.meta.insights as NonNullable<CalendarResponse["meta"]["insights"]>;
+  };
+
+  it("a month with 4+ weekdays priced twice returns insights whose minima match the days of the same response", async () => {
+    stubUpstream(tpResponder({ "2026-11|2026-11": WEEK }));
+    const { res, data } = await cal(makeEnv(), Q);
+    expect(res.status).toBe(200);
+    const ins = insightsOf(data);
+    expect(ins.labelHe).toBe(INSIGHTS_LABEL_HE);
+    expect(ins.basis).toBe("cached_fares");
+    expect(ins.byWeekday.map((b) => b.weekday)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    for (const b of ins.byWeekday) {
+      const prices = data.days.filter((d) => d.known && d.fare && weekdayOf(d.date) === b.weekday).map((d) => d.fare?.priceIls as number);
+      expect(b.count).toBe(prices.length);
+      expect(b.minIls).toBe(Math.round(Math.min(...prices)));
+    }
+    expect(ins.cheapestWeekday).toBe(0); // Sunday: 100/105/110 USD
+    expect(ins.byNights).toEqual([{ nights: 5, minIls: 360, count: 21 }]);
+    expect(ins.cheapestNights).toBe(5);
+  });
+
+  it("fares outside minNights or maxStops never reach byNights nor lower a minimum", async () => {
+    const cheapOff: RowSpec[] = [
+      { dep: "2026-11-22", ret: "2026-11-25", price: 20 }, // 3 nights, direct
+      { dep: "2026-11-23", ret: "2026-11-26", price: 20 },
+      { dep: "2026-11-02", ret: "2026-11-08", price: 10, transfers: 1 }, // 6 nights, 1 stop
+      { dep: "2026-11-03", ret: "2026-11-09", price: 10, transfers: 1 },
+    ];
+    stubUpstream(tpResponder({ "2026-11|2026-11": [...WEEK, ...cheapOff] }));
+    const env = makeEnv();
+    // Without filters the cheap fares count (so the fixture really exercises the filters).
+    const open = insightsOf((await cal(env, Q)).data);
+    expect(open.byNights.map((g) => g.nights)).toEqual([3, 5, 6]);
+
+    const { data } = await cal(env, `${Q}&minNights=4&maxStops=0`);
+    const ins = insightsOf(data);
+    expect(ins.byNights).toEqual([{ nights: 5, minIls: 360, count: 21 }]);
+    for (const b of ins.byWeekday) expect(b.minIls).toBeGreaterThanOrEqual(360);
+  });
+
+  it("a fare dropped for a missing exchange rate is not in byNights", async () => {
+    const usd: RowSpec[] = Array.from({ length: 14 }, (_, i) => {
+      const dep = `2026-11-${p2(16 + i)}`;
+      return { dep, ret: plusDays(dep, 20), price: 200 + i };
+    });
+    const xyz: RowSpec[] = [
+      { dep: "2026-11-02", ret: "2026-11-05", price: 1 },
+      { dep: "2026-11-03", ret: "2026-11-06", price: 1 },
+    ];
+    stubUpstream((url) => {
+      const same = url.searchParams.get("return_at") === "2026-11";
+      return json({ success: true, currency: same ? "xyz" : "usd", data: (same ? xyz : usd).map(row) });
+    });
+    const { data } = await cal(makeEnv(), Q);
+    const ins = insightsOf(data);
+    expect(ins.byNights).toEqual([{ nights: 20, minIls: 720, count: 14 }]);
+    expect(ins.byWeekday.reduce((n, b) => n + b.count, 0)).toBe(14);
+  });
+
+  it("a past departure still stored in the month never enters byNights", async () => {
+    vi.setSystemTime(new Date("2026-11-15T09:00:00Z"));
+    const future: RowSpec[] = Array.from({ length: 11 }, (_, i) => {
+      const dep = `2026-11-${p2(15 + i)}`;
+      return { dep, ret: plusDays(dep, 5), price: 300 + i };
+    });
+    const past: RowSpec[] = [
+      { dep: "2026-11-02", ret: "2026-11-04", price: 5 },
+      { dep: "2026-11-03", ret: "2026-11-05", price: 5 },
+    ];
+    stubUpstream(tpResponder({ "2026-11|2026-11": [...past, ...future] }));
+    const { data } = await cal(makeEnv(), Q);
+    expect(data.days[0]?.date).toBe("2026-11-15");
+    const ins = insightsOf(data);
+    expect(ins.byNights).toEqual([{ nights: 5, minIls: 1080, count: 11 }]);
+    expect(ins.byWeekday.reduce((n, b) => n + b.count, 0)).toBe(11);
+  });
+
+  it("the existing thin fixture has no insights key", async () => {
+    stubUpstream();
+    const { data } = await cal(makeEnv(), Q);
+    expect("insights" in data.meta).toBe(false);
+  });
+
+  it("a cache hit makes zero outbound calls and returns the same insights; the stored month holds no insights", async () => {
+    const up = stubUpstream(tpResponder({ "2026-11|2026-11": WEEK }));
+    const env = makeEnv();
+    const first = await cal(env, Q);
+    const before = up.fn.mock.calls.length;
+    vi.setSystemTime(new Date(NOW.getTime() + HOUR));
+    const second = await cal(env, Q);
+    expect(up.fn.mock.calls.length).toBe(before);
+    expect(second.data.meta.months[0]?.status).toBe("cached");
+    expect(second.data.meta.insights).toEqual(insightsOf(first.data));
+    const stored = await rows<{ offers_json: string; extra_json: string }>(env, "SELECT offers_json, extra_json FROM search_cache");
+    expect(stored).toHaveLength(1);
+    for (const r of stored) {
+      expect(r.offers_json).not.toContain("insights");
+      expect(r.extra_json).not.toContain("insights");
+    }
+  });
+
+  it("outbound calls and D1 prepares equal the pre-feature baseline", async () => {
+    // Baseline measured on main before this feature, same fixture: fresh 1 month = 16 prepares, 2 Travelpayouts calls,
+    // 3 outbound in all (with FX); the cache hit = 4 prepares, 0 outbound; fresh 2 months = 17 prepares, 4 calls.
+    const up = stubUpstream(tpResponder({ "2026-11|2026-11": WEEK }));
+    const env = makeEnv();
+    const spy = vi.spyOn(env.DB, "prepare");
+    const fresh = await cal(env, Q);
+    expect(fresh.data.meta.insights).toBeDefined();
+    expect([spy.mock.calls.length, up.tpCalls().length, up.calls.length]).toEqual([16, 2, 3]);
+
+    spy.mockClear();
+    const callsBefore = up.calls.length;
+    await cal(env, Q);
+    expect([spy.mock.calls.length, up.calls.length - callsBefore]).toEqual([4, 0]);
+
+    const env2 = makeEnv();
+    const spy2 = vi.spyOn(env2.DB, "prepare");
+    const tpBefore = up.tpCalls().length;
+    await cal(env2, `${Q}&months=2`);
+    expect([spy2.mock.calls.length, up.tpCalls().length - tpBefore]).toEqual([17, 4]);
+  });
+
+  it("a multi-month query aggregates the counts of both months", async () => {
+    const nov: RowSpec[] = Array.from({ length: 7 }, (_, i) => ({ dep: `2026-11-${p2(2 + i)}`, ret: `2026-11-${p2(5 + i)}`, price: 100 + i }));
+    const dec: RowSpec[] = Array.from({ length: 7 }, (_, i) => ({ dep: `2026-12-${p2(7 + i)}`, ret: `2026-12-${p2(10 + i)}`, price: 150 + i }));
+    stubUpstream(tpResponder({ "2026-11|2026-11": nov, "2026-12|2026-12": dec }));
+    const { data } = await cal(makeEnv(), `${Q}&months=2`);
+    const ins = insightsOf(data);
+    expect(ins.byWeekday.map((b) => [b.weekday, b.count])).toEqual([0, 1, 2, 3, 4, 5, 6].map((w) => [w, 2]));
+    expect(ins.byNights).toEqual([{ nights: 3, minIls: 360, count: 14 }]);
+    // Either month alone has one priced day per weekday: no insights.
+    const single = await cal(makeEnv(), Q);
+    expect(single.data.meta.insights).toBeUndefined();
+  });
+
+  it("apiVersion stays 1 and insights add under 1 KB to the response", async () => {
+    stubUpstream(tpResponder({ "2026-11|2026-11": WEEK }));
+    const { res, data } = await cal(makeEnv(), Q);
+    expect(data.meta.apiVersion).toBe(1);
+    const full = await res.text();
+    const without = JSON.parse(full) as CalendarResponse;
+    expect(without.meta.insights).toBeDefined();
+    delete without.meta.insights;
+    const bytes = (s: string) => new TextEncoder().encode(s).length;
+    expect(bytes(full) - bytes(JSON.stringify(without))).toBeLessThan(1024);
+  });
+});

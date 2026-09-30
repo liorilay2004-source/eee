@@ -26,6 +26,7 @@
  * not "no flights". The response says so (meta.noticeHe).
  */
 import type { Resolver } from "./airports/types";
+import { computeInsights, type CalendarInsights, type InsightFare } from "./calendar-insights";
 import { EMPTY_RESULT_TTL_HOURS } from "./pipeline";
 import { SCORING } from "./scoring.config";
 import { dayNumber } from "./splits";
@@ -357,6 +358,11 @@ export interface CalendarResponse {
     fromCache: boolean;
     upstreamCalls: number;
     cheapest: { date: string; priceIls: number } | null;
+    /**
+     * Cheapest departure weekday and trip length (calendar-insights.ts). additive; recomputed per request from stored
+     * month fares, never stored; not a guarantee. Absent when there is too little data.
+     */
+    insights?: CalendarInsights;
     fxSource: string;
     fxDate: string;
     source: "travelpayouts";
@@ -459,6 +465,8 @@ export async function runCalendar(deps: CalendarDeps, q: CalendarQuery): Promise
   // Every day of the asked months from today on, the cheapest fitting fare per day.
   const today = Math.floor(now.getTime() / DAY_MS);
   const days: CalendarDay[] = [];
+  /** Every fare that passed this request's filters (not only each day's cheapest), for meta.insights. */
+  const fitting: InsightFare[] = [];
   for (const month of q.months) {
     const entry = byMonth.get(month);
     const perDay = new Map<string, NonNullable<CalendarDay["fare"]>>();
@@ -469,6 +477,8 @@ export async function runCalendar(deps: CalendarDeps, q: CalendarQuery): Promise
       const rate = fx.ratesToIls[f.currency];
       if (!(typeof rate === "number" && rate > 0)) continue; // never shown in a guessed currency
       const priceIls = round2(f.price * rate);
+      // Same range as the days loop below: a past departure the grid hides never feeds the insights.
+      if ((dayNumber(f.departDate) as number) >= today) fitting.push({ departDate: f.departDate, nights, priceIls });
       const prev = perDay.get(f.departDate);
       if (prev && prev.priceIls <= priceIls) continue;
       perDay.set(f.departDate, {
@@ -503,6 +513,7 @@ export async function runCalendar(deps: CalendarDeps, q: CalendarQuery): Promise
   }
   let cheapest: CalendarResponse["meta"]["cheapest"] = null;
   for (const d of days) if (d.fare && (!cheapest || d.fare.priceIls < cheapest.priceIls)) cheapest = { date: d.date, priceIls: d.fare.priceIls };
+  const insights = computeInsights(days, fitting);
 
   return {
     days,
@@ -521,6 +532,7 @@ export async function runCalendar(deps: CalendarDeps, q: CalendarQuery): Promise
       fromCache: toFetch.length === 0,
       upstreamCalls,
       cheapest,
+      ...(insights ? { insights } : {}),
       fxSource: fx.source,
       fxDate: fx.date,
       source: "travelpayouts",

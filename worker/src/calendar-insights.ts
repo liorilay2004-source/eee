@@ -1,0 +1,147 @@
+/**
+ * /api/calendar meta.insights: "which departure weekday and which trip length are cheapest", computed from the fares
+ * runCalendar already holds for the response. Pure: no I/O, no clock, no network, never mutates its inputs, never
+ * throws (any error -> null). Zero extra subrequests and zero extra D1 work; O(fares) plus small sorts.
+ *
+ * Honesty: the numbers come from the source's cached fares (often 2-7 days old) of THIS response only, so labelHe and
+ * basis always travel with them, and the UI must never phrase them as a guarantee (docs/WEB_APP_SPEC.md §7.9).
+ */
+import type { CalendarDay } from "./calendar";
+
+/** One fitting fare (after the nights, stops and FX filters of the request), in ILS, per ONE adult round trip. */
+export type InsightFare = { departDate: string; nights: number; priceIls: number };
+
+/** Hebrew weekday short names, indexed by Date#getUTCDay (0 = Sunday). The geresh is U+05F3. */
+export const WEEKDAY_HE = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "שבת"] as const;
+
+export const INSIGHTS_LABEL_HE = "לפי מחירים שנמצאו לאחרונה (מטמון, 2-7 ימים)";
+
+/** Buckets needed with count >= 2 before any insight is returned. */
+export const INSIGHTS_MIN_BUCKETS = 4;
+/** A weekday saving below this percentage is not worth a claim: the key is then absent (never 0). */
+export const INSIGHTS_MIN_SAVING_PCT = 3;
+
+export interface CalendarInsights {
+  /** Per departure weekday (0 = Sunday .. 6 = Saturday, UTC-based), sorted 0..6; empty weekdays are omitted. */
+  byWeekday: { weekday: number; minIls: number; medianIls: number; count: number }[];
+  /** Per trip length in nights, sorted ascending; only lengths seen at least twice. */
+  byNights: { nights: number; minIls: number; count: number }[];
+  cheapestWeekday: number;
+  cheapestNights: number | null;
+  /** Present only when the saving is at least INSIGHTS_MIN_SAVING_PCT; ABSENT otherwise (never 0). */
+  savingVsDearestWeekdayPct?: number;
+  summaryHe: string;
+  labelHe: typeof INSIGHTS_LABEL_HE;
+  basis: "cached_fares";
+}
+
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** 0..6 for a YYYY-MM-DD date (UTC, so independent of the process time zone), or null when malformed. */
+function weekdayOf(date: unknown): number | null {
+  if (typeof date !== "string" || !DAY_RE.test(date)) return null;
+  const w = new Date(`${date}T00:00:00Z`).getUTCDay();
+  return Number.isInteger(w) ? w : null;
+}
+
+const validPrice = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v > 0;
+
+/**
+ * Median rule (pinned): sort ascending; an odd count takes the middle value; an even count takes the mean of the two
+ * middle values; the result is always Math.round-ed, so it is an integer ILS. Sorts a copy, never the argument.
+ */
+export function medianIls(values: readonly number[]): number {
+  const s = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  const m = s.length % 2 === 1 ? (s[mid] as number) : ((s[mid - 1] as number) + (s[mid] as number)) / 2;
+  return Math.round(m);
+}
+
+const dayPhrase = (w: number): string => `ביום ${WEEKDAY_HE[w]}`;
+
+/**
+ * Insights for one calendar response, or null when there is too little to say (fewer than INSIGHTS_MIN_BUCKETS weekdays
+ * priced at least twice) or on any bad input.
+ *
+ * - byWeekday: days with known === true and a fare only (a missing fare is never counted as 0).
+ * - cheapest weekday: lowest median, then lower min, then lower weekday; dearest: highest median, then higher min, then
+ *   lower weekday. Only weekdays with count >= 2 are candidates; singletons are listed but never chosen.
+ * - saving: round((dearest - cheapest) / dearest * 100), set only when the unrounded value is at least
+ *   INSIGHTS_MIN_SAVING_PCT (so 2.5% is not rounded up into a 3% claim) and the two weekdays differ.
+ * - byNights: `fitting` grouped by nights, groups seen fewer than twice dropped; cheapestNights = lowest min, then fewer
+ *   nights; null when no group is left.
+ */
+export function computeInsights(days: readonly CalendarDay[], fitting: readonly InsightFare[]): CalendarInsights | null {
+  try {
+    if (!Array.isArray(days) || !Array.isArray(fitting) || days.length === 0) return null;
+
+    const perWeekday = new Map<number, number[]>();
+    for (const d of days as readonly CalendarDay[]) {
+      if (d.known !== true || d.fare === null || typeof d.fare !== "object") continue;
+      const price = d.fare.priceIls;
+      const w = weekdayOf(d.date);
+      if (w === null || !validPrice(price)) continue;
+      const list = perWeekday.get(w);
+      if (list) list.push(price);
+      else perWeekday.set(w, [price]);
+    }
+
+    const byWeekday = [...perWeekday.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([weekday, prices]) => ({ weekday, minIls: Math.round(Math.min(...prices)), medianIls: medianIls(prices), count: prices.length }));
+    const candidates = byWeekday.filter((b) => b.count >= 2);
+    if (candidates.length < INSIGHTS_MIN_BUCKETS) return null;
+
+    let cheapest = candidates[0] as (typeof candidates)[number];
+    let dearest = cheapest;
+    for (const b of candidates) {
+      // candidates are in ascending weekday order, so a full tie keeps the lower weekday already held.
+      if (b.medianIls < cheapest.medianIls || (b.medianIls === cheapest.medianIls && b.minIls < cheapest.minIls)) cheapest = b;
+      if (b.medianIls > dearest.medianIls || (b.medianIls === dearest.medianIls && b.minIls > dearest.minIls)) dearest = b;
+    }
+
+    const perNights = new Map<number, { min: number; count: number }>();
+    for (const f of fitting as readonly InsightFare[]) {
+      const n = f.nights;
+      if (!Number.isInteger(n) || n <= 0 || !validPrice(f.priceIls)) continue;
+      const g = perNights.get(n);
+      if (g) {
+        g.count++;
+        if (f.priceIls < g.min) g.min = f.priceIls;
+      } else perNights.set(n, { min: f.priceIls, count: 1 });
+    }
+    const byNights = [...perNights.entries()]
+      .filter(([, g]) => g.count >= 2)
+      .sort((a, b) => a[0] - b[0])
+      .map(([nights, g]) => ({ nights, minIls: Math.round(g.min), count: g.count }));
+    let cheapestNights: number | null = null;
+    let cheapestNightsMin = Number.POSITIVE_INFINITY;
+    for (const g of byNights) {
+      // ascending nights: a tie on min keeps the fewer nights already held.
+      if (g.minIls < cheapestNightsMin) {
+        cheapestNightsMin = g.minIls;
+        cheapestNights = g.nights;
+      }
+    }
+
+    const rawPct = dearest.medianIls > 0 ? ((dearest.medianIls - cheapest.medianIls) / dearest.medianIls) * 100 : 0;
+    const hasSaving = dearest !== cheapest && rawPct >= INSIGHTS_MIN_SAVING_PCT;
+    const pct = Math.round(rawPct);
+    const summaryHe = hasSaving
+      ? `יציאה ${dayPhrase(cheapest.weekday)} זולה בממוצע ב-${pct}% מיציאה ${dayPhrase(dearest.weekday)}`
+      : `המחיר הנמוך ביותר בממוצע: יציאה ${dayPhrase(cheapest.weekday)}`;
+
+    return {
+      byWeekday,
+      byNights,
+      cheapestWeekday: cheapest.weekday,
+      cheapestNights,
+      ...(hasSaving ? { savingVsDearestWeekdayPct: pct } : {}),
+      summaryHe,
+      labelHe: INSIGHTS_LABEL_HE,
+      basis: "cached_fares",
+    };
+  } catch {
+    return null;
+  }
+}
