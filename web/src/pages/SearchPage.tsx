@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
-  ArrowLeft, CalendarRange, CircleAlert, Compass, Eye, History, Hourglass, Info, MapPinned, Moon, PencilLine, RefreshCw,
+  ArrowLeft, CalendarRange, CheckCircle2, CircleAlert, Compass, Eye, History, Hourglass, Info, Link2, MapPinned, Moon, PencilLine, RefreshCw,
   Share2, WifiOff, X,
 } from "lucide-react";
 import { Builder } from "../components/Builder";
@@ -10,8 +10,8 @@ import { WatchPanel } from "../components/WatchPanel";
 import { metaNotes, staleBadge } from "../lib/cards";
 import { autoCheckAvailable } from "../lib/partycheck";
 import { clearPrefillNotice, peekPrefillNotice } from "../lib/prefill";
-import { fetchSources, RequestError, searchFlights } from "../api/client";
-import type { CardView, SearchRequest, SearchResponse, SourceRegistryEntry, SourceStatus } from "../api/contract";
+import { fetchFlightLinks, fetchSources, RequestError, saveFlightLink, searchFlights } from "../api/client";
+import type { CardView, FlightLinkMemory, SearchRequest, SearchResponse, SourceRegistryEntry, SourceStatus } from "../api/contract";
 import { he } from "../copy/he";
 import { PRODUCT_NAME } from "../config";
 import {
@@ -497,6 +497,95 @@ function EmptyState({ submitted, response, onTry, onEdit }: { submitted: Submitt
   </StateCard>;
 }
 
+
+function flightLinkRoute(link: FlightLinkMemory): string {
+  const route = [link.origin, link.destination].filter(Boolean).join(" → ");
+  if (route) return route;
+  if (link.departDate || link.returnDate) return [link.departDate, link.returnDate].filter(Boolean).join(" – ");
+  return link.host;
+}
+
+function checkedAtText(value: string): string {
+  const ms = Date.parse(value);
+  if (!Number.isFinite(ms)) return "נשמר";
+  const diff = Math.max(0, Date.now() - ms);
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 1) return "עכשיו";
+  if (minutes < 60) return `לפני ${minutes} דק׳`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `לפני ${hours} שעות`;
+  return new Intl.DateTimeFormat("he-IL", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(ms));
+}
+
+function FlightLinkMemoryPanel({ request, announce }: { request: SearchRequest; announce: (text: string) => void }) {
+  const [url, setUrl] = useState("");
+  const [links, setLinks] = useState<FlightLinkMemory[]>([]);
+  const [status, setStatus] = useState<"idle" | "loading" | "saving" | "saved" | "failed">("idle");
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const abort = new AbortController();
+    setStatus("loading");
+    void fetchFlightLinks(abort.signal).then((res) => {
+      setLinks(res.links);
+      setStatus("idle");
+    }, () => setStatus("idle"));
+    return () => abort.abort();
+  }, []);
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmed = url.trim();
+    if (!trimmed) {
+      setMessage("הדביקו קישור לטיסה או לעמוד חיפוש.");
+      return;
+    }
+    setStatus("saving");
+    setMessage(null);
+    try {
+      const res = await saveFlightLink({ url: trimmed, search: request });
+      setLinks(res.links);
+      setUrl("");
+      setStatus("saved");
+      const text = `שמרנו את הקישור מ־${res.saved.sourceName}.`;
+      setMessage(text);
+      announce(text);
+    } catch (error) {
+      const text = error instanceof RequestError && error.fields?.url ? error.fields.url : "לא הצלחנו לשמור את הקישור. נסו קישור אחר.";
+      setStatus("failed");
+      setMessage(text);
+      announce(text);
+    }
+  };
+
+  return <section className="flight-link-memory" aria-labelledby="flight-link-memory-title">
+    <div className="flight-link-head">
+      <div>
+        <h3 id="flight-link-memory-title"><Link2 size={18} aria-hidden="true" />זוכרים קישור שבדקתם</h3>
+        <p>הדביקו קישור מאתר חברת תעופה או חיפוש. נשמור מאיזה אתר זה, מתי בדקתם, ומה הצלחנו להבין מהקישור.</p>
+      </div>
+    </div>
+    <form className="flight-link-form" onSubmit={submit}>
+      <label className="sr-only" htmlFor="flight-link-url">קישור לטיסה</label>
+      <input id="flight-link-url" type="url" inputMode="url" placeholder="https://..." value={url} onChange={(e) => setUrl(e.target.value)} disabled={status === "saving"} />
+      <button type="submit" className="btn btn-secondary" disabled={status === "saving"}>{status === "saving" ? "שומר…" : "שמירה"}</button>
+    </form>
+    {message && <p className={`flight-link-message ${status === "failed" ? "is-error" : ""}`}>{status === "saved" && <CheckCircle2 size={16} aria-hidden="true" />}{message}</p>}
+    {links.length > 0 && <ul className="flight-link-list">
+      {links.map((link) => <li key={link.id}>
+        <div>
+          <strong>{link.sourceName}</strong>
+          <span>{flightLinkRoute(link)}</span>
+        </div>
+        <div className="flight-link-meta">
+          <time dateTime={link.checkedAt}>{checkedAtText(link.checkedAt)}</time>
+          <a href={link.url} target="_blank" rel="noreferrer">פתיחה</a>
+        </div>
+      </li>)}
+    </ul>}
+  </section>;
+}
+
 function sourceName(source: SourceStatus): string {
   const names: Record<string, string> = { travelpayouts: "Aviasales (דרך Travelpayouts)", google_flights: "Google Flights", ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi" };
   return names[source.name] ?? source.name;
@@ -538,6 +627,7 @@ function Results({ submitted, response, dimmed, announce, knownSources }: { subm
     </>}
     {/* Keyed by the search: a new search starts a fresh alert form. */}
     <WatchPanel key={JSON.stringify(request)} request={request} originLabel={originLabel} destinationLabel={destinationLabel} announce={announce} />
+    <FlightLinkMemoryPanel request={request} announce={announce} />
     <p className="disclaimer"><Info size={16} aria-hidden="true" />{he.priceDisclaimer}</p>
     <details className="data-details">
       <summary>על הנתונים של החיפוש הזה</summary>

@@ -8,7 +8,7 @@ import { API_BASE } from "../config";
 import { clearAccessKey, emitAccessEvent, getAccessKey } from "../lib/access-key";
 import type {
   AirportLookup, AirportSuggestion, ApiError, CountrySuggestion, CalendarResponse, CreateWatchRequest, CreateWatchResponse, DealsResponse, ExploreResponse,
-  GetWatchResponse, PartyCheckRequest, PartyCheckResult, SearchRequest, SearchResponse, SourceRegistryEntry,
+  FlightLinkRequest, FlightLinkResponse, FlightLinksResponse, GetWatchResponse, PartyCheckRequest, PartyCheckResult, SearchRequest, SearchResponse, SourceRegistryEntry,
 } from "./contract";
 
 export class RequestError extends Error {
@@ -138,6 +138,14 @@ export interface SourcesResponse {
 
 export function fetchSources(signal?: AbortSignal): Promise<SourcesResponse> {
   return getJson<SourcesResponse>("/api/sources", undefined, signal);
+}
+
+export function fetchFlightLinks(signal?: AbortSignal): Promise<FlightLinksResponse> {
+  return getJson<FlightLinksResponse>("/api/flight-links", undefined, signal);
+}
+
+export function saveFlightLink(body: FlightLinkRequest, signal?: AbortSignal): Promise<FlightLinkResponse> {
+  return postJson<FlightLinkResponse>("/api/flight-links", body, signal);
 }
 
 /** POST /api/party-check: the live "together or one by one?" check of one card. Only called on the user's click. */

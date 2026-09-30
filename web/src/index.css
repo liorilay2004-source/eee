@@ -852,3 +852,23 @@ p { text-wrap: pretty; }
   .chip, .choice, .pill, .switch-row, .btn, .stepper-button { border: 2px solid ButtonText; }
   .choice.is-on, .pill.is-on, .switch-row.is-on { outline: 3px solid Highlight; }
 }
+
+
+.flight-link-memory { margin-top: 18px; padding: 18px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); box-shadow: var(--shadow-sm); }
+.flight-link-head h3 { margin: 0 0 6px; display: flex; align-items: center; gap: 8px; font-size: 19px; }
+.flight-link-head p { margin: 0; color: var(--muted); font-size: 15px; }
+.flight-link-form { margin-top: 14px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.flight-link-form input { width: 100%; min-height: 48px; border: 2px solid var(--field-border); border-radius: 16px; background: var(--surface); color: var(--ink); padding: 10px 14px; direction: ltr; text-align: left; }
+.flight-link-message { margin: 10px 0 0; display: flex; align-items: center; gap: 6px; color: var(--good); font-weight: 700; font-size: 15px; }
+.flight-link-message.is-error { color: var(--danger); }
+.flight-link-list { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 8px; }
+.flight-link-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); }
+.flight-link-list strong { display: block; font-size: 15px; }
+.flight-link-list span { display: block; color: var(--muted); font-size: 14px; direction: ltr; text-align: right; }
+.flight-link-meta { display: flex; align-items: center; gap: 10px; flex: none; color: var(--muted); font-size: 14px; }
+.flight-link-meta a { color: var(--select-ink); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 560px) {
+  .flight-link-form { grid-template-columns: 1fr; }
+  .flight-link-list li { align-items: stretch; flex-direction: column; }
+  .flight-link-meta { justify-content: space-between; }
+}

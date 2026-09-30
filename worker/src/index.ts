@@ -5,6 +5,7 @@
  *   GET  /api/calendar  cheapest cached round trip per departure day (rate limited, src/calendar.ts)
  *   GET  /api/explore   cheapest destinations from TLV/ETM in a month or window (rate limited, src/explore.ts)
  *   GET  /api/sources   known airline/metasearch source registry, no external calls
+ *   GET|POST /api/flight-links  user-pasted booking/search links remembered per client
  *   GET  /api/health    D1 liveness, deployed commit, newest applied migration, whether the private-use lock is on
  *   POST /api/watches, GET|DELETE /api/watches/<token>, POST /api/telegram/webhook   price alerts (src/watches.ts)
  *   GET  /api/deals     unusual fares per watched route, precomputed by the hourly snapshot cron (dealreports.ts)
@@ -38,6 +39,7 @@ import { createRepo, pruneHistory } from "./db";
 import { loadDeals, refreshDealReport } from "./dealreports";
 import { EXPLORE_RATE_LIMIT_MAX, EXPLORE_RATE_LIMIT_WINDOW_SECONDS, ExploreError, parseExploreParams, runExplore } from "./explore";
 import { getFxRates } from "./fx";
+import { handleFlightLinks } from "./flight-links";
 import { checkHealth } from "./health";
 import { handlePartyCheck, signPartyToken } from "./partycheck";
 import { defaultResolver, PipelineError, runSearch, sha256Hex, type ScanBudgetVerdict } from "./pipeline";
@@ -499,6 +501,7 @@ const ROUTES: Record<string, string> = {
   "/api/calendar": "GET",
   "/api/explore": "GET",
   "/api/sources": "GET",
+  "/api/flight-links": "GET, POST",
   "/api/health": "GET",
   "/api/watches": "POST",
   "/api/telegram/webhook": "POST",
@@ -557,6 +560,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   if (path === "/api/airports") return handleAirports(url);
   if (path === "/api/deals") return handleDeals(env);
   if (path === "/api/sources") return { status: 200, body: { sources: sourceRegistry(), generatedAt: new Date().toISOString() } };
+  if (path === "/api/flight-links") return handleFlightLinks({ env, now: new Date(), ip: request.headers.get("CF-Connecting-IP") ?? "unknown" }, request.method as "GET" | "POST", () => readJson(request));
   if (path === "/api/calendar") return handleCalendar(request, url, env, ctx);
   if (path === "/api/explore") return handleExplore(request, url, env, ctx);
   return handleHealth(env);

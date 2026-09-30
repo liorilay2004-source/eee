@@ -149,6 +149,46 @@ export interface SourceRegistryEntry {
   noteHe: string;
 }
 
+
+export interface FlightLinkParse {
+  id: string | null;
+  name: string;
+  host: string;
+  origin: string | null;
+  destination: string | null;
+  departDate: string | null;
+  returnDate: string | null;
+}
+
+export interface FlightLinkMemory {
+  id: number;
+  url: string;
+  host: string;
+  sourceId: string | null;
+  sourceName: string;
+  origin: string | null;
+  destination: string | null;
+  departDate: string | null;
+  returnDate: string | null;
+  checkedAt: string;
+}
+
+export interface FlightLinkRequest {
+  url: string;
+  search?: Partial<SearchRequest>;
+}
+
+export interface FlightLinkResponse {
+  saved: FlightLinkMemory;
+  parse: FlightLinkParse;
+  links: FlightLinkMemory[];
+}
+
+export interface FlightLinksResponse {
+  links: FlightLinkMemory[];
+  generatedAt: string;
+}
+
 export interface SourceStatus {
   name: string;
   enabled: boolean;

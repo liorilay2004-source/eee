@@ -1,5 +1,10 @@
 export type {
   CardView,
+  FlightLinkMemory,
+  FlightLinkParse,
+  FlightLinkRequest,
+  FlightLinkResponse,
+  FlightLinksResponse,
   Leg,
   Offer,
   // "Together or one by one?" (worker/src/partycheck.ts). CardView.partyCheck and SearchResponse.meta.partyCheck are optional:
