@@ -932,6 +932,15 @@ describe("routing and response hygiene", () => {
     expect((await call(env, "/api/airports/?q=tel")).status).toBe(200);
   });
 
+  it("a path of 60,000 slashes plus a letter is a quick 404, not a CPU spike (the old trailing-slash regex was quadratic)", async () => {
+    const env = makeEnv();
+    const t0 = performance.now();
+    const res = await call(env, `/${"/".repeat(60_000)}x`);
+    expect(res.status).toBe(404);
+    expect((await call(env, `/api/health${"/".repeat(60_000)}`)).status).toBe(200);
+    expect(performance.now() - t0).toBeLessThan(500);
+  });
+
   it("every response is no-store, nosniff, JSON, and errors follow { error: { code, message } }", async () => {
     stubUpstream();
     const env = makeEnv();

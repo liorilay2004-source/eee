@@ -10,7 +10,7 @@
 2. **Managed calendar fallback: SearchApi.io `google_flights_calendar`.** The only managed API found that returns a real cheapest-date grid (up to 200 date pairs in one call). Paid ($4 per 1,000 requests) and Google-ToS exposed.
 3. **Detail enrichment stays best-effort:** `fast-flights` (free, fragile) and, if a paid option is wanted, SerpApi (price insights, booking tokens).
 4. **Dead or closed to us:** Amadeus Self-Service (decommissioned 2026-07-17), Kiwi Tequila (invite-only), Skyscanner API (large partners only), Sabre / Travelport / Amadeus Enterprise (contract-gated), Booking.com and Expedia (no flight API).
-5. **Ticketing later:** Duffel is the only self-serve booking API found (El Al through Travelport; Israir, Arkia, Ryanair, Wizz not confirmed).
+5. **Multi-airline API now:** Duffel is wired as the first official offer API source, safe by default: test tokens work; live tokens require an explicit `DUFFEL_ALLOW_LIVE=true` flag because live searches can become billable. Ticketing remains later.
 6. **Free supporting data:** Bank of Israel for ILS, OurAirports + Wikidata/GeoNames for airports and Hebrew names, data.gov.il `flydata` for Ben Gurion flight status.
 
 Before committing to any choice, three things must be measured with a real token (see §8): TLV/ETM coverage in the Travelpayouts cache, whether ILS is accepted as `currency`, and the actual rate limits.
@@ -30,7 +30,7 @@ Before committing to any choice, three things must be measured with a real token
 | fast-flights 3.1.0 | OSS Google Flights scraper | Not verified | Free | Free | Keep, best-effort |
 | Wego | Live metasearch | No | Contact / Admitad | [UNVERIFIED] | Later |
 | Kayak / Momondo | Affiliate + API | Price Insights API | Sales-gated | [UNVERIFIED] | Enquire, do not plan on it |
-| Duffel | Search + booking | No | Self-serve | $3 per order; $0.005 per search beyond the free allowance | Ticketing later |
+| Duffel | Search + booking | No | Self-serve | Test mode; live commercial terms | Wired as official offer API, live gated |
 | Amadeus Self-Service | — | — | **Closed 2026-07-17** | — | **Dead** |
 | Amadeus Enterprise / Quick Connect | GDS-style | [UNVERIFIED] | Sales + qualification | Not public | No |
 | Sabre, Travelport | GDS | — | Contract, PCC / sales inquiry | ~$5k/yr and up (blog estimate) | No |
@@ -208,7 +208,7 @@ Layered, so that one source failing or being withdrawn never breaks search; the 
 
 ## 14. Owner rule: nothing may cost money, free allowances only up to the allowance (2026-09-29)
 
-The owner ruled that **no source, tier or quota may ever cost money**. A vendor's **free allowance is allowed, but only up to that allowance**, never beyond it. Paid-only options are dropped: Duffel (charged per search), FlightAPI.io beyond its 20 trial credits, Bright Data and Apify beyond their free credits, and every paid plan of any vendor.
+The owner ruled that **no source, tier or quota may ever cost money**. A vendor's **free allowance is allowed, but only up to that allowance**, never beyond it. Paid-only use stays blocked by default: Duffel live/search use is gated behind `DUFFEL_ALLOW_LIVE=true`, FlightAPI.io beyond its 20 trial credits, Bright Data and Apify beyond their free credits, and every paid plan of any vendor.
 
 How the code must enforce it (built into the multi-source layer, PR pending):
 - every extra source has a hard cap **below** its documented free allowance (at most 80% where the allowance is clear, at most 50 requests where it is not), per month for monthly allowances and per lifetime for one-off or unknown ones;

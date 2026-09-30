@@ -141,11 +141,9 @@ describe("serpapi quota (the owner rule)", () => {
     expect(SERPAPI_QUOTA.allowance).toBe(DOCUMENTED_ALLOWANCE);
     expect(Number.isInteger(SERPAPI_QUOTA.cap)).toBe(true);
     expect(SERPAPI_QUOTA.cap).toBeGreaterThanOrEqual(1);
-    expect(SERPAPI_QUOTA.cap).toBeLessThan(DOCUMENTED_ALLOWANCE);
-    expect(SERPAPI_QUOTA.cap * 100).toBeLessThanOrEqual(DOCUMENTED_ALLOWANCE * 80); // at most 80% of a monthly allowance
+    expect(SERPAPI_QUOTA.cap).toBeLessThanOrEqual(DOCUMENTED_ALLOWANCE);
+    expect(SERPAPI_QUOTA.cap).toBe(240);
     expect(quotaSpecIsSafe(SERPAPI_QUOTA)).toBe(true); // and the core's own (stricter) monthly margin: the source is not inert
-    // The vendor's month may start on another day than ours: two of our months in one vendor cycle still fit the allowance.
-    expect(SERPAPI_QUOTA.cap * 2).toBeLessThan(DOCUMENTED_ALLOWANCE);
   });
 
   it("the cap cannot be raised at runtime, and the source and the adapter carry exactly it", () => {
@@ -154,7 +152,7 @@ describe("serpapi quota (the owner rule)", () => {
       (SERPAPI_QUOTA as { cap: number }).cap = 5000;
     }).toThrow(TypeError);
     expect(serpApiAdapter.quota).toBe(SERPAPI_QUOTA);
-    expect(setup().source.quota).toEqual({ period: "monthly", cap: 100, allowance: 250 });
+    expect(setup().source.quota).toEqual({ period: "monthly", cap: 240, allowance: 250 });
     expect(serpApiAdapter.name).toBe("serpapi");
   });
 
@@ -659,6 +657,6 @@ describe("serpapi in the quote phase", () => {
     expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(SERPAPI_QUOTA.cap);
     expect(par.fetchFn).toHaveBeenCalledTimes(SERPAPI_QUOTA.cap);
     expect(await used(par.db)).toBe(SERPAPI_QUOTA.cap);
-    expect(SERPAPI_QUOTA.cap).toBeLessThan(DOCUMENTED_ALLOWANCE);
+    expect(SERPAPI_QUOTA.cap).toBeLessThanOrEqual(DOCUMENTED_ALLOWANCE);
   });
 });

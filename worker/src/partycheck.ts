@@ -22,7 +22,7 @@
  *     any request; fewer than two left means no request at all. The first failure ends the check (no second request, no retry),
  *     and so does a first answer without a usable fare. On top: PARTY_CHECK_RATE_LIMIT_MAX checks per client per 10 minutes
  *     (salted-hash identity, fail closed) and a daily cap per source well below its daily share (partyChecksPerDay).
- *     With today's sources nothing qualifies: SerpApi, SearchApi and Ignav document an adults parameter but give no basis for
+ *     SerpApi, SearchApi and Ignav document an adults parameter but give no basis for
  *     reading a multi-adult price (per person, or for everybody?). Wego's docs only let us INFER that its total is for everybody
  *     (a reading its adapter checks on every fare, see wego.ts partyTotalAgrees), and its daily share (1 request) cannot fit a
  *     2-search check. So meta.partyCheck.available is false and the endpoint answers 404 until that changes (see the adapters).
@@ -58,14 +58,14 @@ export const PARTY_CHECK_SHARE_PERCENT = 50;
 /** And never more than this many checks per source per UTC day, whatever its share. */
 export const PARTY_CHECK_MAX_PER_DAY = 5;
 /** The fixed order the live check picks its source in (the same order as the search's live sources, index.ts quoteSources). */
-export const PARTY_CHECK_ORDER: readonly QuoteSourceName[] = ["ignav", "wego", "searchapi", "serpapi"];
+export const PARTY_CHECK_ORDER: readonly QuoteSourceName[] = ["ignav", "wego", "searchapi", "serpapi", "duffel"];
 /** A difference counts only from max(PARTY_MIN_DIFF_ILS, PARTY_MIN_DIFF_SHARE of the group total). */
 export const PARTY_MIN_DIFF_ILS = 20;
 export const PARTY_MIN_DIFF_SHARE = 0.03;
 /** A card's token is accepted this long after the search answer that carried it. */
 export const PARTY_TOKEN_TTL_SECONDS = 86_400;
 
-const SOURCE_LABEL: Record<QuoteSourceName, string> = { ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi" };
+const SOURCE_LABEL: Record<QuoteSourceName, string> = { ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi", duffel: "Duffel" };
 
 // --- A) the free part: links on the cards ---------------------------------------------------------------
 

@@ -453,6 +453,16 @@ p { text-wrap: pretty; }
 .booking-demo { margin: 18px 0 0; display: flex; gap: 8px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; border: 2px dashed var(--line-strong); color: var(--ink-2); font-weight: 600; font-size: 15px; }
 .booking-demo svg { flex: none; margin-top: 3px; }
 
+.airline-price-links { margin: 18px 0 0; padding: 18px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); box-shadow: var(--shadow-sm); }
+.airline-price-head h3 { margin: 0 0 6px; display: flex; align-items: center; gap: 8px; font-size: 19px; }
+.airline-price-head p { margin: 0; color: var(--muted); font-size: 15px; }
+.airline-price-links ol { margin: 14px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.airline-price-links a { min-height: 56px; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); color: var(--ink); text-decoration: none; }
+.airline-price-links a:hover { border-color: var(--select); background: var(--select-soft); }
+.airline-price-links strong { display: block; font-size: 16px; }
+.airline-price-links small { display: block; color: var(--muted); font-size: 13px; }
+.airline-price-amount { color: var(--accent-text); font-size: 18px; font-weight: 800; white-space: nowrap; }
+
 /* compact cards */
 .minis-title { margin: 28px 0 12px; font-size: 20px; font-weight: 800; }
 .minis { display: grid; gap: 14px; }
@@ -533,6 +543,28 @@ p { text-wrap: pretty; }
 .source-list { margin: 0; padding: 8px 16px 16px; list-style: none; display: grid; gap: 8px; }
 .source-list li { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 15px; color: var(--ink-2); }
 .source-list small { flex-basis: 100%; color: var(--muted); font-size: 13px; }
+.known-sources { padding: 0 16px 16px; display: grid; gap: 10px; }
+.state .known-sources { margin-top: 16px; padding: 14px; width: 100%; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); text-align: start; }
+.known-sources h3 { margin: 0; font-size: 15px; color: var(--ink); }
+.known-sources p { margin: 0; color: var(--muted); font-size: 13px; }
+.source-group { display: grid; gap: 6px; }
+.source-group h4 { margin: 0; color: var(--ink-2); font-size: 13px; }
+.source-chips { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }
+.source-chip { max-width: 100%; display: inline-flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); font-size: 13px; }
+.source-chip a { color: var(--select-ink); font-weight: 800; text-decoration: none; }
+.source-chip a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.source-chip small { color: var(--muted); font-size: 12px; }
+.source-chip.is-api, .source-chip.is-active { background: var(--good-soft); }
+.source-chip.is-blocked { background: var(--warn-soft); }
+
+.official-airline-links { width: 100%; padding: 16px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); text-align: start; display: grid; gap: 12px; }
+.official-airline-links h3 { margin: 0 0 6px; display: flex; align-items: center; gap: 8px; font-size: 18px; color: var(--ink); }
+.official-airline-links p { margin: 0; color: var(--muted); font-size: 14px; }
+.official-airline-links ul { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
+.official-airline-links li { min-width: 0; display: grid; gap: 2px; padding: 10px 12px; border-radius: 14px; background: var(--surface-2); }
+.official-airline-links a { color: var(--select-ink); font-weight: 800; text-decoration: none; }
+.official-airline-links a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.official-airline-links small { color: var(--muted); font-size: 12px; line-height: 1.35; }
 
 /* idle, loading, states */
 .idle { padding: 4px 0; }
@@ -846,3 +878,38 @@ p { text-wrap: pretty; }
   .chip, .choice, .pill, .switch-row, .btn, .stepper-button { border: 2px solid ButtonText; }
   .choice.is-on, .pill.is-on, .switch-row.is-on { outline: 3px solid Highlight; }
 }
+
+
+.flight-link-memory { margin-top: 18px; padding: 18px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); box-shadow: var(--shadow-sm); }
+.flight-link-head h3 { margin: 0 0 6px; display: flex; align-items: center; gap: 8px; font-size: 19px; }
+.flight-link-head p { margin: 0; color: var(--muted); font-size: 15px; }
+.flight-link-form { margin-top: 14px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.flight-link-form input { width: 100%; min-height: 48px; border: 2px solid var(--field-border); border-radius: 16px; background: var(--surface); color: var(--ink); padding: 10px 14px; direction: ltr; text-align: left; }
+.flight-link-message { margin: 10px 0 0; display: flex; align-items: center; gap: 6px; color: var(--good); font-weight: 700; font-size: 15px; }
+.flight-link-message.is-error { color: var(--danger); }
+.flight-link-list { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 8px; }
+.flight-link-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); }
+.flight-link-list strong { display: block; font-size: 15px; }
+.flight-link-list span { display: block; color: var(--muted); font-size: 14px; direction: ltr; text-align: right; }
+.flight-link-meta { display: flex; align-items: center; gap: 10px; flex: none; color: var(--muted); font-size: 14px; }
+.flight-link-meta a { color: var(--select-ink); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 560px) {
+  .flight-link-form { grid-template-columns: 1fr; }
+  .flight-link-list li { align-items: stretch; flex-direction: column; }
+  .flight-link-meta { justify-content: space-between; }
+}
+
+.overlay-page { min-height: 100vh; padding: 18px; background: radial-gradient(120% 70% at 100% 0%, var(--bg-tint) 0%, transparent 60%), var(--bg); color: var(--ink); }
+.overlay-top { display: flex; align-items: start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.overlay-top h1 { margin: 0; font-size: 24px; line-height: 1.15; }
+.overlay-card { margin-top: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); box-shadow: var(--shadow-sm); }
+.overlay-card h2 { margin: 0 0 8px; display: flex; align-items: center; gap: 8px; font-size: 18px; }
+.overlay-card p { margin: 0; color: var(--ink-2); }
+.overlay-card small { display: block; margin-top: 8px; max-height: 54px; overflow: auto; color: var(--muted); font-size: 12px; direction: ltr; text-align: left; }
+.overlay-actions { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 14px; }
+.overlay-facts { margin: 12px 0 0; display: grid; gap: 8px; }
+.overlay-facts div { display: flex; justify-content: space-between; gap: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+.overlay-facts dt { color: var(--muted); font-weight: 700; }
+.overlay-facts dd { margin: 0; font-weight: 800; }
+.overlay-install .btn { margin-top: 12px; width: 100%; }
+@media (min-width: 380px) { .overlay-actions { grid-template-columns: 1fr 1fr; } }

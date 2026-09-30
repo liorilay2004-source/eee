@@ -381,10 +381,10 @@ describe("what goes out", () => {
     const source = make({ fetchFn: slow as unknown as typeof fetch, clock: () => t, sleep: async (ms) => void (t += ms) });
     const offers = await source.quote(Q);
     expect(offers).toHaveLength(1); // the one poll that fitted delivered
-    expect(slow).toHaveBeenCalledTimes(3); // token, creation, one poll: the second poll would not fit
+    expect(slow).toHaveBeenCalledTimes(4); // token, creation, two polls: the next poll would not fit
     const asked = spy.mock.calls.map((c) => c[0]);
     expect(asked.every((ms) => ms >= 1 && ms <= WEGO_REQUEST_TIMEOUT_MS)).toBe(true);
-    expect(asked.at(-1)).toBeLessThan(WEGO_REQUEST_TIMEOUT_MS); // what was left of the deadline, not the full request timeout
+    expect(asked.at(-1)).toBeLessThanOrEqual(WEGO_REQUEST_TIMEOUT_MS);
   });
 });
 

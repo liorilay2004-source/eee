@@ -17,6 +17,7 @@
  * `prices` history stores PER-PASSENGER amounts so searches with different party sizes stay comparable.
  */
 import { airlineFieldsFor } from "./airlines/lookup";
+import { airlinePriceLinks } from "./airlines/official-links";
 import { logMatchAudit } from "./audit";
 import * as airportData from "./airports/resolve";
 import { orderPairsByService } from "./airports/served";
@@ -30,6 +31,7 @@ import {
   cheapestCachedByPair,
   coverKey,
   isQuoteSource,
+  MAX_QUOTE_PAIRS,
   mergeQuoted,
   pickQuotePairs,
   plausibleQuotes,
@@ -53,6 +55,7 @@ import {
 } from "./priceguard";
 import { fareExpired, fareFreshness, vendorTimestamp } from "./freshness";
 import { partyCheckMetaNow, signedPartyCheckFields, type PartyTokenSigner } from "./partycheck";
+import { sourceRegistryForRoute } from "./source-registry";
 import { buildSplits, dayNumber, pairOk } from "./splits";
 import { monthsBetween, TravelpayoutsError, withPartySize, type Party } from "./travelpayouts";
 import type {
@@ -665,6 +668,40 @@ function linkParty(o: Offer, party: Party): void {
   }
 }
 
+function isoDay(ms: number): string {
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+const DAY = 86_400_000;
+
+function fallbackQuotePairs(req: SearchRequest, max: number = MAX_QUOTE_PAIRS): Array<[string, string]> {
+  const start = Date.parse(`${req.windowStart}T00:00:00.000Z`);
+  const end = Date.parse(`${req.windowEnd}T00:00:00.000Z`);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return [];
+  const min = Math.max(0, req.stayMin);
+  const maxStay = Math.max(min, req.stayMax);
+  const windowDays = Math.floor((end - start) / DAY);
+  const offsets = [...new Set([0, Math.floor(windowDays / 2), windowDays])].filter((n) => n >= 0 && n <= windowDays);
+  const stays = [...new Set([min, Math.floor((min + maxStay) / 2), maxStay])].filter((n) => n >= min && n <= maxStay);
+  const out: Array<[string, string]> = [];
+  const seen = new Set<string>();
+  for (const offset of offsets) {
+    const depart = start + offset * DAY;
+    for (const stay of stays) {
+      const ret = depart + stay * DAY;
+      if (ret > end + maxStay * DAY) continue;
+      const pair: [string, string] = [isoDay(depart), isoDay(ret)];
+      if (!pairOk(req, pair[0], pair[1])) continue;
+      const key = pair.join("|");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(pair);
+      if (out.length >= max) return out;
+    }
+  }
+  return out;
+}
+
 // --- the pipeline ---------------------------------------------------------------------------------------
 
 export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<SearchResponse> {
@@ -860,7 +897,10 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   // Failures here never fail the search.
   const quoters = (deps.quoteSources ?? []).filter((s) => s.configured);
   const primary = pairs[0];
-  const dates = scanComplete && quoters.length > 0 && primary ? pickQuotePairs(working, primary) : [];
+  const emptyCachedAnswer = fromCache && working.length === 0 && carriedQuotes.length === 0;
+  const canAskQuotes = quoters.length > 0 && primary && (scanComplete || emptyCachedAnswer);
+  const cachedDates = scanComplete && canAskQuotes && primary ? pickQuotePairs(working, primary) : [];
+  const dates = canAskQuotes ? (cachedDates.length > 0 ? cachedDates : fallbackQuotePairs(req)) : [];
   let scanStored: Promise<void> | null = null; // the scan's own write, when it was made before the quote phase
   let quotesTotal = 0; // match_audit only: live quotes this search's quote phase considered...
   let quotesDisbelieved = 0; // ...and how many of them were not believed (far below the cached fare)
@@ -995,6 +1035,8 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
       // Only when something was flagged: an ordinary answer keeps exactly the fields it had before the guard.
       ...(guarded.suspicious.size > 0 ? { priceGuard: { suspicious: guarded.suspicious.size, excluded: guarded.excluded } } : {}),
       recommendations: recommendationsMeta(ranking, req, cards),
+      airlinePriceLinks: airlinePriceLinks(guarded.pool),
+      sourceRegistry: sourceRegistryForRoute(req, resolver),
       // Only on a search for 2+ adults: whether the live party check can run (a configured source qualifies and has room, no children).
       ...partyMeta,
     },

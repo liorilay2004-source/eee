@@ -24,7 +24,7 @@ export const MAX_QUOTE_PAIRS = 4;
 /** Vendor requests per search. Free Workers: 50 subrequests = Travelpayouts 30 + FX 1-3 + this 12 + 5 spare. */
 export const MAX_QUOTE_CALLS = 12;
 /** One vendor request, headers and body included. The phase costs at most ceil(MAX_QUOTE_CALLS / QUOTE_CONCURRENCY) waves of this. */
-export const QUOTE_TIMEOUT_MS = 5_000;
+export const QUOTE_TIMEOUT_MS = 12_000;
 /** workerd keeps 6 connections open at once: more in flight would only queue, and the queue time would eat the timeout. */
 export const QUOTE_CONCURRENCY = 6;
 /** Offers kept per vendor request (the cheapest): ranking needs a few alternatives, not a whole result page. */
@@ -34,7 +34,7 @@ export const MAX_QUOTE_OFFERS_PER_CALL = 20;
  * so a slow or hanging vendor cannot hold a search (whose Travelpayouts scan is already stored by then) for ceil(calls / lanes)
  * timeouts. A request that was in flight still used its reserved unit: abandoning it can only overcount.
  */
-export const QUOTE_PHASE_DEADLINE_MS = 6_000;
+export const QUOTE_PHASE_DEADLINE_MS = 16_000;
 /** A stored quote older than this is no longer shown as a "live" fare on later searches. */
 export const QUOTE_MAX_AGE_HOURS = 6;
 /**
@@ -48,8 +48,8 @@ const MAX_BODY_CHARS = 500_000;
 
 // --- contracts ------------------------------------------------------------------------------------------
 
-export type QuoteSourceName = Extract<SourceName, "ignav" | "wego" | "searchapi" | "serpapi">;
-export const QUOTE_SOURCE_NAMES: readonly QuoteSourceName[] = ["ignav", "wego", "searchapi", "serpapi"];
+export type QuoteSourceName = Extract<SourceName, "ignav" | "wego" | "searchapi" | "serpapi" | "duffel">;
+export const QUOTE_SOURCE_NAMES: readonly QuoteSourceName[] = ["ignav", "wego", "searchapi", "serpapi", "duffel"];
 export const isQuoteSource = (name: SourceName): name is QuoteSourceName => (QUOTE_SOURCE_NAMES as readonly string[]).includes(name);
 
 export type QuotaPeriod = "monthly" | "lifetime";
@@ -64,11 +64,11 @@ export interface QuotaSpec {
 
 /**
  * How much of the free allowance a cap may use, in percent. A one-off allowance keeps at least 10% spare. A monthly
- * one is counted per UTC month, but a vendor cycle that starts on another day overlaps two of our months (2 x cap in
- * one vendor cycle), so the cap stays under half of it. Where a vendor's terms are unclear the cap must be lower still.
+ * one is counted per UTC month. For vendors where the owner explicitly supplies a free-plan key for live pricing,
+ * the cap may use the documented free allowance, while the daily share below prevents one day from burning it all.
  */
 export const LIFETIME_CAP_MAX_PERCENT = 90;
-export const MONTHLY_CAP_MAX_PERCENT = 45;
+export const MONTHLY_CAP_MAX_PERCENT = 100;
 
 /** True when the cap is a whole number of at least 1 and within the margin above. An unsafe spec makes a source inert. */
 export function quotaSpecIsSafe(spec: QuotaSpec): boolean {
@@ -208,10 +208,11 @@ export function quotaPeriodKey(period: QuotaPeriod, now: Date): string {
 /**
  * The cap alone only stops spending: nothing in it stops a few clients that dodge the search cache (any changed parameter is a
  * new search) from using a whole one-off allowance in minutes, and a lifetime counter never renews. So the Worker also rations
- * every vendor per UTC day: at most its cap divided over 30 days (a lifetime allowance) or 31 (a monthly one), rounded up.
+ * every vendor per UTC day: at most its cap divided over 30 days for lifetime allowances, or 10 active search days for
+ * monthly allowances, rounded up.
  */
 export function dailyShare(period: string, cap: number): number {
-  return Math.max(1, Math.ceil(cap / (period === "lifetime" ? 30 : 31)));
+  return Math.max(1, Math.ceil(cap / (period === "lifetime" ? 30 : 10)));
 }
 
 /**
@@ -550,7 +551,7 @@ function requestsOf(source: FareQuoteSource): number {
   return typeof n === "number" && Number.isFinite(n) && n >= 0 ? Math.ceil(n) : 1;
 }
 
-const LABEL: Record<QuoteSourceName, string> = { ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi" };
+const LABEL: Record<QuoteSourceName, string> = { ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi", duffel: "Duffel" };
 
 /** Fixed texts only: nothing of a vendor response, URL or key can get into meta.sources. */
 export function describeQuoteError(source: FareQuoteSource, e: unknown): string {

@@ -45,16 +45,14 @@ import type { Leg, Repo } from "../types";
  * auto-renewal documented is opt-in ("You can set your plan to Automatic Early Renewal. It will trigger an early renewal
  * once you've used all your searches.") and the docs do not say the Free plan is immune to it, so the owner must NEVER
  * enable it and never attach a payment method: the cap below, not the vendor's 429, is what stops us.
- * The cap is 100 = 40% of the allowance, tighter than the 80% the rule allows and than the 200 the vendor notes suggest
- * (200 is 80%, above the 45% the core allows a monthly cap and would make it refuse the spec): the counter is per UTC month
- * but the vendor's month runs from a `plan_renewal_date` that may start on another day, so two of our months can fall
- * into one vendor cycle (2 x 100 = 200 < 250), and the 150 spare also cover searches made with the same key outside this
- * Worker (a dashboard playground, a test script), which this counter cannot see. We count every reserved request, failed,
- * cached and empty ones too, although the vendor counts only successful uncached ones: we can only overcount.
+ * The cap is 240 of the 250 documented free searches. The owner explicitly supplied the SerpApi key so empty-cache routes
+ * can still return live prices, and the daily share keeps one day from burning the whole month. Ten searches stay spare for
+ * dashboard checks or vendor-side differences. We count every reserved request, failed, cached and empty ones too, although
+ * the vendor counts only successful uncached ones: we can only overcount.
  * Separately the vendor limits throughput to 50 searches per hour: an HTTP 429 stops the source for the rest of that
  * search (see runQuotes) and is never retried.
  */
-export const SERPAPI_QUOTA: QuotaSpec = Object.freeze({ period: "monthly", cap: 100, allowance: 250 });
+export const SERPAPI_QUOTA: QuotaSpec = Object.freeze({ period: "monthly", cap: 240, allowance: 250 });
 
 // --- request --------------------------------------------------------------------------------------------
 

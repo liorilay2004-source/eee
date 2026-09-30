@@ -10,7 +10,7 @@
  */
 
 export type TicketStructure = "roundtrip" | "split";
-export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi";
+export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi" | "duffel";
 export type Cabin = "economy" | "premium-economy" | "business" | "first";
 export type RecKind = "cheapest" | "best_value" | "my_times";
 
@@ -127,8 +127,97 @@ export interface SourceCoverage {
   abortedRequests: number;
 }
 
+export type SourceRegistryStatus = "active" | "planned" | "manual-link" | "api" | "browser" | "blocked";
+export type SourceRegistryKind = "metasearch" | "ota" | "airline";
+
+export interface SourceRegistryEntry {
+  id: string;
+  name: string;
+  kind: SourceRegistryKind;
+  status: SourceRegistryStatus;
+  /** Official source homepage or search surface. Never contains tokens or user data. */
+  homeUrl: string;
+  capabilities: {
+    livePrice: boolean;
+    cachedPrice: boolean;
+    bookingLink: boolean;
+    directBooking: boolean;
+    combinations: boolean;
+  };
+  markets: string[];
+  priority: number;
+  noteHe: string;
+  /** ADDITIVE: set on /api/search when the source's market matches this route. */
+  routeRelevant?: boolean;
+  /** ADDITIVE: Hebrew explanation for routeRelevant. */
+  routeReasonHe?: string | null;
+}
+
+
+export interface FlightLinkParse {
+  id: string | null;
+  name: string;
+  host: string;
+  origin: string | null;
+  destination: string | null;
+  departDate: string | null;
+  returnDate: string | null;
+  airlineIata: string | null;
+  airlineIcao: string | null;
+  airlineName: string | null;
+}
+
+export interface FlightLinkMemory {
+  id: number;
+  url: string;
+  host: string;
+  sourceId: string | null;
+  sourceName: string;
+  origin: string | null;
+  destination: string | null;
+  departDate: string | null;
+  returnDate: string | null;
+  airlineIata: string | null;
+  airlineIcao: string | null;
+  airlineName: string | null;
+  checkedAt: string;
+}
+
+export interface FlightLinkRequest {
+  url: string;
+  search?: Partial<SearchRequest>;
+}
+
+export interface FlightLinkResponse {
+  saved: FlightLinkMemory;
+  parse: FlightLinkParse;
+  links: FlightLinkMemory[];
+}
+
+export interface FlightLinksResponse {
+  links: FlightLinkMemory[];
+  generatedAt: string;
+}
+
+export interface SourceSetupStatus {
+  id: string;
+  name: string;
+  kind: "multi-airline" | "direct-airline";
+  status: "configured" | "missing_credentials";
+  requiredSecrets: string[];
+  missingSecrets: string[];
+  officialUrl: string;
+  noteHe: string;
+}
+
+export interface SourceSetupResponse {
+  connectors: SourceSetupStatus[];
+  summary: { total: number; configured: number; missingCredentials: number };
+  generatedAt: string;
+}
+
 export interface SourceStatus {
-  name: SourceName;
+  name: string;
   enabled: boolean;
   ok: boolean;
   calls: number;
@@ -291,6 +380,20 @@ export interface RecommendationsMeta {
   bestValue: { status: "shown" | "merged" | "bag_cost_unknown" | "no_offers" };
 }
 
+export interface AirlinePriceLink {
+  code: string;
+  nameHe: string | null;
+  nameEn: string | null;
+  lowCost: boolean | null;
+  /** Official airline website, never a user URL and never a token-bearing URL. */
+  homeUrl: string;
+  /** Cheapest total price found for this airline in this search, in ILS and for the requested party. */
+  priceIls: number;
+  departDate: string;
+  returnDate: string;
+  source: SourceName;
+}
+
 export interface SearchResponse {
   cards: CardView[];
   meta: {
@@ -301,6 +404,8 @@ export interface SearchResponse {
     fxSource: string;
     fxDate: string;
     sources: SourceStatus[];
+    /** ADDITIVE: every source the engine knows about, including planned/manual-link sources that are not called live yet. */
+    sourceRegistry?: SourceRegistryEntry[];
     candidatePairs: number;
     generatedAt: string;
     /**
@@ -317,6 +422,8 @@ export interface SearchResponse {
     priceGuard?: { suspicious: number; excluded: number };
     /** ADDITIVE: bag-cost pool gating of the 💰/⚖️ cards (see RecommendationsMeta). */
     recommendations: RecommendationsMeta;
+    /** ADDITIVE: official airline links sorted by the cheapest fare found for each airline in this answer. */
+    airlinePriceLinks?: AirlinePriceLink[];
     /**
      * ADDITIVE (party check): present ONLY on a search for 2+ adults. `available` is true only when a configured live source can
      * run POST /api/party-check (its multi-adult price can be read: stated in its docs, or inferred from them and checked on every
@@ -482,4 +589,26 @@ export interface Env {
    * `Authorization: Bearer <key>`; anything else = misconfigured, and the API fails closed (503).
    */
   ACCESS_KEY?: string;
+  /** Optional official airline/GDS API connectors. Missing key = source is never called. */
+  DUFFEL_API_TOKEN?: string;
+  /** Duffel live tokens can be billable; live use is disabled unless this is exactly "true". Test tokens do not need it. */
+  DUFFEL_ALLOW_LIVE?: string;
+  AMADEUS_CLIENT_ID?: string;
+  AMADEUS_CLIENT_SECRET?: string;
+  TRAVELPORT_CLIENT_ID?: string;
+  TRAVELPORT_CLIENT_SECRET?: string;
+  SABRE_CLIENT_ID?: string;
+  SABRE_CLIENT_SECRET?: string;
+  LUFTHANSA_CLIENT_ID?: string;
+  LUFTHANSA_CLIENT_SECRET?: string;
+  TURKISH_API_KEY?: string;
+  AFKL_API_KEY?: string;
+  BA_NDC_CLIENT_ID?: string;
+  BA_NDC_CLIENT_SECRET?: string;
+  EMIRATES_NDC_CLIENT_ID?: string;
+  EMIRATES_NDC_CLIENT_SECRET?: string;
+  QATAR_NDC_CLIENT_ID?: string;
+  QATAR_NDC_CLIENT_SECRET?: string;
+  EASYJET_API_KEY?: string;
+  RYANAIR_API_KEY?: string;
 }

@@ -4,6 +4,9 @@
  *   GET  /api/airports  autocomplete over the Hebrew/English city dataset, plus country suggestions (src/countries/search.ts)
  *   GET  /api/calendar  cheapest cached round trip per departure day (rate limited, src/calendar.ts)
  *   GET  /api/explore   cheapest destinations from TLV/ETM in a month or window (rate limited, src/explore.ts)
+ *   GET  /api/sources   known airline/metasearch source registry, no external calls
+ *   GET  /api/source-setup  official API connector readiness without exposing secret values
+ *   GET|POST /api/flight-links  user-pasted booking/search links remembered per client
  *   GET  /api/health    D1 liveness, deployed commit, newest applied migration, whether the private-use lock is on
  *   POST /api/watches, GET|DELETE /api/watches/<token>, POST /api/telegram/webhook   price alerts (src/watches.ts)
  *   GET  /api/deals     unusual fares per watched route, precomputed by the hourly snapshot cron (dealreports.ts)
@@ -21,6 +24,7 @@
  * (env.ALLOWED_ORIGIN) and is never a wildcard.
  */
 import { checkAccess, createFailureLimiter, lockInfo } from "./access";
+import { stripTrailingSlashes } from "./paths";
 import {
   CALENDAR_GLOBAL_LIMIT,
   CALENDAR_GLOBAL_WINDOW_SECONDS,
@@ -36,12 +40,16 @@ import { createRepo, pruneHistory } from "./db";
 import { loadDeals, refreshDealReport } from "./dealreports";
 import { EXPLORE_RATE_LIMIT_MAX, EXPLORE_RATE_LIMIT_WINDOW_SECONDS, ExploreError, parseExploreParams, runExplore } from "./explore";
 import { getFxRates } from "./fx";
+import { handleFlightLinks } from "./flight-links";
 import { checkHealth } from "./health";
 import { handlePartyCheck, signPartyToken } from "./partycheck";
 import { defaultResolver, PipelineError, runSearch, sha256Hex, type ScanBudgetVerdict } from "./pipeline";
 import { withDailyShare, type FareQuoteSource } from "./quotes";
 import { clientIdentity, createMemoryLimiter, limiterSalt } from "./ratelimit";
+import { createDuffelSource } from "./sources/duffel";
 import { createIgnavSource } from "./sources/ignav";
+import { sourceRegistry } from "./source-registry";
+import { sourceSetup } from "./source-setup";
 import { createSearchApiSource } from "./sources/searchapi";
 import { createSerpApiSource } from "./sources/serpapi";
 import { createWegoSource } from "./sources/wego";
@@ -107,7 +115,8 @@ const errorResult = (
 
 /** The one configured origin, or null. A wildcard is refused: credentials-free or not, "*" is never emitted. */
 function allowedOrigin(env: Env): string | null {
-  const configured = env.ALLOWED_ORIGIN?.trim().replace(/\/+$/, "");
+  const trimmed = env.ALLOWED_ORIGIN?.trim();
+  const configured = trimmed === undefined ? undefined : stripTrailingSlashes(trimmed);
   return configured && configured !== "*" ? configured : null;
 }
 
@@ -217,11 +226,13 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
   const wego = secret(env.WEGO_API_TOKEN);
   const searchApi = secret(env.SEARCHAPI_KEY);
   const serpApi = secret(env.SERPAPI_KEY);
+  const duffel = secret(env.DUFFEL_API_TOKEN);
   return [
     ignav ? createIgnavSource({ ...shared, apiKey: ignav, marker }) : null,
     wego ? createWegoSource({ ...shared, apiKey: wego }) : null,
     searchApi ? createSearchApiSource({ ...shared, apiKey: searchApi, marker }) : null,
     serpApi ? createSerpApiSource({ ...shared, apiKey: serpApi, marker }) : null,
+    duffel ? createDuffelSource({ ...shared, apiToken: duffel, allowLive: env.DUFFEL_ALLOW_LIVE === "true", marker }) : null,
   ].filter((s): s is FareQuoteSource => s !== null && s.configured);
 }
 
@@ -494,6 +505,9 @@ const ROUTES: Record<string, string> = {
   "/api/deals": "GET",
   "/api/calendar": "GET",
   "/api/explore": "GET",
+  "/api/sources": "GET",
+  "/api/source-setup": "GET",
+  "/api/flight-links": "GET, POST",
   "/api/health": "GET",
   "/api/watches": "POST",
   "/api/telegram/webhook": "POST",
@@ -530,7 +544,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   // Before the path is even looked up: a locked API's preflight answer must not depend on it (LOCKED_PREFLIGHT_METHODS).
   if (request.method === "OPTIONS" && lockInfo(env).locked) return preflight(request, env, LOCKED_PREFLIGHT_METHODS);
   const url = new URL(request.url);
-  const path = url.pathname.replace(/\/+$/, "") || "/";
+  const path = stripTrailingSlashes(url.pathname) || "/";
   const watchToken = WATCH_PATH.exec(path)?.[1];
   const method = watchToken !== undefined ? WATCH_METHODS : ROUTES[path];
   if (method === undefined) return errorResult(404, "not_found", "Not found");
@@ -551,6 +565,9 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   if (path === "/api/party-check") return handlePartyCheckRoute(request, env);
   if (path === "/api/airports") return handleAirports(url);
   if (path === "/api/deals") return handleDeals(env);
+  if (path === "/api/sources") return { status: 200, body: { sources: sourceRegistry(), generatedAt: new Date().toISOString() } };
+  if (path === "/api/source-setup") return { status: 200, body: sourceSetup(env, new Date()) };
+  if (path === "/api/flight-links") return handleFlightLinks({ env, now: new Date(), ip: request.headers.get("CF-Connecting-IP") ?? "unknown" }, request.method as "GET" | "POST", () => readJson(request));
   if (path === "/api/calendar") return handleCalendar(request, url, env, ctx);
   if (path === "/api/explore") return handleExplore(request, url, env, ctx);
   return handleHealth(env);
