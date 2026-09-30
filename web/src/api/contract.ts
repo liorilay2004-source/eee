@@ -66,6 +66,13 @@ export interface ExploreResult {
   search: { origin: string; destination: string; windowStart: string; windowEnd: string; stayMin: number; stayMax: number };
   score: ExploreScore;
   climate: { month: number; tmaxC: number; rainDays: number; approximate: true } | null;
+  /**
+   * Israeli holidays between departDate and returnDate, distinct Hebrew names in date order (e.g. "סוכות, שמיני עצרת");
+   * null when none is known. Optional here only so an older Worker deploy (without the field) still type-checks.
+   */
+  holidayHe?: string | null;
+  /** Sunday-Thursday work days the trip takes off (yom tov not counted); null when unknown. */
+  vacationDaysUsed?: number | null;
 }
 
 export interface ExploreUnderstood {
@@ -96,6 +103,8 @@ export interface ExploreResponse {
     fx: { date: string; source: string };
     climateSource: string;
     notes: string[];
+    /** Credit for results[].holidayHe and vacationDaysUsed: "Hebcal.com, CC BY 4.0". */
+    holidaysAttribution?: string;
   };
 }
 
@@ -105,6 +114,8 @@ export type CalendarLevel = "low" | "mid" | "high";
 export interface CalendarDay {
   date: string;
   known: boolean;
+  /** Israeli holiday(s) on this day in Hebrew, e.g. "פסח א׳". Absent on a day without a holiday. */
+  holidayHe?: string;
   fare: {
     priceIls: number;
     priceAmount: number;
@@ -122,6 +133,21 @@ export interface CalendarDay {
   } | null;
 }
 
+/** worker/src/calendar-insights.ts CalendarInsights */
+export interface CalendarInsights {
+  /** Per departure weekday (0 = Sunday .. 6 = Saturday), sorted 0..6; empty weekdays omitted. */
+  byWeekday: { weekday: number; minIls: number; medianIls: number; count: number }[];
+  /** Per trip length in nights, ascending; only lengths seen at least twice. */
+  byNights: { nights: number; minIls: number; count: number }[];
+  cheapestWeekday: number;
+  cheapestNights: number | null;
+  /** Present only when the saving is meaningful; absent otherwise (never 0). */
+  savingVsDearestWeekdayPct?: number;
+  summaryHe: string;
+  labelHe: string;
+  basis: "cached_fares";
+}
+
 /** worker/src/calendar.ts CalendarResponse */
 export interface CalendarResponse {
   days: CalendarDay[];
@@ -137,10 +163,14 @@ export interface CalendarResponse {
     fromCache: boolean;
     upstreamCalls: number;
     cheapest: { date: string; priceIls: number } | null;
+    /** Cheapest departure weekday and trip length; absent when there is too little data. Not a guarantee. */
+    insights?: CalendarInsights;
     fxSource: string;
     fxDate: string;
     source: "travelpayouts";
     noticeHe: string;
+    /** Credit for the days' holidayHe: "Hebcal.com, CC BY 4.0". Optional only for older Worker deploys. */
+    holidaysAttribution?: string;
     unavailableHe?: string;
     generatedAt: string;
   };
