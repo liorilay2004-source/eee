@@ -11,6 +11,7 @@ import onewayFixture from "./fixtures/tp_oneway.json";
 import * as entry from "../src/index";
 import { MAX_TP_REQUESTS } from "../src/pipeline";
 import { dailyShare, MAX_QUOTE_CALLS } from "../src/quotes";
+import { DUFFEL_QUOTA } from "../src/sources/duffel";
 import { IGNAV_QUOTA } from "../src/sources/ignav";
 import { SEARCHAPI_QUOTA } from "../src/sources/searchapi";
 import { SERPAPI_QUOTA } from "../src/sources/serpapi";
@@ -35,14 +36,16 @@ const VENDORS = [
   { name: "wego", envVar: "WEGO_API_TOKEN", host: "affiliate-api.wego.com", period: "lifetime", quota: WEGO_QUOTA },
   { name: "searchapi", envVar: "SEARCHAPI_KEY", host: "www.searchapi.io", period: "lifetime", quota: SEARCHAPI_QUOTA },
   { name: "serpapi", envVar: "SERPAPI_KEY", host: "serpapi.com", period: "2026-10", quota: SERPAPI_QUOTA },
+  { name: "duffel", envVar: "DUFFEL_API_TOKEN", host: "api.duffel.com", period: "lifetime", quota: DUFFEL_QUOTA },
 ] as const;
 const VENDOR_HOSTS: readonly string[] = VENDORS.map((v) => v.host);
-type VendorEnv = "IGNAV_API_KEY" | "WEGO_API_TOKEN" | "SEARCHAPI_KEY" | "SERPAPI_KEY";
+type VendorEnv = "IGNAV_API_KEY" | "WEGO_API_TOKEN" | "SEARCHAPI_KEY" | "SERPAPI_KEY" | "DUFFEL_API_TOKEN";
 const KEYS: Record<VendorEnv, string> = {
   IGNAV_API_KEY: "ignav-SECRET-key-0123456789",
   WEGO_API_TOKEN: "wego-SECRET-id-0123456789",
   SEARCHAPI_KEY: "searchapi-SECRET-key-0123456789",
   SERPAPI_KEY: "serpapi-SECRET-key-0123456789",
+  DUFFEL_API_TOKEN: "duffel_test_SECRET_key_0123456789",
 };
 const ALL_KEYS: Partial<Env> = KEYS;
 
@@ -126,6 +129,11 @@ function stubUpstream(opts: StubOptions = {}) {
       if (url.pathname === "/metasearch/flights/searches") return json({ search: { id: "s-1" } }, 201);
       return new Response("not json", { status: 200 }); // a poll nobody can read ends the wait after one poll
     }
+    if (url.hostname === "api.duffel.com") {
+      const custom = opts.vendors?.[url.hostname];
+      if (custom) return custom(url, init ?? {});
+      return json({ data: { offers: [] } });
+    }
     if (VENDOR_HOSTS.includes(url.hostname)) return (opts.vendors?.[url.hostname] ?? (() => json({})))(url, init ?? {});
     throw new Error(`unexpected outbound call to ${url.hostname}`);
   });
@@ -186,14 +194,14 @@ afterEach(() => {
 describe("no key: the extra sources do not exist", () => {
   it("GET /api/source-setup returns connector readiness without outbound calls or secret values", async () => {
     const up = stubUpstream();
-    const env = makeEnv({ DUFFEL_API_TOKEN: "duffel-secret-for-test" });
+    const env = makeEnv({ DUFFEL_API_TOKEN: "duffel_test_secret_for_test" });
     const res = await call(env, "/api/source-setup", { method: "GET", headers: { "CF-Connecting-IP": IP } });
     const text = await res.clone().text();
     const data = JSON.parse(text) as { connectors: Array<{ id: string; status: string; missingSecrets: string[] }> };
     expect(res.status).toBe(200);
     expect(data.connectors.find((s) => s.id === "duffel")?.status).toBe("configured");
     expect(data.connectors.find((s) => s.id === "amadeus")?.missingSecrets).toEqual(["AMADEUS_CLIENT_ID", "AMADEUS_CLIENT_SECRET"]);
-    expect(text).not.toContain("duffel-secret-for-test");
+    expect(text).not.toContain("duffel_test_secret_for_test");
     expect(up.fn).not.toHaveBeenCalled();
     expect(await quotaRows(env)).toEqual([]);
   });
@@ -319,7 +327,7 @@ describe("all four keys", () => {
     const env = makeEnv(ALL_KEYS);
     const { res, data } = await search(env);
     expect(res.status).toBe(200);
-    expect(sourceNames(data)).toEqual(["travelpayouts", "google_flights", "ignav", "wego", "searchapi", "serpapi"]);
+    expect(sourceNames(data)).toEqual(["travelpayouts", "google_flights", "ignav", "wego", "searchapi", "serpapi", "duffel"]);
     expect(up.vendorCalls().length).toBeGreaterThan(0);
     expect(up.vendorCalls().length).toBeLessThanOrEqual(MAX_QUOTE_CALLS);
     // what each source reports is what actually went out

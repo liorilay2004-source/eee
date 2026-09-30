@@ -10,7 +10,7 @@
  */
 
 export type TicketStructure = "roundtrip" | "split";
-export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi";
+export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi" | "duffel";
 export type Cabin = "economy" | "premium-economy" | "business" | "first";
 export type RecKind = "cheapest" | "best_value" | "my_times";
 
@@ -569,8 +569,10 @@ export interface Env {
    * `Authorization: Bearer <key>`; anything else = misconfigured, and the API fails closed (503).
    */
   ACCESS_KEY?: string;
-  /** Optional future official airline/GDS API connectors. These are status-gated until adapters are enabled. */
+  /** Optional official airline/GDS API connectors. Missing key = source is never called. */
   DUFFEL_API_TOKEN?: string;
+  /** Duffel live tokens can be billable; live use is disabled unless this is exactly "true". Test tokens do not need it. */
+  DUFFEL_ALLOW_LIVE?: string;
   AMADEUS_CLIENT_ID?: string;
   AMADEUS_CLIENT_SECRET?: string;
   TRAVELPORT_CLIENT_ID?: string;

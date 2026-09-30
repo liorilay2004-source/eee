@@ -10,7 +10,7 @@ interface ConnectorDef {
 }
 
 const CONNECTORS: readonly ConnectorDef[] = Object.freeze([
-  { id: "duffel", name: "Duffel", kind: "multi-airline", requiredSecrets: ["DUFFEL_API_TOKEN"], officialUrl: "https://duffel.com/docs/api/offers/get-offers", noteHe: "מועמד חזק לחיפוש הצעות ממספר חברות דרך API אחד." },
+  { id: "duffel", name: "Duffel", kind: "multi-airline", requiredSecrets: ["DUFFEL_API_TOKEN"], officialUrl: "https://duffel.com/docs/api/v2/offer-requests", noteHe: "חיבור פעיל בקוד. טוקן test עובד מיד; טוקן live דורש גם DUFFEL_ALLOW_LIVE=true כדי למנוע חיוב לא מכוון." },
   { id: "amadeus", name: "Amadeus", kind: "multi-airline", requiredSecrets: ["AMADEUS_CLIENT_ID", "AMADEUS_CLIENT_SECRET"], officialUrl: "https://developers.amadeus.com/self-service/category/flights/api-doc/flight-offers-search", noteHe: "מועמד חזק ל-Flight Offers Search ו-Price דרך חיבור אחד." },
   { id: "travelport", name: "Travelport", kind: "multi-airline", requiredSecrets: ["TRAVELPORT_CLIENT_ID", "TRAVELPORT_CLIENT_SECRET"], officialUrl: "https://developer.travelport.com/docs/flights", noteHe: "GDS/API רחב, דורש provisioning מסחרי." },
   { id: "sabre", name: "Sabre", kind: "multi-airline", requiredSecrets: ["SABRE_CLIENT_ID", "SABRE_CLIENT_SECRET"], officialUrl: "https://developer.sabre.com/", noteHe: "GDS/Offers and Orders, דורש provisioning." },
@@ -24,14 +24,28 @@ const CONNECTORS: readonly ConnectorDef[] = Object.freeze([
   { id: "ryanair", name: "Ryanair approved access", kind: "direct-airline", requiredSecrets: ["RYANAIR_API_KEY"], officialUrl: "https://investor.ryanair.com/", noteHe: "גישה לנתונים רק דרך הסכמי הפצה/ערוצים מאושרים." },
 ]);
 
-function hasSecret(env: Env, name: string): boolean {
+function secretValue(env: Env, name: string): string {
   const value = (env as unknown as Record<string, unknown>)[name];
-  return typeof value === "string" && value.trim() !== "";
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function hasSecret(env: Env, name: string): boolean {
+  return secretValue(env, name) !== "";
+}
+
+function missingFor(c: ConnectorDef, env: Env): string[] {
+  const missing = c.requiredSecrets.filter((name) => !hasSecret(env, name));
+  if (c.id === "duffel" && missing.length === 0) {
+    const token = secretValue(env, "DUFFEL_API_TOKEN");
+    const liveAllowed = secretValue(env, "DUFFEL_ALLOW_LIVE") === "true";
+    if (!token.startsWith("duffel_test_") && !liveAllowed) missing.push("DUFFEL_ALLOW_LIVE");
+  }
+  return missing;
 }
 
 export function sourceSetup(env: Env, generatedAt: Date = new Date()): SourceSetupResponse {
   const connectors = CONNECTORS.map((c): SourceSetupStatus => {
-    const missingSecrets = c.requiredSecrets.filter((name) => !hasSecret(env, name));
+    const missingSecrets = missingFor(c, env);
     return {
       id: c.id,
       name: c.name,

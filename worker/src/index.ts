@@ -46,6 +46,7 @@ import { handlePartyCheck, signPartyToken } from "./partycheck";
 import { defaultResolver, PipelineError, runSearch, sha256Hex, type ScanBudgetVerdict } from "./pipeline";
 import { withDailyShare, type FareQuoteSource } from "./quotes";
 import { clientIdentity, createMemoryLimiter, limiterSalt } from "./ratelimit";
+import { createDuffelSource } from "./sources/duffel";
 import { createIgnavSource } from "./sources/ignav";
 import { sourceRegistry } from "./source-registry";
 import { sourceSetup } from "./source-setup";
@@ -225,11 +226,13 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
   const wego = secret(env.WEGO_API_TOKEN);
   const searchApi = secret(env.SEARCHAPI_KEY);
   const serpApi = secret(env.SERPAPI_KEY);
+  const duffel = secret(env.DUFFEL_API_TOKEN);
   return [
     ignav ? createIgnavSource({ ...shared, apiKey: ignav, marker }) : null,
     wego ? createWegoSource({ ...shared, apiKey: wego }) : null,
     searchApi ? createSearchApiSource({ ...shared, apiKey: searchApi, marker }) : null,
     serpApi ? createSerpApiSource({ ...shared, apiKey: serpApi, marker }) : null,
+    duffel ? createDuffelSource({ ...shared, apiToken: duffel, allowLive: env.DUFFEL_ALLOW_LIVE === "true", marker }) : null,
   ].filter((s): s is FareQuoteSource => s !== null && s.configured);
 }
 

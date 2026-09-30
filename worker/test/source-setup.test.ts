@@ -17,7 +17,7 @@ describe("sourceSetup", () => {
   it("marks a connector configured only when all of its secrets exist", () => {
     const partial = sourceSetup({ ...baseEnv, AMADEUS_CLIENT_ID: "id" }, new Date());
     expect(partial.connectors.find((c) => c.id === "amadeus")?.status).toBe("missing_credentials");
-    const ready = sourceSetup({ ...baseEnv, AMADEUS_CLIENT_ID: "id", AMADEUS_CLIENT_SECRET: "secret-value", DUFFEL_API_TOKEN: "duffel-secret" }, new Date());
+    const ready = sourceSetup({ ...baseEnv, AMADEUS_CLIENT_ID: "id", AMADEUS_CLIENT_SECRET: "secret-value", DUFFEL_API_TOKEN: "duffel_test_secret" }, new Date());
     expect(ready.connectors.find((c) => c.id === "amadeus")?.status).toBe("configured");
     expect(ready.connectors.find((c) => c.id === "duffel")?.status).toBe("configured");
     expect(JSON.stringify(ready)).not.toContain("secret-value");

@@ -226,10 +226,10 @@ export const SOURCE_REGISTRY: readonly SourceRegistryEntry[] = Object.freeze([
     kind: "metasearch",
     status: "api",
     homeUrl: homeUrl("duffel"),
-    capabilities: planned,
+    capabilities: active,
     markets: ["global"],
     priority: 87,
-    noteHe: "API רב-חברתי מוכן לחיבור כשמוגדר DUFFEL_API_TOKEN ומאושר חשבון.",
+    noteHe: "API רב-חברתי פעיל בקוד: עובד עם DUFFEL_API_TOKEN; טוקן live דורש DUFFEL_ALLOW_LIVE=true כדי למנוע עלות לא מכוונת.",
   },
   {
     id: "amadeus",

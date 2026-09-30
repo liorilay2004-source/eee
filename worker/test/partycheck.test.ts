@@ -345,7 +345,7 @@ describe("which source the live check may use", () => {
   });
 
   it("takes the first capable source in the fixed order, skipping unknown pricing, a missing key and a source without a series", () => {
-    expect(PARTY_CHECK_ORDER).toEqual(["ignav", "wego", "searchapi", "serpapi"]);
+    expect(PARTY_CHECK_ORDER).toEqual(["ignav", "wego", "searchapi", "serpapi", "duffel"]);
     const mk = (name: QuoteSourceName, pricing: PartyPricing | undefined, key = "k") =>
       createQuoteSource(testAdapter(pricing, BIG, name), { key, repo: plainRepo(), now: NOW, fetchFn: noFetch });
     const serp = mk("serpapi", "per_person");
