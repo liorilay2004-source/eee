@@ -21,6 +21,7 @@
  * (env.ALLOWED_ORIGIN) and is never a wildcard.
  */
 import { checkAccess, createFailureLimiter, lockInfo } from "./access";
+import { stripTrailingSlashes } from "./paths";
 import {
   CALENDAR_GLOBAL_LIMIT,
   CALENDAR_GLOBAL_WINDOW_SECONDS,
@@ -107,7 +108,8 @@ const errorResult = (
 
 /** The one configured origin, or null. A wildcard is refused: credentials-free or not, "*" is never emitted. */
 function allowedOrigin(env: Env): string | null {
-  const configured = env.ALLOWED_ORIGIN?.trim().replace(/\/+$/, "");
+  const trimmed = env.ALLOWED_ORIGIN?.trim();
+  const configured = trimmed === undefined ? undefined : stripTrailingSlashes(trimmed);
   return configured && configured !== "*" ? configured : null;
 }
 
@@ -530,7 +532,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   // Before the path is even looked up: a locked API's preflight answer must not depend on it (LOCKED_PREFLIGHT_METHODS).
   if (request.method === "OPTIONS" && lockInfo(env).locked) return preflight(request, env, LOCKED_PREFLIGHT_METHODS);
   const url = new URL(request.url);
-  const path = url.pathname.replace(/\/+$/, "") || "/";
+  const path = stripTrailingSlashes(url.pathname) || "/";
   const watchToken = WATCH_PATH.exec(path)?.[1];
   const method = watchToken !== undefined ? WATCH_METHODS : ROUTES[path];
   if (method === undefined) return errorResult(404, "not_found", "Not found");
