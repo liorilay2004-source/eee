@@ -453,6 +453,16 @@ p { text-wrap: pretty; }
 .booking-demo { margin: 18px 0 0; display: flex; gap: 8px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; border: 2px dashed var(--line-strong); color: var(--ink-2); font-weight: 600; font-size: 15px; }
 .booking-demo svg { flex: none; margin-top: 3px; }
 
+.airline-price-links { margin: 18px 0 0; padding: 18px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); box-shadow: var(--shadow-sm); }
+.airline-price-head h3 { margin: 0 0 6px; display: flex; align-items: center; gap: 8px; font-size: 19px; }
+.airline-price-head p { margin: 0; color: var(--muted); font-size: 15px; }
+.airline-price-links ol { margin: 14px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.airline-price-links a { min-height: 56px; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); color: var(--ink); text-decoration: none; }
+.airline-price-links a:hover { border-color: var(--select); background: var(--select-soft); }
+.airline-price-links strong { display: block; font-size: 16px; }
+.airline-price-links small { display: block; color: var(--muted); font-size: 13px; }
+.airline-price-amount { color: var(--accent-text); font-size: 18px; font-weight: 800; white-space: nowrap; }
+
 /* compact cards */
 .minis-title { margin: 28px 0 12px; font-size: 20px; font-weight: 800; }
 .minis { display: grid; gap: 14px; }

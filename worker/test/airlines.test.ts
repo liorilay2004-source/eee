@@ -204,7 +204,7 @@ describe("search answer: airlineNames and airlines on every card", () => {
     stub();
     const data = await search(makeEnv());
     expect(Object.keys(data).sort()).toEqual(["cards", "meta"]);
-    expect(Object.keys(data.meta).sort()).toEqual(["apiVersion", "candidatePairs", "fromCache", "fxDate", "fxSource", "generatedAt", "recommendations", "searchKey", "sourceRegistry", "sources"].sort());
+    expect(Object.keys(data.meta).sort()).toEqual(["airlinePriceLinks", "apiVersion", "candidatePairs", "fromCache", "fxDate", "fxSource", "generatedAt", "recommendations", "searchKey", "sourceRegistry", "sources"].sort());
     for (const card of data.cards) {
       expect(Object.keys(card).sort()).toEqual(["ageHours", "ageLabelHe", "ageLabelKey", "airlineNames", "airlines", "fareAgeBasis", "fareAgeHours", "fareAgeMaxMinutes", "fareAgeMinutes", "fareFoundAt", "freshness", "kinds", "offer", "priceContext", "savingsVsRoundtripIls", "scanAgeMinutes"]);
     }

@@ -380,6 +380,20 @@ export interface RecommendationsMeta {
   bestValue: { status: "shown" | "merged" | "bag_cost_unknown" | "no_offers" };
 }
 
+export interface AirlinePriceLink {
+  code: string;
+  nameHe: string | null;
+  nameEn: string | null;
+  lowCost: boolean | null;
+  /** Official airline website, never a user URL and never a token-bearing URL. */
+  homeUrl: string;
+  /** Cheapest total price found for this airline in this search, in ILS and for the requested party. */
+  priceIls: number;
+  departDate: string;
+  returnDate: string;
+  source: SourceName;
+}
+
 export interface SearchResponse {
   cards: CardView[];
   meta: {
@@ -408,6 +422,8 @@ export interface SearchResponse {
     priceGuard?: { suspicious: number; excluded: number };
     /** ADDITIVE: bag-cost pool gating of the 💰/⚖️ cards (see RecommendationsMeta). */
     recommendations: RecommendationsMeta;
+    /** ADDITIVE: official airline links sorted by the cheapest fare found for each airline in this answer. */
+    airlinePriceLinks?: AirlinePriceLink[];
     /**
      * ADDITIVE (party check): present ONLY on a search for 2+ adults. `available` is true only when a configured live source can
      * run POST /api/party-check (its multi-adult price can be read: stated in its docs, or inferred from them and checked on every

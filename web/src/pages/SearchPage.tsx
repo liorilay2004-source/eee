@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
-  ArrowLeft, CalendarRange, CheckCircle2, CircleAlert, Compass, Eye, History, Hourglass, Info, Link2, MapPinned, Moon, PencilLine, RefreshCw,
+  ArrowLeft, CalendarRange, CheckCircle2, CircleAlert, Compass, ExternalLink, Eye, History, Hourglass, Info, Link2, MapPinned, Moon, PencilLine, RefreshCw,
   Share2, WifiOff, X,
 } from "lucide-react";
 import { Builder } from "../components/Builder";
@@ -663,6 +663,31 @@ function sourceName(source: SourceStatus): string {
   return names[source.name] ?? source.name;
 }
 
+function AirlinePriceLinksPanel({ response }: { response: SearchResponse }) {
+  const links = response.meta.airlinePriceLinks ?? [];
+  if (links.length === 0) return null;
+  return <section className="airline-price-links" aria-labelledby="airline-price-links-title">
+    <div className="airline-price-head">
+      <div>
+        <h3 id="airline-price-links-title"><Link2 size={18} aria-hidden="true" />אתרי חברות התעופה לפי המחיר שמצאנו</h3>
+        <p>מסודר מהזול ליקר לפי המחיר הזול ביותר שנמצא לכל חברת תעופה בחיפוש הזה. הקישור נפתח באתר הרשמי של החברה.</p>
+      </div>
+    </div>
+    <ol>
+      {links.map((item) => <li key={item.code}>
+        <a href={item.homeUrl} target="_blank" rel="noreferrer">
+          <span>
+            <strong>{item.nameHe ?? item.nameEn ?? item.code}</strong>
+            <small><span dir="ltr">{item.code}</span> · <span className="num" dir="ltr">{formatShortDate(item.departDate)} – {formatShortDate(item.returnDate)}</span></small>
+          </span>
+          <span className="airline-price-amount num" dir="ltr">{priceText(item.priceIls, false)}</span>
+          <ExternalLink size={16} aria-hidden="true" />
+        </a>
+      </li>)}
+    </ol>
+  </section>;
+}
+
 function Results({ submitted, response, dimmed, announce, knownSources }: { submitted: Submitted; response: SearchResponse; dimmed: boolean; announce: (text: string) => void; knownSources: SourceRegistryEntry[] }) {
   const cards = response.cards;
   const heroIndex = Math.max(0, cards.findIndex((c) => c.kinds.includes("cheapest")));
@@ -689,6 +714,7 @@ function Results({ submitted, response, dimmed, announce, knownSources }: { subm
     </div>}
     {truncated && <p className="calm-note"><Info size={18} aria-hidden="true" /><span>{he.truncated}</span></p>}
     <BoardingPass card={hero} request={request} originLabel={originLabel} destinationLabel={destinationLabel} autoCheck={autoCheck} />
+    <AirlinePriceLinksPanel response={response} />
     {others.length > 0 && <>
       <h3 className="minis-title">עוד אפשרויות ששווה להכיר</h3>
       <div className="minis">{others.map((card) => <CompactCard key={`${card.offer.departDate}-${card.offer.returnDate}-${card.kinds.join("-")}`} card={card} request={request} originLabel={originLabel} destinationLabel={destinationLabel} autoCheck={autoCheck} />)}</div>
