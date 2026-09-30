@@ -19,6 +19,12 @@ export function demoResult(today: string): { request: SearchRequest; cards: Card
     savingsVsRoundtripIls: null,
     priceContext: null,
     ageHours: 0,
+    // Additive API fields (airline names, fare age): the example claims no airline and no known fare age.
+    airlineNames: {},
+    airlines: {},
+    fareFoundAt: null, fareAgeHours: null, fareAgeMinutes: null, fareAgeMaxMinutes: null, scanAgeMinutes: 0,
+    fareAgeBasis: "unknown", freshness: "unknown", ageLabelKey: "cached_fare_unknown_age",
+    ageLabelHe: "נתוני המחשה בלבד",
     offer: {
       origin: "TLV", destination: "ATH", departDate: addDays(start, depart), returnDate: addDays(start, depart + nights),
       priceAmount: total, priceCurrency: "ILS", source: "travelpayouts", ticketStructure: split ? "split" : "roundtrip",
