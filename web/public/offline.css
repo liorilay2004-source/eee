@@ -1,0 +1,9 @@
+:root{color-scheme:light dark;--bg:#f7f9fc;--surface:#fff;--ink:#0e1b3d;--muted:#55607a;--line:#dce3ee;--accent:#ff6b3d;--on-accent:#0e1b3d;--focus:#2f5bea}
+@media (prefers-color-scheme:dark){:root{--bg:#0a1024;--surface:#131b35;--ink:#eef2fb;--muted:#a5b0cc;--line:#28345a;--accent:#ff7a4f;--focus:#93b2ff}}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--ink);font:17px/1.7 "Segoe UI",Arial,system-ui,sans-serif}
+.card{width:min(440px,calc(100% - 32px));padding:32px 24px;border:1px solid var(--line);border-radius:28px;background:var(--surface);text-align:center}
+.mark{width:56px;height:56px;margin:0 auto 16px;display:block}
+h1{margin:0;font-size:26px}
+p{color:var(--muted);font-size:16px}
+a{display:inline-flex;align-items:center;min-height:48px;padding:0 24px;border-radius:16px;background:var(--accent);color:var(--on-accent);font-weight:700;text-decoration:none}
+a:focus-visible{outline:3px solid var(--focus);outline-offset:3px}

@@ -4,17 +4,20 @@
 
 A free Hebrew (RTL) web app that finds the cheapest real round-trip price across a flexible date window, gives three recommendations (💰 cheapest, ⚖️ best value, 🎯 matches my times) and watches for price drops. The full spec is in [`docs/SPEC.md`](docs/SPEC.md).
 
-## Status: Phase 0 (proof of data sources)
+## Status: preview is live
 
 | Phase | Status |
 |---|---|
 | 0: Proof (Python in GitHub Actions: Travelpayouts + fast-flights → 3 recommendations → email) | ✅ built · ⏳ waiting on the Travelpayouts token |
-| 1: Engine (D1, Worker API) | not started |
-| 2: Web app (PWA) | not started |
+| 1: Engine (D1, Worker API) | ✅ deployed · live search awaits Travelpayouts token |
+| 2: Web app (PWA) | ✅ deployed as a preview |
 | 3: Watches & alerts | not started |
 | 4: Growth | not started |
 
-Per the spec, no UI and no Cloudflare deployment happen until Phase 0 proves the sources work for Israeli routes.
+**Preview:** [https://eee-web-bly.pages.dev](https://eee-web-bly.pages.dev)\
+**API health:** [https://eee-api.liorilay2004.workers.dev/api/health](https://eee-api.liorilay2004.workers.dev/api/health)
+
+The preview supports a clearly labeled demonstration mode. Live prices are unavailable until `TRAVELPAYOUTS_TOKEN` is added as a Cloudflare Worker secret. The privacy, terms, affiliate, and accessibility pages are draft copy and need review before a public launch.
 
 ## Run Phase 0 (no local computer needed)
 
@@ -49,6 +52,7 @@ engine/                 Python engine (Phase 0 now, the background monitor in Ph
   tpe/report.py         Hebrew text / Markdown / HTML email
   tests/                offline tests for the SPEC §16 acceptance criteria
 .github/workflows/      ci.yml (tests on every push) · phase0-proof.yml (manual run)
+web/                    React/Vite Hebrew RTL PWA (Cloudflare Pages)
 ```
 
 Run the tests locally (optional): `pip install -r engine/requirements.txt && python -m pytest -q engine/tests`

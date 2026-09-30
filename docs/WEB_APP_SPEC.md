@@ -937,3 +937,7 @@ Other documents: `README.md` "Known limitations" (Phase 0) are the source of §2
 | search.details | פרטי החיפוש |
 | note.bag.excluded | הצעה אחת נוספת עשויה להיות זולה יותר, אך עלות המזוודה שלה לא ידועה / {n} הצעות נוספות עשויות להיות זולות יותר, אך עלות המזוודה שלהן לא ידועה (one / other) |
 | link.disclosure | קישור שותפים — למידע נוסף |
+
+## עדכון יישום — 2026-09-29
+
+בהתאם לבקשת הבעלים, נבנה ממשק preview בעברית וב-RTL על נתוני המחשה גם לפני הוכחת Travelpayouts. ה-preview נפרס ל-Cloudflare Pages בכתובת `https://eee-web-bly.pages.dev` ומתחבר ל-Worker ולנתוני שדות התעופה האמיתיים. נתוני ההמחשה מסומנים בבירור ואינם מחירי אמת או הצעות להזמנה. חיפוש מחירים חי יופעל לאחר הגדרת `TRAVELPAYOUTS_TOKEN` כסוד ב-Cloudflare. דפי הפרטיות, התנאים, השותפים והנגישות הם טיוטות שדורשות בדיקה לפני השקה ציבורית.
