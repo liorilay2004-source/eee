@@ -896,8 +896,10 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   // Failures here never fail the search.
   const quoters = (deps.quoteSources ?? []).filter((s) => s.configured);
   const primary = pairs[0];
-  const cachedDates = scanComplete && quoters.length > 0 && primary ? pickQuotePairs(working, primary) : [];
-  const dates = scanComplete && quoters.length > 0 && primary ? (cachedDates.length > 0 ? cachedDates : fallbackQuotePairs(req)) : [];
+  const emptyCachedAnswer = fromCache && working.length === 0 && carriedQuotes.length === 0;
+  const canAskQuotes = quoters.length > 0 && primary && (scanComplete || emptyCachedAnswer);
+  const cachedDates = scanComplete && canAskQuotes && primary ? pickQuotePairs(working, primary) : [];
+  const dates = canAskQuotes ? (cachedDates.length > 0 ? cachedDates : fallbackQuotePairs(req)) : [];
   let scanStored: Promise<void> | null = null; // the scan's own write, when it was made before the quote phase
   let quotesTotal = 0; // match_audit only: live quotes this search's quote phase considered...
   let quotesDisbelieved = 0; // ...and how many of them were not believed (far below the cached fare)
