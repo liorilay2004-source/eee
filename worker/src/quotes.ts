@@ -290,7 +290,7 @@ export function createQuoteSource(
 // --- choosing the pairs, merging the answers ------------------------------------------------------------
 
 /** The cheapest ILS total per date pair among the Travelpayouts fares of the primary airport pair: the cached prices worth confirming. Needs totalIls. */
-function cheapestCachedByPair(offers: Offer[], primary: { origin: string; dest: string }): Map<string, { dates: [string, string]; ils: number }> {
+export function cheapestCachedByPair(offers: Offer[], primary: { origin: string; dest: string }): Map<string, { dates: [string, string]; ils: number }> {
   const best = new Map<string, { dates: [string, string]; ils: number }>();
   for (const o of offers) {
     if (o.source !== "travelpayouts" || o.totalIls === null || o.origin !== primary.origin || o.destination !== primary.dest) continue;
