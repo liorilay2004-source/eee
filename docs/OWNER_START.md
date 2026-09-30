@@ -121,9 +121,10 @@ bash scripts/smoke.sh
 | ספק | הסוד | הרשמה (מסלול חינמי, בלי כרטיס) | חינם אצל הספק | התקרה בקוד שלנו |
 |---|---|---|---|---|
 | Ignav | `IGNAV_API_KEY` | https://ignav.com/pricing | 1,000 בקשות, פעם אחת (לא מתחדש) | 800 בסך הכול, עד 27 ביום |
-| SerpApi | `SERPAPI_KEY` | https://serpapi.com/pricing | 250 חיפושים בחודש | 100 בחודש (UTC), עד 4 ביום |
+| SerpApi | `SERPAPI_KEY` | https://serpapi.com/pricing | 250 חיפושים בחודש | 240 בחודש (UTC), עד 24 ביום |
 | SearchApi | `SEARCHAPI_KEY` | https://www.searchapi.io/pricing | 100 בקשות, פעם אחת | 50 בסך הכול, עד 2 ביום |
 | Wego | `WEGO_API_TOKEN` | https://developers.wego.com/docs/affiliate/get-started | אין מכסה חינמית מתועדת, רק מפתח בדיקה זמני (עד שבועיים, באישור ידני) | 30 בסך הכול, 1 ביום |
+| Duffel | `DUFFEL_API_TOKEN` | https://duffel.com | מפתח בדיקה (`duffel_test_...`) בלי חיוב | 9 בסך הכול, 1 ביום. **רק מפתח בדיקה.** מפתח אמיתי (`duffel_live_...`) עלול לעלות כסף ולא נקרא בלי `DUFFEL_ALLOW_LIVE=true`: לא מפעילים |
 
 **Wego רק אם קיבלת מפתח בדיקה בחינם.** לפי מה שפורסם (לא אומת), גישה קבועה אצלם עולה כסף: לא משלמים. כשמגיעים לתקרה המקור פשוט נעצר, והחיפוש ממשיך בלעדיו.
 
