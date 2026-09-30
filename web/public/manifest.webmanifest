@@ -1,13 +1,13 @@
 {
   "name": "מנוע מחירי טיסות",
   "short_name": "טיסות",
-  "description": "חיפוש חכם של מחירי טיסות בטווח תאריכים גמיש",
+  "description": "עונים על כמה שאלות קצרות ומוצאים את הטיסה הזולה ביותר בתאריכים גמישים",
   "lang": "he",
   "dir": "rtl",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f5f4ef",
-  "theme_color": "#f5f4ef",
+  "background_color": "#f7f9fc",
+  "theme_color": "#f7f9fc",
   "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
 }

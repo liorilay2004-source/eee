@@ -21,7 +21,9 @@ async function readJson<T>(response: Response): Promise<T> {
   let body: unknown;
   try {
     body = await response.json();
-  } catch {
+  } catch (error) {
+    // An abort while the body is still streaming is a cancellation, not a server error: let callers see it as one.
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
     throw new RequestError(response.status, {});
   }
   if (!response.ok) throw new RequestError(response.status, body as ApiError);
@@ -29,7 +31,8 @@ async function readJson<T>(response: Response): Promise<T> {
 }
 
 export async function findAirports(query: string, signal: AbortSignal): Promise<AirportSuggestion[]> {
-  const url = new URL(`${API_BASE}/api/airports`);
+  // API_BASE is "" in dev (Vite proxies /api), so the URL needs the page origin as its base.
+  const url = new URL(`${API_BASE}/api/airports`, location.origin);
   url.searchParams.set("q", query);
   url.searchParams.set("limit", "8");
   const data = await readJson<{ results: AirportSuggestion[] }>(await fetch(url, { signal, cache: "no-store" }));

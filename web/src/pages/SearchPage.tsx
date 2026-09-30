@@ -1,410 +1,517 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  ArrowDownUp, ArrowLeft, ArrowLeftRight, ArrowUpRight, BadgeCheck, BaggageClaim, CalendarDays,
-  Check, ChevronDown, CircleAlert, Clock3, Compass, ExternalLink, Info, LoaderCircle, MapPin,
-  Plane, Search, Share2, ShieldCheck, SlidersHorizontal, Sparkles, X,
+  ArrowLeft, CalendarRange, CircleAlert, Compass, Eye, Hourglass, Info, MapPinned, Moon, PencilLine, RefreshCw,
+  Share2, WifiOff, X,
 } from "lucide-react";
-import { AirportCombobox } from "../components/AirportCombobox";
-import { Stepper } from "../components/Stepper";
+import { Builder } from "../components/Builder";
+import { SiteFooter, SiteHeader } from "../components/Chrome";
+import { BoardingPass, CompactCard, PassSkeleton } from "../components/OfferCards";
 import { RequestError, searchFlights } from "../api/client";
-import type { CardView, RecKind, SearchResponse, SourceStatus } from "../api/contract";
+import type { CardView, SearchRequest, SearchResponse, SourceStatus } from "../api/contract";
 import { he } from "../copy/he";
-import { LIMITS, PRODUCT_NAME } from "../config";
+import { PRODUCT_NAME } from "../config";
 import {
-  countValidPairs, emptyForm, formatDate, formatDuration, formatILS, readSearchUrl,
-  toRequest, trustedBookingUrl, updateSearchUrl, validateForm, type SearchForm,
+  NO_FIELD_ERRORS, describeFailure, firstErrorQuestion, isMinimumPrice, mapFieldErrors, nightsText, otherDuration,
+  passengersLabel, placeLabel, priceText, questionsTouchedBy, clearQuestionErrors, rangeLabel, scanGaps, shorterWindow, sourceNote, widenWindow,
+  withNearby, type Failure, type FailureView, type FieldErrors, type Question,
+} from "../lib/builder";
+import { demoResult } from "../lib/demo";
+import {
+  clearStoredForm, emptyForm, formatShortDate, loadStoredForm, readSearchUrl, sameRequest, storeForm,
+  toRequest, todayISO, updateSearchUrl, validateForm, type SearchForm,
 } from "../lib/search";
 
-type ScreenState = "idle" | "loading" | "success" | "empty" | "error" | "offline" | "cancelled";
-type Recommendation = { key: RecKind; title: string; icon: typeof Sparkles };
-const recommendationLabels: Record<RecKind, Recommendation> = {
-  cheapest: { key: "cheapest", title: "הכי זול", icon: Sparkles },
-  best_value: { key: "best_value", title: "התמורה הטובה ביותר", icon: BadgeCheck },
-  my_times: { key: "my_times", title: "מתאים לשעות שלי", icon: Clock3 },
-};
+/** Results are always bound to the search that produced them, never to the live form. */
+interface Submitted { form: SearchForm; request: SearchRequest }
 
-const presets = [
-  ["morning", "בוקר · 06–12"], ["afternoon", "צהריים · 12–17"], ["evening", "ערב · 17–23"], ["night", "לילה · 23–06"], ["custom", "בחירת שעות"],
-] as const;
+type Run =
+  | { status: "idle" }
+  | { status: "loading"; submitted: Submitted }
+  | { status: "done"; submitted: Submitted; response: SearchResponse }
+  | { status: "failed"; submitted: Submitted; failure: FailureView; retryAt: number | null }
+  | { status: "cancelled"; submitted: Submitted };
 
-function savedForm(): SearchForm {
+const SEARCH_TIMEOUT_MS = 25_000;
+
+function initialForm(): { form: SearchForm; fromUrl: boolean } {
   const fromUrl = readSearchUrl();
-  if (Object.keys(fromUrl).length) return { ...emptyForm(), ...fromUrl };
-  try {
-    const stored = localStorage.getItem("eee.lastSearch.v1");
-    if (stored) return { ...emptyForm(), ...(JSON.parse(stored) as Partial<SearchForm>) };
-  } catch { /* storage is optional */ }
-  return emptyForm();
+  if (fromUrl) return { form: fromUrl, fromUrl: true };
+  return { form: loadStoredForm() ?? emptyForm(), fromUrl: false };
 }
 
-function stopLabel(stops: number | null): string {
-  if (stops === null) return "מספר העצירות לא ידוע";
-  return stops === 0 ? "טיסה ישירה" : stops === 1 ? "עצירה אחת" : `${stops} עצירות`;
+type FocusTarget = "results" | "demo-open";
+
+function scrollBehavior(): ScrollBehavior {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
 }
 
-function safeDateRange(start: string, end: string): string {
-  if (!start || !end) return "";
-  return `${formatDate(start)} – ${formatDate(end)}`;
+/**
+ * Moves focus after React has committed. For the results heading, the summary bar (if shown) is scrolled into view
+ * with it, so "שינוי חיפוש" stays visible above the results.
+ */
+function moveFocus(target: FocusTarget) {
+  window.requestAnimationFrame(() => {
+    if (target === "demo-open") {
+      document.getElementById("demo-open")?.focus();
+      return;
+    }
+    const heading = document.getElementById("results-heading");
+    if (!heading) return;
+    heading.focus({ preventScroll: true });
+    const summary = document.querySelector(".summary");
+    (summary ?? heading).scrollIntoView({ block: "start", behavior: scrollBehavior() });
+  });
 }
 
-function HourControl({ label, preset, onPreset, custom, onCustom, error }: {
-  label: string; preset: string; onPreset: (value: string) => void;
-  custom: [number, number]; onCustom: (value: [number, number]) => void; error?: string;
-}) {
-  return <div className="hour-control">
-    <label className="field-label">{label}</label>
-    <select value={preset} onChange={(event) => onPreset(event.target.value)} aria-label={label}>
-      <option value="none">ללא העדפה</option>
-      {presets.map(([key, title]) => <option value={key} key={key}>{title}</option>)}
-    </select>
-    {preset === "custom" && <div className="custom-hours" dir="ltr">
-      <select value={custom[0]} aria-label={`${label}, משעה`} onChange={(event) => onCustom([Number(event.target.value), custom[1]])}>
-        {Array.from({ length: 25 }, (_, n) => <option value={n} key={n}>{String(n).padStart(2, "0")}:00</option>)}
-      </select><span>עד</span>
-      <select value={custom[1]} aria-label={`${label}, עד שעה`} onChange={(event) => onCustom([custom[0], Number(event.target.value)])}>
-        {Array.from({ length: 25 }, (_, n) => <option value={n} key={n}>{String(n).padStart(2, "0")}:00</option>)}
-      </select>
-    </div>}
-    {error && <span className="field-error">{error}</span>}
-  </div>;
-}
-
-function FlightLeg({ title, date, leg, icon }: { title: string; date: string; leg: CardView["offer"]["outbound"]; icon: "out" | "in" }) {
-  return <div className="flight-leg">
-    <div className="leg-icon" aria-hidden="true">{icon === "out" ? <ArrowUpRight size={16} /> : <ArrowLeft size={16} />}</div>
-    <div className="leg-main">
-      <div className="leg-heading"><strong>{title}</strong><span dir="ltr">{formatDate(date)}</span></div>
-      <div className="leg-time" dir="ltr">{leg.departTime || "--:--"}<span className="leg-line" aria-hidden="true"><Plane size={13} /></span>{leg.arriveTime || "--:--"}</div>
-      <div className="leg-meta"><span>{leg.departTime ? "שעת המראה" : "שעת המראה תופיע באתר ההזמנה"}</span><span>{stopLabel(leg.stops)}</span><span>{formatDuration(leg.durationMin)}</span></div>
-      {!!leg.airlines.length && <div className="airline-codes" dir="ltr">{leg.airlines.join(" · ")}</div>}
-    </div>
-  </div>;
-}
-
-function RecommendationCard({ card, adults, childPassengers, infants, checkedBag }: {
-  card: CardView; adults: number; childPassengers: number; infants: number; checkedBag: boolean;
-}) {
-  const offer = card.offer;
-  const isSplit = offer.ticketStructure === "split";
-  const outUrl = trustedBookingUrl(offer.deeplink);
-  const returnUrl = trustedBookingUrl(offer.returnDeeplink ?? null);
-  const totalPassengers = adults + childPassengers + infants;
-  const tags = new Set(offer.tags);
-  const unknownBag = checkedBag && tags.has("bag_fee_unknown");
-  const badges = card.kinds.map((kind) => recommendationLabels[kind]).filter(Boolean);
-  return <article className="offer-card">
-    <div className="offer-card-top">
-      <div className="recommendations">{badges.map(({ key, title, icon: Icon }) => <span className={`recommendation-tag tag-${key}`} key={key}><Icon size={14} />{title}</span>)}</div>
-      <span className="freshness"><span className="freshness-dot" />{card.ageHours < 1 ? "נבדק עכשיו" : `נבדק לפני ${Math.floor(card.ageHours)} שע׳`}</span>
-    </div>
-    <div className="offer-price-row">
-      <div>
-        <div className="offer-price" dir="ltr">{unknownBag && <span className="minimum-price">לפחות </span>}{formatILS(offer.totalIls)}</div>
-        <div className="offer-price-detail" dir="ltr">{offer.priceCurrency !== "ILS" ? `${Math.ceil(offer.priceAmount).toLocaleString("en-US")} ${offer.priceCurrency}` : "מחיר כולל לנוסעים"}{totalPassengers > 1 && " · הערכה לפי מספר הנוסעים"}</div>
-      </div>
-      <div className="route-code"><span dir="ltr">{offer.origin}</span><ArrowLeftRight size={18} /><span dir="ltr">{offer.destination}</span></div>
-    </div>
-    <div className="trip-dates"><CalendarDays size={16} /><span>{safeDateRange(offer.departDate, offer.returnDate)}</span><span className="date-separator">·</span><span>{Math.max(0, Math.round((Date.parse(`${offer.returnDate}T00:00:00Z`) - Date.parse(`${offer.departDate}T00:00:00Z`)) / 86_400_000))} לילות</span></div>
-    <div className="flight-legs">
-      <FlightLeg title="הלוך" date={offer.departDate} leg={offer.outbound} icon="out" />
-      <div className="leg-divider" />
-      <FlightLeg title="חזור" date={offer.returnDate} leg={offer.inbound} icon="in" />
-    </div>
-    <div className="offer-notes">
-      {tags.has("bonus_checked_bag") && <span className="note positive"><BaggageClaim size={15} />כולל מזוודה</span>}
-      {checkedBag && offer.extrasAmountIls > 0 && <span className="note"><BaggageClaim size={15} />עלות המזוודה משוערת</span>}
-      {unknownBag && <span className="note warning"><CircleAlert size={15} />עלות המזוודה לא ידועה לחלק מהטיסות; המחיר כולל רק עלויות ידועות</span>}
-      {offer.source === "travelpayouts" && totalPassengers > 1 && <span className="note"><Info size={15} />מחיר הנוסעים הוא הערכה לפי מחיר למבוגר</span>}
-      {offer.outbound.departTime === null && <span className="note"><Clock3 size={15} />שעת המראה בהלוך תופיע באתר ההזמנה</span>}
-      {offer.inbound.departTime === null && <span className="note"><Clock3 size={15} />שעת המראה בחזור תופיע באתר ההזמנה</span>}
-      {isSplit && <span className="note warning"><CircleAlert size={15} />שני כרטיסים נפרדים — מזמינים כל אחד בנפרד. כללי כבודה ושינויים חלים בנפרד, ואין הגנה אם אחד מהם משתנה או מתבטל.</span>}
-      {card.savingsVsRoundtripIls !== null && <span className="note positive">חסכת {formatILS(card.savingsVsRoundtripIls)} לעומת הלוך־חזור</span>}
-    </div>
-    <div className="offer-card-bottom">
-      <span className="source-caption">{offer.source === "travelpayouts" ? "מחיר מ־Travelpayouts" : "מחיר מ־Google Flights"}</span>
-      <div className="booking-actions">
-        {outUrl ? <a className="book-button" href={outUrl} target="_blank" rel="sponsored noopener noreferrer">{isSplit ? "הזמנת הלוך" : "לצפייה ולהזמנה"}<ExternalLink size={15} /></a> : <span className="booking-disabled">קישור הזמנה לא זמין כרגע</span>}
-        {isSplit && returnUrl && <a className="book-button secondary-book" href={returnUrl} target="_blank" rel="sponsored noopener noreferrer">הזמנת חזור<ExternalLink size={15} /></a>}
-      </div>
-    </div>
-  </article>;
-}
-
-function DemoCard({ price, tag, dates, time, stops }: { price: string; tag: string; dates: string; time: string; stops: string }) {
-  return <article className="demo-card">
-    <span className="demo-card-tag">{tag}</span><div className="demo-price">{price}</div>
-    <div className="demo-route"><span>תל אביב</span><ArrowLeftRight size={15} /><span>ברצלונה</span></div>
-    <div className="demo-meta"><span><CalendarDays size={14} />{dates}</span><span><Clock3 size={14} />{time}</span><span><Plane size={14} />{stops}</span></div>
-    <div className="demo-label">נתוני המחשה בלבד · לא הצעת מחיר</div>
-  </article>;
-}
-
-function SummaryBar({ form, onEdit, onShare, copied }: { form: SearchForm; onEdit: () => void; onShare: () => void; copied: boolean }) {
-  return <div className="summary-bar">
-    <div className="summary-route"><span dir="ltr">{form.origin}</span><ArrowLeftRight size={16} /><span dir="ltr">{form.destination}</span></div>
-    <span className="summary-detail">{safeDateRange(form.windowStart, form.windowEnd)} · {form.stayMin}–{form.stayMax} לילות · {form.adults + form.children + form.infants} נוסעים</span>
-    <div className="summary-actions"><button type="button" className="quiet-button" onClick={onShare} aria-label="העתקת קישור לחיפוש"><Share2 size={16} />{copied ? "הועתק" : "שיתוף"}</button><button type="button" className="quiet-button" onClick={onEdit}>עריכה</button></div>
-  </div>;
+function toFailure(error: unknown, timedOut: boolean): Failure {
+  if (timedOut) return { type: "timeout" };
+  if (error instanceof RequestError) return { type: "http", status: error.status, code: error.code, retryAfterSec: error.retryAfterSec, fields: error.fields };
+  if (!navigator.onLine) return { type: "offline" };
+  return { type: "network" };
 }
 
 export function SearchPage() {
-  const [form, setForm] = useState<SearchForm>(savedForm);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [screen, setScreen] = useState<ScreenState>("idle");
-  const [response, setResponse] = useState<SearchResponse | null>(null);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [errorCode, setErrorCode] = useState("");
+  const [initial] = useState(initialForm);
+  // Refreshed whenever the tab comes back and before every search, so a tab left open past midnight (UTC) never
+  // clamps month chips or validates against yesterday.
+  const [today, setToday] = useState(todayISO);
+  const [form, setForm] = useState<SearchForm>(initial.form);
+  const [run, setRun] = useState<Run>({ status: "idle" });
+  const [editing, setEditingState] = useState(false);
+  // True only when the user opened the builder while results were on screen: those results are then from the
+  // previous search. Editing during loading does not mark the (matching) results that arrive as stale.
+  const [editedAfterResults, setEditedAfterResults] = useState(false);
+  const editingRef = useRef(false);
+  const setEditing = useCallback((value: boolean) => {
+    editingRef.current = value;
+    setEditingState(value);
+    if (!value) setEditedAfterResults(false);
+  }, []);
   const [demo, setDemo] = useState(false);
-  const [preferencesOpen, setPreferencesOpen] = useState(false);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [progressText, setProgressText] = useState<string>(he.loading);
+  const [openQuestion, setOpenQuestion] = useState<Question | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>(NO_FIELD_ERRORS);
+  const [rawErrors, setRawErrors] = useState<Record<string, string>>({});
+  const [announcement, setAnnouncement] = useState("");
+  const [online, setOnline] = useState(() => navigator.onLine);
   const [copied, setCopied] = useState(false);
-  const [rateCountdown, setRateCountdown] = useState(0);
-  const controllerRef = useRef<AbortController | null>(null);
-  const resultsRef = useRef<HTMLElement>(null);
-  const errorSummaryRef = useRef<HTMLDivElement>(null);
-  const didAutoSearch = useRef(false);
+  const controller = useRef<AbortController | null>(null);
+  const searchSeq = useRef(0);
+  const autoRan = useRef(false);
 
-  const pairCount = useMemo(() => countValidPairs(form.windowStart, form.windowEnd, form.stayMin, form.stayMax), [form.windowStart, form.windowEnd, form.stayMin, form.stayMax]);
-  const totalPassengers = form.adults + form.children + form.infants;
-  const hasHours = form.outHoursPreset !== "none" || form.retHoursPreset !== "none";
-  const sources = response?.meta.sources ?? [];
-  const partial = sources.some((source) => source.enabled && !source.ok);
+  useEffect(() => { document.title = `${PRODUCT_NAME} · מוצאים את הטיסה הזולה`; }, []);
 
   useEffect(() => {
-    const initial = readSearchUrl();
-    if (Object.keys(initial).length && !didAutoSearch.current) {
-      didAutoSearch.current = true;
-      const restored = { ...emptyForm(), ...initial };
-      setForm(restored);
-      const timer = window.setTimeout(() => { void runSearch(restored, true); }, 0);
-      return () => window.clearTimeout(timer);
-    }
-  // Initial URL only.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    const refresh = () => { if (document.visibilityState === "visible") setToday(todayISO()); };
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    return () => { document.removeEventListener("visibilitychange", refresh); window.removeEventListener("focus", refresh); };
   }, []);
 
   useEffect(() => {
-    if (!rateCountdown) return;
-    const timer = window.setTimeout(() => setRateCountdown((seconds) => Math.max(0, seconds - 1)), 1000);
-    return () => window.clearTimeout(timer);
-  }, [rateCountdown]);
+    const update = () => setOnline(navigator.onLine);
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => { window.removeEventListener("online", update); window.removeEventListener("offline", update); };
+  }, []);
 
-  useEffect(() => {
-    if (screen === "loading") {
-      const timers = [
-        window.setTimeout(() => setProgressText("עדיין בודקים — זה יכול לקחת כמה שניות"), 3000),
-        window.setTimeout(() => setProgressText("מקורות המחירים איטיים היום. ממשיכים לנסות…"), 10000),
-      ];
-      return () => timers.forEach(window.clearTimeout);
-    }
-  }, [screen]);
+  // Focus moves only after React has committed the new state.
+  const [focusRequest, setFocusRequest] = useState<{ target: FocusTarget; n: number } | null>(null);
+  const requestFocus = useCallback((target: FocusTarget) => setFocusRequest((r) => ({ target, n: (r?.n ?? 0) + 1 })), []);
+  const requestResultsFocus = useCallback(() => {
+    // Someone who is editing the search keeps their place in the builder when a response lands.
+    if (!editingRef.current) requestFocus("results");
+  }, [requestFocus]);
+  useEffect(() => { if (focusRequest) moveFocus(focusRequest.target); }, [focusRequest]);
 
-  function setField<K extends keyof SearchForm>(key: K, value: SearchForm[K]) {
-    setForm((current) => {
-      const next = { ...current, [key]: value };
-      if (key === "outHoursPreset") next.useCustomOut = value === "custom";
-      if (key === "retHoursPreset") next.useCustomRet = value === "custom";
-      if ((key === "outHoursPreset" && value === "none") || (key === "retHoursPreset" && value === "none")) {
-        if (next.outHoursPreset === "none" && next.retHoursPreset === "none") next.maxStops = null;
-      }
-      return next;
-    });
+  const announce = (text: string) => {
+    setAnnouncement("");
+    window.setTimeout(() => setAnnouncement(text), 60);
+  };
+
+  const patch = useCallback((changes: Partial<SearchForm>) => {
+    setForm((current) => ({ ...current, ...changes }));
     setDemo(false);
-  }
+    // Clear the errors this change resolves (see questionsTouchedBy): never leave a stale message on another chip.
+    const touched = questionsTouchedBy(Object.keys(changes), openQuestion);
+    setFieldErrors((current) => clearQuestionErrors(current, touched));
+    if ("outHoursPreset" in changes || "retHoursPreset" in changes || "customOut" in changes || "customRet" in changes) {
+      setRawErrors((current) => { const next = { ...current }; delete next.outHours; delete next.retHours; return next; });
+    }
+  }, [openQuestion]);
 
-  async function runSearch(nextForm: SearchForm, fromUrl = false) {
-    const foundErrors = validateForm(nextForm);
-    if (Object.keys(foundErrors).length) {
-      setErrors(foundErrors); setScreen("idle");
-      window.setTimeout(() => errorSummaryRef.current?.focus(), 0);
+  const runSearch = useCallback(async (nextForm: SearchForm) => {
+    controller.current?.abort();
+    const seq = ++searchSeq.current;
+    const submitted: Submitted = { form: nextForm, request: toRequest(nextForm) };
+    setToday(todayISO());
+    setForm(nextForm);
+    setDemo(false);
+    setEditing(false);
+    setOpenQuestion(null);
+    setFieldErrors(NO_FIELD_ERRORS);
+    setRawErrors({});
+    updateSearchUrl(nextForm);
+    storeForm(nextForm);
+
+    if (!navigator.onLine) {
+      const failure = describeFailure({ type: "offline" });
+      setRun({ status: "failed", submitted, failure, retryAt: null });
+      announce(`${failure.title}. ${failure.body}`);
+      requestResultsFocus();
       return;
     }
-    setErrors({}); setResponse(null); setErrorMessage(""); setErrorCode(""); setDemo(false);
-    updateSearchUrl(nextForm);
-    try { localStorage.setItem("eee.lastSearch.v1", JSON.stringify(nextForm)); } catch { /* device storage is optional */ }
-    if (!fromUrl) setForm(nextForm);
-    const controller = new AbortController();
-    controllerRef.current = controller;
-    let timeout = false;
-    setProgressText(he.loading); setScreen("loading");
-    const timeoutId = window.setTimeout(() => { timeout = true; controller.abort(); }, 25_000);
-    try {
-      const result = await searchFlights(toRequest(nextForm), controller.signal);
-      setResponse(result);
-      setScreen(result.cards.length ? "success" : result.meta.sources.some((source) => source.ok) ? "empty" : "error");
-      if (result.cards.length) window.setTimeout(() => resultsRef.current?.focus(), 50);
-    } catch (error) {
-      if (controller.signal.aborted && !timeout) { setScreen("cancelled"); return; }
-      if (timeout) { setErrorCode("timeout"); setErrorMessage("הבדיקה לוקחת יותר מדי זמן. אפשר לנסות שוב או לשנות את החיפוש."); setScreen("error"); return; }
-      if (error instanceof RequestError) {
-        setErrorCode(error.code);
-        if (error.code === "rate_limited") {
-          const seconds = error.retryAfterSec ?? 60;
-          setRateCountdown(seconds); setErrorMessage(`ביצעתם הרבה חיפושים. אפשר לנסות שוב בעוד ${seconds} שניות.`);
-        } else if (error.code === "source_unavailable") {
-          setErrorMessage(he.notConnected);
-        } else if (error.status === 400 && error.fields) {
-          const mapped: Record<string, string> = {};
-          for (const key of Object.keys(error.fields)) mapped[key] = "הערך אינו תקין — בדקו את השדה ונסו שוב.";
-          setErrors(mapped); setErrorMessage("יש שדות שצריך לתקן לפני החיפוש.");
-        } else setErrorMessage(he.unavailable);
-        setScreen("error");
-      } else if (!navigator.onLine || error instanceof TypeError) {
-        setErrorMessage("אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב."); setScreen("offline");
-      } else {
-        setErrorMessage("משהו השתבש. נסו שוב."); setScreen("error");
-      }
-    } finally {
-      window.clearTimeout(timeoutId);
-      if (controllerRef.current === controller) controllerRef.current = null;
-    }
-  }
 
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+    const abort = new AbortController();
+    controller.current = abort;
+    let timedOut = false;
+    const timer = window.setTimeout(() => { timedOut = true; abort.abort(); }, SEARCH_TIMEOUT_MS);
+    setRun({ status: "loading", submitted });
+    announce("מחפשים את המחיר הזול ביותר…");
+    requestResultsFocus();
+    try {
+      const response = await searchFlights(submitted.request, abort.signal);
+      if (seq !== searchSeq.current) return;
+      setRun({ status: "done", submitted, response });
+      const cheapest = response.cards.find((c) => c.kinds.includes("cheapest")) ?? response.cards[0];
+      announce(response.cards.length
+        ? `נמצאו ${response.cards.length === 1 ? "הצעה אחת" : `${response.cards.length} הצעות`}. הזולה ביותר: ${priceText(cheapest.offer.totalIls, isMinimumPrice(cheapest.offer, submitted.request))}.`
+        : "לא נמצאו מחירים בטווח הזה.");
+      requestResultsFocus();
+    } catch (error) {
+      if (seq !== searchSeq.current) return;
+      if (abort.signal.aborted && !timedOut) {
+        setRun({ status: "cancelled", submitted });
+        announce("החיפוש בוטל.");
+        requestResultsFocus();
+        return;
+      }
+      const failure = describeFailure(toFailure(error, timedOut));
+      const retryAt = failure.retryAfterSec !== null ? Date.now() + failure.retryAfterSec * 1000 : null;
+      setRun({ status: "failed", submitted, failure, retryAt });
+      const wasEditing = editingRef.current;
+      if (failure.kind === "invalid") {
+        setFieldErrors(failure.fields);
+        setEditing(true);
+      }
+      announce(`${failure.title}. ${failure.body}`);
+      if (!wasEditing) requestFocus("results");
+    } finally {
+      window.clearTimeout(timer);
+      if (controller.current === abort) controller.current = null;
+    }
+  }, [requestFocus, requestResultsFocus, setEditing]);
+
+  /** Shows client validation errors on their chips and opens the first question that needs fixing. */
+  const showValidation = useCallback((errors: Record<string, string>) => {
+    const mapped = mapFieldErrors(errors, false);
+    setFieldErrors(mapped);
+    setRawErrors(errors);
+    const first = firstErrorQuestion(mapped);
+    const count = Object.keys(mapped.byQuestion).length + mapped.general.length + (errors.outHours || errors.retHours ? 1 : 0);
+    announce(count === 1 ? "צריך להשלים פרט אחד לפני החיפוש." : `צריך להשלים ${count} פרטים לפני החיפוש.`);
+    // Keep the messages clear of the sticky CTA bar (html scroll-padding-bottom reserves its height).
+    window.requestAnimationFrame(() => document.querySelector(".chip-errors")?.scrollIntoView({ block: "nearest", behavior: scrollBehavior() }));
+    if (first) setOpenQuestion(first);
+  }, []);
+
+  /** Validates against a fresh "today" and either searches or sends the user to the chip that needs fixing. */
+  const trySearch = useCallback((nextForm: SearchForm) => {
+    const now = todayISO();
+    setToday(now);
+    const errors = validateForm(nextForm, now);
+    if (Object.keys(errors).length) {
+      setForm(nextForm);
+      setEditing(true);
+      showValidation(errors);
+      return;
+    }
+    void runSearch(nextForm);
+  }, [runSearch, setEditing, showValidation]);
+
+  // A shared link (or reload) with a search in the URL runs it once.
+  useEffect(() => {
+    if (!initial.fromUrl || autoRan.current) return;
+    autoRan.current = true;
+    const errors = validateForm(initial.form, todayISO());
+    if (Object.keys(errors).length) return;
+    const timer = window.setTimeout(() => { void runSearch(initial.form); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [initial, runSearch]);
+
+  function submit() {
+    const now = todayISO();
+    setToday(now);
+    const errors = validateForm(form, now);
+    if (Object.keys(errors).length) { showValidation(errors); return; }
     void runSearch(form);
   }
 
-  function loadDemo() {
-    const demoForm: SearchForm = {
-      ...emptyForm(), origin: "TLV", destination: "BCN", windowStart: "2026-11-10", windowEnd: "2026-11-25", stayMin: 5, stayMax: 7,
-    };
-    setForm(demoForm); setResponse(null); setErrors({}); setScreen("idle"); setDemo(true);
-    setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 0);
+  function editSearch() {
+    setEditing(true);
+    setEditedAfterResults(run.status === "done");
+    setOpenQuestion(null);
+    window.requestAnimationFrame(() => {
+      const title = document.getElementById("builder-title");
+      title?.setAttribute("tabindex", "-1");
+      title?.focus({ preventScroll: true });
+      window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    });
   }
 
-  async function shareSearch() {
-    try { await navigator.clipboard.writeText(location.href); setCopied(true); window.setTimeout(() => setCopied(false), 1800); }
-    catch { setCopied(false); }
+  function cancelEdit() {
+    setEditing(false);
+    setOpenQuestion(null);
+    requestResultsFocus();
   }
 
-  function retry() { void runSearch(form); }
-  function cancelSearch() { controllerRef.current?.abort(); }
-  function editSearch() { setResponse(null); setScreen("idle"); setDemo(false); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  function cancelSearch() { controller.current?.abort(); }
+
+  async function share() {
+    try {
+      await navigator.clipboard.writeText(location.href);
+      setCopied(true);
+      announce("הקישור לחיפוש הועתק.");
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch { announce("לא הצלחנו להעתיק. אפשר להעתיק את הכתובת משורת הדפדפן."); }
+  }
+
   function clearSaved() {
-    try { localStorage.removeItem("eee.lastSearch.v1"); } catch { /* storage is optional */ }
+    clearStoredForm();
     history.replaceState(null, "", location.pathname);
-    setForm(emptyForm()); setErrors({}); setResponse(null); setScreen("idle"); setDemo(false);
+    controller.current?.abort();
+    searchSeq.current += 1;
+    setForm(emptyForm());
+    setRun({ status: "idle" });
+    setEditing(false);
+    setDemo(false);
+    setFieldErrors(NO_FIELD_ERRORS);
+    setRawErrors({});
+    announce("החיפוש השמור נמחק מהמכשיר הזה.");
   }
 
-  const summary = screen === "success" && response ? <SummaryBar form={form} onEdit={editSearch} onShare={() => void shareSearch()} copied={copied} /> : null;
-  return <main className="page-shell">
-    <section className="preview-ribbon" aria-label="מצב האתר"><ShieldCheck size={14} />תצוגה מקדימה · מחירים חיים יוצגו לאחר חיבור מקור הנתונים</section>
-    <header className="site-header">
-      <a className="brand" href="/" aria-label={`${PRODUCT_NAME} — לעמוד החיפוש`}><span className="brand-mark"><Plane size={19} /></span><span className="brand-name">{PRODUCT_NAME}<span className="brand-period">.</span></span></a>
-      <nav className="header-nav" aria-label="ניווט ראשי"><a href="#how-it-works">איך זה עובד</a><a href="#about-data">על הנתונים</a><a className="nav-support" href="/accessibility">נגישות</a></nav>
-      <span className="beta-chip"><span />גרסת בטא</span>
-    </header>
+  function closeDemo() {
+    setDemo(false);
+    announce("הדוגמה נסגרה.");
+    requestFocus("demo-open");
+  }
 
-    <div className="hero-grid">
-      <div className="hero-copy">
-        <div className="eyebrow"><span className="eyebrow-line" />מתחילים לתכנן חכם</div>
-        <h1>הטיסה הנכונה<br /><em>במחיר הנכון.</em></h1>
-        <p className="hero-description">גמישים בתאריכים? אנחנו נחפש בין הימים והלילות, ונראה לכם את ההצעות שבאמת שווה לבדוק.</p>
-        <div className="hero-proof"><span><Check size={15} />טווח תאריכים גמיש</span><span><Check size={15} />השוואה שקופה</span><span><Check size={15} />בלי התחייבות</span></div>
-      </div>
-      <div className="hero-art" aria-hidden="true">
-        <div className="orbit orbit-one" /><div className="orbit orbit-two" />
-        <div className="art-sun" /><div className="art-plane"><Plane size={30} /></div>
-        <div className="art-cloud cloud-a" /><div className="art-cloud cloud-b" />
-        <div className="art-route route-from"><span className="route-dot" /><b>TLV</b><small>תל אביב</small></div>
-        <div className="art-route route-to"><span className="route-dot coral" /><b>BCN</b><small>ברצלונה</small></div>
-        <div className="art-stamp"><Sparkles size={13} />הדרך שלך<br />מתחילה כאן</div>
-      </div>
+  function showDemo() {
+    setDemo(true);
+    announce("מוצגת דוגמה להמחשה. אלה לא מחירים אמיתיים.");
+    requestResultsFocus();
+  }
+
+  const hasSubmitted = run.status !== "idle";
+  const invalid = run.status === "failed" && run.failure.kind === "invalid";
+  const showBuilder = !hasSubmitted || editing || invalid;
+  const stale = run.status === "done" && ((editing && editedAfterResults) || !sameRequest(toRequest(form), run.submitted.request));
+  const formChanged = run.status === "done" && !sameRequest(toRequest(form), run.submitted.request);
+
+  return <>
+    <div className={`app ${showBuilder ? "has-cta" : ""} ${showBuilder && editing && run.status === "done" ? "cta-tall" : ""}`} inert={openQuestion !== null}>
+      <SiteHeader />
+      {!online && <p className="offline-bar" role="status"><WifiOff size={16} aria-hidden="true" />אין חיבור לאינטרנט כרגע.</p>}
+      <main id="main" className="main">
+        {showBuilder && <Builder
+          form={form} patch={patch} today={today} errors={fieldErrors} rawErrors={rawErrors}
+          openQuestion={openQuestion} setOpenQuestion={setOpenQuestion} onSubmit={submit}
+          editing={editing && run.status === "done"} onCancelEdit={cancelEdit}
+        />}
+        {!showBuilder && hasSubmitted && <SummaryBar submitted={run.submitted} onEdit={editSearch} onShare={() => void share()} copied={copied} />}
+
+        <section className="results" aria-labelledby="results-heading">
+          {stale && <div className="stale-banner">
+            <Info size={18} aria-hidden="true" /><span>{he.stale}.</span>
+            {formChanged && <button type="button" className="btn btn-small" onClick={submit}>חפשו עם השינויים</button>}
+          </div>}
+          {run.status === "idle" && (demo ? <DemoResults today={today} onClose={closeDemo} /> : <IdleIntro onDemo={showDemo} />)}
+          {run.status === "loading" && <Loading onCancel={cancelSearch} />}
+          {run.status === "cancelled" && <StateCard icon={<X size={24} aria-hidden="true" />} title="החיפוש בוטל" body="אפשר לחפש שוב, או לשנות את פרטי החיפוש.">
+            <button type="button" className="btn btn-primary" onClick={() => trySearch(run.submitted.form)}><RefreshCw size={18} aria-hidden="true" />חיפוש שוב</button>
+            <button type="button" className="btn btn-ghost" onClick={editSearch}><PencilLine size={18} aria-hidden="true" />שינוי חיפוש</button>
+          </StateCard>}
+          {run.status === "failed" && <FailureCard failure={run.failure} retryAt={run.retryAt} onRetry={() => trySearch(run.submitted.form)} onEdit={editSearch} showEdit={!showBuilder} />}
+          {run.status === "done" && (run.response.cards.length
+            ? <Results submitted={run.submitted} response={run.response} dimmed={stale} />
+            : <EmptyState submitted={run.submitted} response={run.response} onTry={trySearch} onEdit={editSearch} />)}
+        </section>
+      </main>
+      <SiteFooter>
+        <button type="button" className="link-button" onClick={clearSaved}>מחקו חיפוש שמור במכשיר הזה</button>
+      </SiteFooter>
     </div>
+    <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</div>
+  </>;
+}
 
-    <section className="search-panel" aria-labelledby="search-heading">
-      <div className="panel-heading">
-        <div><span className="panel-kicker">חיפוש טיסה</span><h2 id="search-heading">לאן יוצאים?</h2></div>
-        <div className="roundtrip-badge"><ArrowLeftRight size={16} />הלוך וחזור</div>
+function SummaryBar({ submitted, onEdit, onShare, copied }: { submitted: Submitted; onEdit: () => void; onShare: () => void; copied: boolean }) {
+  const { form, request } = submitted;
+  return <section className="summary" aria-label="החיפוש שבוצע">
+    <div className="summary-main">
+      <p className="summary-route">
+        <span>{placeLabel(form.origin, form.originLabel)}</span>
+        <ArrowLeft size={18} aria-hidden="true" /><span className="sr-only">אל</span>
+        <span>{placeLabel(form.destination, form.destinationLabel)}</span>
+      </p>
+      <div className="dots"><p className="dots-row summary-meta">
+        <span className="num">{rangeLabel(request.windowStart, request.windowEnd)}</span>
+        <span>{nightsText(request.stayMin, request.stayMax)}</span>
+        <span>{passengersLabel(request.adults, request.children, request.infants)}</span>
+        {request.checkedBag && <span>עם מזוודה</span>}
+      </p></div>
+    </div>
+    <div className="summary-actions">
+      <button type="button" className="btn btn-secondary" onClick={onEdit}><PencilLine size={18} aria-hidden="true" />שינוי חיפוש</button>
+      <button type="button" className="btn btn-ghost" onClick={onShare}><Share2 size={18} aria-hidden="true" />{copied ? "הועתק" : "שיתוף"}</button>
+    </div>
+  </section>;
+}
+
+function IdleIntro({ onDemo }: { onDemo: () => void }) {
+  return <div className="idle">
+    <h2 id="results-heading" tabIndex={-1}>איך זה עובד</h2>
+    <ol className="steps">
+      <li><span className="step-n num">1</span><span><strong>עונים על כמה שאלות קצרות.</strong> יעד, חודש, כמה לילות ומי טס.</span></li>
+      <li><span className="step-n num">2</span><span><strong>אנחנו משווים עשרות צירופי תאריכים.</strong> כולל שני כרטיסים נפרדים כשזה זול יותר.</span></li>
+      <li><span className="step-n num">3</span><span><strong>מזמינים ישירות באתר Aviasales.</strong> המחיר הסופי מופיע שם.</span></li>
+    </ol>
+    <p className="honest"><Info size={16} aria-hidden="true" />המחירים מגיעים ממטמון של Aviasales ועשויים להשתנות. אנחנו לא מוכרים כרטיסים.</p>
+    <button type="button" id="demo-open" className="btn btn-ghost" onClick={onDemo}><Eye size={18} aria-hidden="true" />איך נראית תוצאה? הצגת דוגמה</button>
+  </div>;
+}
+
+function DemoResults({ today, onClose }: { today: string; onClose: () => void }) {
+  const [demo] = useState(() => demoResult(today));
+  const [hero, ...rest] = demo.cards;
+  return <div className="results-body demo-results">
+    <div className="demo-banner">
+      <strong>דוגמה להמחשה בלבד</strong>
+      <p>כך תיראה תוצאה. המספרים כאן מומצאים, אינם מחירים ואי אפשר להזמין אותם.</p>
+      <button type="button" className="btn btn-small" onClick={onClose}>סגירת הדוגמה</button>
+    </div>
+    <h2 id="results-heading" tabIndex={-1} className="results-title">דוגמה: תל אביב – אתונה</h2>
+    <BoardingPass card={hero} request={demo.request} originLabel="תל אביב" destinationLabel="אתונה" demo />
+    <div className="minis">{rest.map((card, i) => <CompactCard key={i} card={card} request={demo.request} originLabel="תל אביב" destinationLabel="אתונה" demo />)}</div>
+  </div>;
+}
+
+function Loading({ onCancel }: { onCancel: () => void }) {
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => setStep((n) => (n + 1) % he.loadingSteps.length), 2800);
+    return () => window.clearInterval(timer);
+  }, []);
+  return <div className="loading">
+    <div className="loading-head">
+      <div>
+        <h2 id="results-heading" tabIndex={-1}>מחפשים בשבילכם</h2>
+        <p className="loading-step">{he.loadingSteps[step]}</p>
       </div>
-      <form onSubmit={submit} noValidate>
-        {Object.keys(errors).length > 0 && <div className="error-summary" role="alert" tabIndex={-1} ref={errorSummaryRef}><CircleAlert size={18} /><div><strong>כמעט שם — צריך לתקן כמה פרטים</strong><span>{Object.keys(errors).length} שדות דורשים תשומת לב</span></div></div>}
-        <div className="route-row">
-          <AirportCombobox inputId="origin" label="מאיפה טסים?" value={form.origin} onChange={(value) => setField("origin", value)} placeholder="עיר או שדה תעופה" error={errors.origin} />
-          <div className="route-swap" aria-hidden="true"><ArrowLeftRight size={17} /></div>
-          <AirportCombobox inputId="destination" label="לאן טסים?" value={form.destination} onChange={(value) => setField("destination", value)} placeholder="לאן מתחשק?" error={errors.destination} />
-        </div>
-        <div className="dates-row">
-          <div className="field date-field"><label className="field-label" htmlFor="windowStart">יציאה מוקדמת ביותר</label><div className={`input-shell ${errors.windowStart ? "has-error" : ""}`}><CalendarDays size={17} className="field-icon" /><input id="windowStart" type="date" min={new Date().toISOString().slice(0, 10)} value={form.windowStart} aria-invalid={Boolean(errors.windowStart)} onChange={(event) => setField("windowStart", event.target.value)} /></div>{errors.windowStart && <span className="field-error">{errors.windowStart}</span>}</div>
-          <div className="field date-field"><label className="field-label" htmlFor="windowEnd">חזרה מאוחרת ביותר</label><div className={`input-shell ${errors.windowEnd ? "has-error" : ""}`}><CalendarDays size={17} className="field-icon" /><input id="windowEnd" type="date" min={form.windowStart || new Date().toISOString().slice(0, 10)} value={form.windowEnd} aria-invalid={Boolean(errors.windowEnd)} onChange={(event) => setField("windowEnd", event.target.value)} /></div>{errors.windowEnd && <span className="field-error">{errors.windowEnd}</span>}</div>
-          <div className="stay-group"><span className="field-label">כמה לילות?</span><div className="stay-controls"><label><span className="sr-only">מינימום לילות</span><input type="number" min={1} max={LIMITS.maxStayNights} value={form.stayMin} onChange={(event) => setField("stayMin", Number(event.target.value))} aria-invalid={Boolean(errors.stay)} /><small>מינ׳</small></label><span className="stay-dash">–</span><label><span className="sr-only">מקסימום לילות</span><input type="number" min={1} max={LIMITS.maxStayNights} value={form.stayMax} onChange={(event) => setField("stayMax", Number(event.target.value))} aria-invalid={Boolean(errors.stay)} /><small>מקס׳</small></label></div>{errors.stay && <span className="field-error">{errors.stay}</span>}</div>
-        </div>
-        <div className="form-helper"><Info size={15} /><span>נחפש מחירים בטווח התאריכים ובמספר הלילות שבחרתם.</span>{pairCount > 0 && <span className="pair-count">{pairCount} צירופים אפשריים</span>}</div>
-        {errors.dates && <span className="field-error dates-error">{errors.dates}</span>}
-
-        <div className="form-divider" />
-        <div className="traveler-and-bag">
-          <div className="travelers-block">
-            <div className="mini-section-title"><span className="mini-icon"><Compass size={16} /></span><strong>מי טס?</strong><span className="mini-section-note">עד 9 נוסעים</span></div>
-            <div className="steppers-grid">
-              <Stepper label="מבוגרים" detail="מגיל 12" value={form.adults} min={1} max={LIMITS.maxPassengers - form.children - form.infants} onChange={(value) => setField("adults", value)} />
-              <Stepper label="ילדים" detail="גיל 2–11" value={form.children} min={0} max={LIMITS.maxPassengers - form.adults - form.infants} onChange={(value) => setField("children", value)} />
-              <Stepper label="תינוקות" detail="מתחת לגיל 2" value={form.infants} min={0} max={Math.min(form.adults, LIMITS.maxPassengers - form.adults - form.children)} onChange={(value) => setField("infants", value)} />
-            </div>
-            {totalPassengers > 1 && <p className="estimate-hint"><Info size={14} />מחיר לכמה נוסעים הוא הערכה{form.children + form.infants > 0 ? "; ילדים ותינוקות עשויים לשלם מחיר אחר." : "."}</p>}
-            {errors.passengers && <span className="field-error">{errors.passengers}</span>}{errors.infants && <span className="field-error">{errors.infants}</span>}
-          </div>
-          <div className="bag-block">
-            <div className="mini-section-title"><span className="mini-icon"><BaggageClaim size={16} /></span><strong>כבודה</strong></div>
-            <label className="bag-option"><input type="checkbox" checked={form.checkedBag} onChange={(event) => setField("checkedBag", event.target.checked)} /><span className="custom-check"><Check size={13} /></span><span><b>מזוודה 23 ק״ג</b><small>לכל נוסע</small></span></label>
-            <p className="bag-helper">{he.bagHelper}</p>
-          </div>
-        </div>
-
-        <div className="collapsible-row"><button type="button" className={`disclosure-button ${preferencesOpen ? "is-open" : ""}`} aria-expanded={preferencesOpen} onClick={() => setPreferencesOpen(!preferencesOpen)}><span className="disclosure-icon"><Clock3 size={16} /></span><span>העדפות לשעות ולעצירות</span><small>לא חובה</small><ChevronDown size={17} className="disclosure-chevron" /></button></div>
-        {preferencesOpen && <div className="disclosure-content preferences-content">
-          <p className="disclosure-help">{he.timeHelper}</p>
-          <div className="hour-grid">
-            <HourControl label="שעת יציאה בהלוך" preset={form.outHoursPreset} onPreset={(value) => setField("outHoursPreset", value)} custom={form.customOut} onCustom={(value) => setField("customOut", value)} error={errors.outHours} />
-            <HourControl label="שעת יציאה בחזור" preset={form.retHoursPreset} onPreset={(value) => setField("retHoursPreset", value)} custom={form.customRet} onCustom={(value) => setField("customRet", value)} error={errors.retHours} />
-            <div className={`hour-control stops-control ${!hasHours ? "is-disabled" : ""}`}><label className="field-label" htmlFor="maxStops">עצירות בהצעת ״מתאים לשעות שלי״</label><select id="maxStops" value={form.maxStops === null ? "any" : form.maxStops} disabled={!hasHours} aria-describedby="stops-help" onChange={(event) => setField("maxStops", event.target.value === "any" ? null : Number(event.target.value))}><option value="any">ללא הגבלה</option><option value="0">טיסה ישירה</option><option value="1">עד עצירה אחת</option><option value="2">עד 2 עצירות</option></select><span className="field-hint" id="stops-help">{hasHours ? "נשפיע רק על התאמה לשעות שבחרתם." : "עצירות משפיעות רק יחד עם שעות מועדפות."}</span></div>
-          </div>
-        </div>}
-
-        <div className="collapsible-row advanced-row"><button type="button" className={`disclosure-button ${advancedOpen ? "is-open" : ""}`} aria-expanded={advancedOpen} onClick={() => setAdvancedOpen(!advancedOpen)}><span className="disclosure-icon"><SlidersHorizontal size={16} /></span><span>אפשרויות נוספות</span><small>מתקדם</small><ChevronDown size={17} className="disclosure-chevron" /></button></div>
-        {advancedOpen && <div className="disclosure-content advanced-content"><label className="bag-option"><input type="checkbox" checked={form.nearbyAirports} onChange={(event) => setField("nearbyAirports", event.target.checked)} /><span className="custom-check"><Check size={13} /></span><span><b>לכלול שדות תעופה קרובים</b><small>נרחיב את החיפוש לשדות תעופה בסביבה</small></span></label></div>}
-
-        <div className="submit-row"><button className="search-button" type="submit" disabled={screen === "loading" || rateCountdown > 0}>{screen === "loading" ? <LoaderCircle className="spin" size={19} /> : <Search size={19} />}{screen === "loading" ? "מחפשים…" : rateCountdown > 0 ? `אפשר לחפש שוב בעוד ${rateCountdown} שניות` : "חפשו את המחיר הזול ביותר"}<ArrowUpRight size={17} className="button-arrow" /></button><span className="secure-note"><ShieldCheck size={14} />חיפוש חינם, בלי התחייבות</span></div>
-      </form>
-    </section>
-
-    <section className="results-section" ref={resultsRef} tabIndex={-1} aria-labelledby="results-heading">
-      {summary}
-      {screen === "idle" && !demo && <div className="idle-area"><div className="idle-icon"><Plane size={23} /></div><div><h2 id="results-heading">החיפוש הבא שלכם מתחיל כאן</h2><p>{he.idle}</p><button type="button" className="text-link" onClick={loadDemo}>הציצו בתצוגת דוגמה <ArrowLeft size={15} /></button></div></div>}
-      {screen === "loading" && <div className="loading-area" role="status"><div className="loading-orbit"><LoaderCircle size={26} /></div><div><h2 id="results-heading">רגע, בודקים בשבילכם</h2><p>{progressText}</p><div className="loading-progress"><span /></div></div><button type="button" className="cancel-button" onClick={cancelSearch}>ביטול</button></div>}
-      {(screen === "error" || screen === "offline") && <div className="state-card error-state" role="alert"><div className="state-symbol"><CircleAlert size={22} /></div><div className="state-copy"><span className="state-kicker">{errorCode === "source_unavailable" ? "מקור הנתונים עדיין לא זמין" : screen === "offline" ? "אין חיבור" : "לא הצלחנו להשלים את החיפוש"}</span><h2 id="results-heading">{errorMessage || he.unavailable}</h2><p>{errorCode === "source_unavailable" ? "הטופס מוכן; כדי לקבל מחירים אמיתיים צריך לחבר את מקור Travelpayouts בהגדרות Cloudflare." : "אפשר לנסות שוב, או לערוך את פרטי החיפוש."}</p></div><div className="state-actions"><button className="retry-button" type="button" onClick={retry} disabled={rateCountdown > 0}><RefreshIcon />נסו שוב</button><button className="quiet-button" type="button" onClick={editSearch}>עריכת חיפוש</button></div></div>}
-      {screen === "cancelled" && <div className="state-card"><div className="state-symbol neutral-symbol"><X size={22} /></div><div className="state-copy"><h2 id="results-heading">החיפוש בוטל</h2><p>אפשר לשנות את הפרטים ולחפש שוב.</p></div><button className="quiet-button" type="button" onClick={editSearch}>חזרה לטופס</button></div>}
-      {screen === "empty" && <div className="state-card empty-state"><div className="state-symbol"><Compass size={22} /></div><div className="state-copy"><span className="state-kicker">בדקנו את הטווח</span><h2 id="results-heading">{he.noResults}</h2><p>נסו להרחיב את טווח התאריכים, להוסיף לילות או לכלול שדות תעופה קרובים.</p></div><button className="quiet-button" type="button" onClick={editSearch}>שינוי החיפוש</button></div>}
-      {screen === "success" && response && <div className="results-content">
-        <div className="results-title-row"><div><span className="panel-kicker">מצאנו כמה אפשרויות</span><h2 id="results-heading" tabIndex={-1}>הצעות ששווה לבדוק</h2></div><span className="result-count">{response.cards.length} {response.cards.length === 1 ? "הצעה" : "הצעות"}</span></div>
-        {partial && <div className="notice-banner" role="status"><Info size={17} />{he.partial}</div>}
-        {response.cards.map((card) => <RecommendationCard key={`${card.offer.origin}-${card.offer.destination}-${card.offer.departDate}-${card.offer.returnDate}`} card={card} adults={form.adults} childPassengers={form.children} infants={form.infants} checkedBag={form.checkedBag} />)}
-        <details className="search-details"><summary><span><Info size={16} />פרטי החיפוש והנתונים</span><ChevronDown size={16} /></summary><div className="details-content"><div className="details-grid"><div><small>מקור שער המטבע</small><b>{response.meta.fxSource} · {response.meta.fxDate}</b></div><div><small>צירופים שנבדקו</small><b>{response.meta.candidatePairs}</b></div><div><small>נוצר בתאריך</small><b dir="ltr">{new Date(response.meta.generatedAt).toLocaleString("he-IL")}</b></div><div><small>תוצאות ממטמון</small><b>{response.meta.fromCache ? "כן" : "לא"}</b></div></div><div className="source-list"><strong>מקורות המחירים</strong>{sources.map((source) => <SourceRow source={source} key={source.name} />)}</div></div></details>
-        <p className="price-disclaimer"><Info size={14} />{he.priceDisclaimer}</p>
-      </div>}
-      {demo && <div className="demo-results">
-        <div className="demo-disclaimer"><span><Sparkles size={16} />תצוגת המחשה</span><p>אלה נתוני דוגמה בלבד, כדי להראות איך תיראה המערכת. הם אינם מחירים חיים ואינם ניתנים להזמנה.</p><button type="button" aria-label="סגירת הדוגמה" onClick={() => setDemo(false)}><X size={17} /></button></div>
-        <div className="results-title-row"><div><span className="panel-kicker">ככה נראות התוצאות</span><h2 id="results-heading">טיסה מתל אביב לברצלונה</h2></div><span className="demo-mode-label">DEMO</span></div>
-        <div className="demo-grid"><DemoCard tag="💰 הכי זול" price="₪968" dates="12/11 – 18/11" time="שעה תופיע באתר" stops="עצירה אחת" /><DemoCard tag="⚖️ התמורה הטובה ביותר" price="₪1,140" dates="14/11 – 20/11" time="09:20 – 16:40" stops="ישירה" /><DemoCard tag="🎯 מתאים לשעות שלי" price="₪1,280" dates="16/11 – 22/11" time="08:10 – 15:30" stops="ישירה" /></div>
-        <button className="clear-demo" type="button" onClick={() => { setDemo(false); setForm(emptyForm()); }}>חזרה לחיפוש אמיתי</button>
-      </div>}
-    </section>
-
-    <section className="how-section" id="how-it-works"><div className="section-intro"><span className="panel-kicker">פשוט יותר לתכנן</span><h2>פחות לנחש.<br /><em>יותר לבחור נכון.</em></h2><p>לא צריך לפתוח עשרות תאריכים וחלונות. מסמנים מה גמיש לכם — ומשווים את ההצעות.</p></div><div className="steps-grid"><div className="how-card"><span className="step-number">01</span><div className="how-icon"><MapPin size={20} /></div><h3>בוחרים טווח</h3><p>מספרים לנו מאיפה, לאן, ומה טווח התאריכים שמתאים.</p></div><div className="how-card"><span className="step-number">02</span><div className="how-icon"><ArrowDownUp size={20} /></div><h3>משווים אפשרויות</h3><p>מחפשים הצעות ומסבירים מה ידוע, משוער או חסר.</p></div><div className="how-card"><span className="step-number">03</span><div className="how-icon"><ArrowUpRight size={20} /></div><h3>מזמינים אצל הספק</h3><p>בוחרים הצעה ועוברים לאתר ההזמנה. הכרטיס נקנה אצל הספק.</p></div></div></section>
-
-    <section className="trust-strip" id="about-data"><div className="trust-icon"><ShieldCheck size={22} /></div><div><h2>מחירים שקופים, בלי לנחש</h2><p>כשמידע על שעות, עצירות או כבודה חסר — נכתוב את זה. המחיר הסופי נקבע באתר ההזמנה.</p></div><a href="/privacy" className="text-link">איך אנחנו שומרים על הפרטיות <ArrowLeft size={15} /></a></section>
-
-    <section className="waitlist-cta"><div className="waitlist-spark"><Sparkles size={22} /></div><div><span className="panel-kicker">תצוגה מוקדמת</span><h2>המערכת מתכוננת לחיפוש חי.</h2><p>הטופס והממשק מוכנים. מחירי טיסות יוצגו אחרי חיבור מקור הנתונים.</p></div><a href="#search-heading" className="notify-button">חזרה לחיפוש <ArrowUpRight size={16} /></a></section>
-
-    <footer className="site-footer"><a className="brand footer-brand" href="/"><span className="brand-mark"><Plane size={17} /></span><span className="brand-name">{PRODUCT_NAME}<span className="brand-period">.</span></span></a><p>עוזרים למצוא את הדרך המשתלמת יותר.</p><nav aria-label="מידע משפטי"><a href="/privacy">פרטיות</a><a href="/terms">תנאי שימוש</a><a href="/affiliate">גילוי נאות</a><a href="/accessibility">נגישות</a></nav><span className="copyright">© {new Date().getFullYear()} {PRODUCT_NAME} · גרסת תצוגה</span></footer>
-    <button type="button" className="clear-saved" onClick={clearSaved}>מחקו חיפוש שמור במכשיר הזה</button>
-  </main>;
+      <button type="button" className="btn btn-ghost" onClick={onCancel}><X size={18} aria-hidden="true" />ביטול</button>
+    </div>
+    <PassSkeleton />
+  </div>;
 }
 
-function SourceRow({ source }: { source: SourceStatus }) {
-  return <div className="source-row"><span className={`source-status ${source.ok ? "ok" : "not-ok"}`} /> <span>{source.name === "travelpayouts" ? "Travelpayouts" : "Google Flights"}</span><span>{source.enabled ? source.ok ? `${source.offers} הצעות` : "לא זמין כרגע" : "לא הופעל"}</span></div>;
+function StateCard({ icon, title, body, children, tone = "neutral" }: { icon: ReactNode; title: string; body: string; children?: ReactNode; tone?: "neutral" | "warn" }) {
+  return <div className={`state state-${tone}`}>
+    <div className="state-icon">{icon}</div>
+    <h2 id="results-heading" tabIndex={-1}>{title}</h2>
+    <p>{body}</p>
+    {children && <div className="state-actions">{children}</div>}
+  </div>;
 }
 
-function RefreshIcon() { return <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.5 9a7 7 0 0 1 12-2L20 12M4 12l2.5 5a7 7 0 0 0 12-2"/></svg>; }
+function FailureCard({ failure, retryAt, onRetry, onEdit, showEdit }: { failure: FailureView; retryAt: number | null; onRetry: () => void; onEdit: () => void; showEdit: boolean }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (retryAt === null || retryAt <= Date.now()) return;
+    const timer = window.setTimeout(() => setNow(Date.now()), retryAt - Date.now() + 50);
+    return () => window.clearTimeout(timer);
+  }, [retryAt]);
+  const waiting = retryAt !== null && now < retryAt;
+  const icon = failure.kind === "offline" ? <WifiOff size={24} aria-hidden="true" />
+    : failure.kind === "rate_limited" ? <Hourglass size={24} aria-hidden="true" />
+      : failure.kind === "source_unavailable" ? <Moon size={24} aria-hidden="true" />
+        : <CircleAlert size={24} aria-hidden="true" />;
+  return <StateCard icon={icon} title={failure.title} body={failure.body} tone={failure.kind === "invalid" || failure.kind === "error" ? "warn" : "neutral"}>
+    {failure.canRetry && <button type="button" className="btn btn-primary" onClick={onRetry} disabled={waiting}><RefreshCw size={18} aria-hidden="true" />{waiting ? "אפשר לנסות שוב בקרוב" : "נסו שוב"}</button>}
+    {showEdit && <button type="button" className="btn btn-ghost" onClick={onEdit}><PencilLine size={18} aria-hidden="true" />שינוי חיפוש</button>}
+  </StateCard>;
+}
+
+function EmptyState({ submitted, response, onTry, onEdit }: { submitted: Submitted; response: SearchResponse; onTry: (form: SearchForm) => void; onEdit: () => void }) {
+  const gaps = scanGaps(response.meta.sources);
+  // A truncated scan did not check every pair: a shorter window checks them all, a wider one would skip more.
+  const shorter = gaps.truncated ? shorterWindow(submitted.form) : null;
+  const widened = gaps.truncated ? null : widenWindow(submitted.form);
+  const nearby = withNearby(submitted.form);
+  const longer = otherDuration(submitted.form);
+  const title = gaps.truncated || gaps.failed ? "לא הצלחנו לבדוק את כל התאריכים הפעם" : "לא מצאנו מחירים בטווח הזה";
+  const body = gaps.truncated
+    ? `${he.truncated} אפשר לנסות אחת מההצעות האלה בלחיצה אחת:`
+    : gaps.failed
+      ? "חלק מהבדיקות לא הושלמו, ולכן אין לנו מחיר להציג. אפשר לנסות שוב בעוד כמה דקות, או אחת מההצעות האלה:"
+      : "במטמון של Aviasales אין כרגע מחיר לצירוף הזה. אפשר לנסות אחת מההצעות האלה בלחיצה אחת:";
+  return <StateCard icon={<Compass size={24} aria-hidden="true" />} title={title} body={body}>
+    <div className="suggestions">
+      {shorter && <button type="button" className="suggestion" onClick={() => onTry(shorter)}>
+        <CalendarRange size={20} aria-hidden="true" /><span><strong>טווח תאריכים קצר יותר</strong><small className="num">{rangeLabel(shorter.windowStart, shorter.windowEnd)}</small></span></button>}
+      {widened && <button type="button" className="suggestion" onClick={() => onTry(widened)}>
+        <CalendarRange size={20} aria-hidden="true" /><span><strong>טווח תאריכים רחב יותר</strong><small>עד <span className="num" dir="ltr">{formatShortDate(widened.windowEnd)}</span></small></span></button>}
+      {nearby && <button type="button" className="suggestion" onClick={() => onTry(nearby)}>
+        <MapPinned size={20} aria-hidden="true" /><span><strong>גם שדות תעופה קרובים</strong><small>במוצא וביעד</small></span></button>}
+      {longer && <button type="button" className="suggestion" onClick={() => onTry(longer)}>
+        <Moon size={20} aria-hidden="true" /><span><strong>משך טיול אחר</strong><small>{nightsText(longer.stayMin, longer.stayMax)}</small></span></button>}
+    </div>
+    <button type="button" className="btn btn-ghost" onClick={onEdit}><PencilLine size={18} aria-hidden="true" />שינוי חיפוש</button>
+  </StateCard>;
+}
+
+function sourceName(source: SourceStatus): string {
+  const names: Record<string, string> = { travelpayouts: "Aviasales (דרך Travelpayouts)", google_flights: "Google Flights", ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi" };
+  return names[source.name] ?? source.name;
+}
+
+function Results({ submitted, response, dimmed }: { submitted: Submitted; response: SearchResponse; dimmed: boolean }) {
+  const cards = response.cards;
+  const heroIndex = Math.max(0, cards.findIndex((c) => c.kinds.includes("cheapest")));
+  const hero = cards[heroIndex];
+  const others: CardView[] = cards.filter((_, i) => i !== heroIndex);
+  const { form, request } = submitted;
+  const originLabel = placeLabel(form.origin, form.originLabel);
+  const destinationLabel = placeLabel(form.destination, form.destinationLabel);
+  const truncated = scanGaps(response.meta.sources).truncated;
+  const scanAge = Math.floor(hero.ageHours);
+  return <div className={`results-body ${dimmed ? "is-stale" : ""}`}>
+    <h2 id="results-heading" tabIndex={-1} className="results-title">
+      {cards.length === 1 ? "מצאנו הצעה אחת" : `מצאנו ${cards.length} הצעות`}
+    </h2>
+    {truncated && <p className="calm-note"><Info size={18} aria-hidden="true" /><span>{he.truncated}</span></p>}
+    <BoardingPass card={hero} request={request} originLabel={originLabel} destinationLabel={destinationLabel} />
+    {others.length > 0 && <>
+      <h3 className="minis-title">עוד אפשרויות ששווה להכיר</h3>
+      <div className="minis">{others.map((card) => <CompactCard key={`${card.offer.departDate}-${card.offer.returnDate}-${card.kinds.join("-")}`} card={card} request={request} originLabel={originLabel} destinationLabel={destinationLabel} />)}</div>
+    </>}
+    <p className="disclaimer"><Info size={16} aria-hidden="true" />{he.priceDisclaimer}</p>
+    <details className="data-details">
+      <summary>על הנתונים של החיפוש הזה</summary>
+      <dl className="details-grid">
+        <div><dt>מקור המחירים</dt><dd>מטמון של Aviasales. מחיר יכול להיות בן כמה ימים.</dd></div>
+        <div><dt>הסריקה שלנו</dt><dd>{scanAge < 1 ? "בוצעה לפני פחות משעה" : `בוצעה לפני כ־${scanAge} שעות`}{response.meta.fromCache ? ", והתשובה נשמרה אצלנו" : ""}. זה הזמן של הבדיקה שלנו, לא של המחיר.</dd></div>
+        <div><dt>צירופי תאריכים</dt><dd className="num">{response.meta.candidatePairs}</dd></div>
+        <div><dt>שער המטבע</dt><dd>{response.meta.fxSource} · <span dir="ltr" className="num">{response.meta.fxDate}</span></dd></div>
+      </dl>
+      <ul className="source-list">
+        {response.meta.sources.map((source) => {
+          const note = source.error ? sourceNote(source.error) : null;
+          return <li key={source.name}>
+            <strong>{sourceName(source)}</strong>
+            <span>{!source.enabled ? "לא פעיל" : source.ok ? `${source.offers} מחירים` : "לא ענה הפעם"}</span>
+            {note && <small>{note.text}{note.codes && <> <span dir="ltr">{note.codes}</span></>}</small>}
+          </li>;
+        })}
+      </ul>
+    </details>
+  </div>;
+}
