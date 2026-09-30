@@ -83,3 +83,30 @@ describe("src/ runs in the Workers runtime", () => {
     expect(callsFetch(join(worker, "src", "quotes.ts"))).toBe(true);
   });
 });
+
+describe("match_audit stays PII-free and costs nothing (audit.ts)", () => {
+  it("audit.ts reads no request, header, link or binding, copies nothing with a spread and makes no request", () => {
+    const text = readFileSync(join(worker, "src", "audit.ts"), "utf8");
+    expect(text).not.toMatch(/\breq\b/);
+    expect(text).not.toContain("headers");
+    expect(text).not.toMatch(/cf-connecting-ip/i);
+    expect(text).not.toMatch(/user-agent/i);
+    expect(text).not.toContain("deeplink");
+    expect(text).not.toContain("marker");
+    expect(text).not.toContain("...");
+    expect(text).not.toContain("fetch(");
+    expect(text).not.toContain("env.");
+  });
+
+  it("Workers Logs stays off in wrangler.toml; the owner-only switch is documented, off by default", () => {
+    const toml = readFileSync(join(worker, "wrangler.toml"), "utf8");
+    // Comment lines never count: only a live [observability] table with enabled = true would turn the logs on.
+    const live = toml.split(/\r?\n/).filter((l) => !l.trim().startsWith("#")).join("\n");
+    expect(live).not.toMatch(/^\s*\[observability(\.[a-z_]+)?\]\s*$[\s\S]*?^\s*enabled\s*=\s*true/m);
+    const docs = readFileSync(join(repoRoot, "docs", "CLOUDFLARE_SETUP.md"), "utf8");
+    expect(docs).toContain("Workers Logs (optional)");
+    expect(docs).toContain("head_sampling_rate");
+    expect(docs).toMatch(/off by default/i);
+    expect(docs).not.toMatch(/Workers Logs[^\n]*VERIFIED/);
+  });
+});
