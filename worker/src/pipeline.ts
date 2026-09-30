@@ -17,6 +17,7 @@
  * `prices` history stores PER-PASSENGER amounts so searches with different party sizes stay comparable.
  */
 import { airlineFieldsFor } from "./airlines/lookup";
+import { logMatchAudit } from "./audit";
 import * as airportData from "./airports/resolve";
 import { orderPairsByService } from "./airports/served";
 import type { Resolver } from "./airports/types";
@@ -26,6 +27,7 @@ import { toIls } from "./money";
 import { departHour, recommend, recommendationsMeta } from "./scoring";
 import { SCORING } from "./scoring.config";
 import {
+  cheapestCachedByPair,
   coverKey,
   isQuoteSource,
   mergeQuoted,
@@ -164,6 +166,12 @@ export interface SearchDeps {
   staleWhileRevalidate?: boolean;
   /** True for a background rescan that goes through the whole pipeline: the stale answer already logged this search. */
   skipSearchLog?: boolean;
+  /**
+   * Emit the one `match_audit` log line (audit.ts) at the end of the search. Default true; the scheduled snapshot passes false,
+   * and a background rescan (skipSearchLog) never logs one either, so only a user search via index.ts does. Changes nothing in
+   * the response.
+   */
+  audit?: boolean;
 }
 
 export const defaultResolver: Resolver = {
@@ -753,7 +761,12 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   // and bag choice decide which legs get combined: a cache hit answers exactly like a fresh scan would.
   // A fare whose source-stated expiry has passed is never ranked (the vendor advises against using expired prices). One-way
   // legs are dropped BEFORE pairing, so an expired cheap leg cannot hide a valid pair behind it.
-  const unexpiredLeg = (f: OneWayFare): boolean => !fareExpired({ fareExpiresAt: f.expiresAt }, now);
+  let expiredDropped = 0; // match_audit only: legs and offers dropped as source-expired
+  const unexpiredLeg = (f: OneWayFare): boolean => {
+    const ok = !fareExpired({ fareExpiresAt: f.expiresAt }, now);
+    if (!ok) expiredDropped += 1;
+    return ok;
+  };
   const splits = oneWayPairs.flatMap((p) =>
     buildSplits(p.origin, p.destination, req, p.outs.filter(unexpiredLeg), p.backs.filter(unexpiredLeg), "travelpayouts", fx, pax, splitsCheckedAt),
   );
@@ -814,7 +827,9 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   }
 
   // Steps 7-8: extras + FX on copies (`live` stays raw for the cache), then rank.
-  const working = [...live.map(cloneOffer), ...fromDb].filter((o) => !fareExpired(o, now));
+  const unfiltered = [...live.map(cloneOffer), ...fromDb];
+  const working = unfiltered.filter((o) => !fareExpired(o, now));
+  expiredDropped += unfiltered.length - working.length;
   const party: Party = { adults: req.adults, children: req.children, infants: req.infants };
   for (const o of working) linkParty(o, party);
   applyExtrasAndFx(working, req, fx);
@@ -841,6 +856,8 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   const primary = pairs[0];
   const dates = scanComplete && quoters.length > 0 && primary ? pickQuotePairs(working, primary) : [];
   let scanStored: Promise<void> | null = null; // the scan's own write, when it was made before the quote phase
+  let quotesTotal = 0; // match_audit only: live quotes this search's quote phase considered...
+  let quotesDisbelieved = 0; // ...and how many of them were not believed (far below the cached fare)
   if (primary && dates.length > 0) {
     // The scan is worth up to 30 upstream requests: store it BEFORE the vendors are asked, so a client that gives up during
     // the phase (a new search cancels the old one) does not lose it. The price history is written after the ranking has read
@@ -865,6 +882,10 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
         disbelieved.set(o.source, { all: n.all + 1, ignored: n.ignored + (believable[i] ? 0 : 1) });
       });
       for (const [name, n] of disbelieved) if (n.ignored === n.all) quoteStats.get(name)?.notes.push(`${n.ignored} quote(s) ignored: far below the cached fare`);
+      for (const n of disbelieved.values()) {
+        quotesTotal += n.all;
+        quotesDisbelieved += n.ignored;
+      }
       quotedRaw = raw.filter((_, i) => believable[i]);
       working.push(...ranked.filter((_, i) => believable[i]));
     }
@@ -904,6 +925,47 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   await write(scanStored ? scanStored.then(() => persist(rest)) : persist({ ...wholeJob(), guard }));
 
   const stale = fromCache && isStale && hit ? staleInfo(hit.createdAt, now, await revalidation) : null;
+
+  if (deps.skipSearchLog !== true && deps.audit !== false) {
+    try {
+      // Only what this search already holds: the resolved primary IATA pair (never the request's own text), counts and names.
+      // upstreamCalls = Travelpayouts requests made by this search (0 on a cache hit) + the quote vendors' requests (QuoteStat.calls).
+      const top = cards[0];
+      const topSource = top?.offer.source;
+      let liveVsCachedPct: number | null = null;
+      if (top && primary && topSource !== undefined && isQuoteSource(topSource) && top.offer.totalIls !== null) {
+        const floor = cheapestCachedByPair(
+          working.filter((o) => !isQuoteSource(o.source)),
+          primary,
+        ).get(`${top.offer.departDate}|${top.offer.returnDate}`)?.ils;
+        if (floor !== undefined && floor > 0) liveVsCachedPct = ((top.offer.totalIls - floor) / floor) * 100;
+      }
+      let quoteCalls = 0;
+      for (const st of quoteStats.values()) quoteCalls += st.calls;
+      const liveSources: string[] = [];
+      if (tpStatus.offers > 0) liveSources.push("travelpayouts");
+      for (const [name, st] of quoteStats) if (st.offers > 0) liveSources.push(name);
+      logMatchAudit({
+        origin: primary?.origin ?? "",
+        destination: primary?.dest ?? "",
+        fromCache,
+        staleAgeH: stale ? stale.ageHours : null,
+        expiredDropped,
+        guardSuspicious: guarded.suspicious.size,
+        guardExcluded: guarded.excluded,
+        liveSources,
+        quotesTotal,
+        quotesDisbelieved,
+        topCard: top
+          ? { kind: top.kinds[0] ?? "", source: top.offer.source, ageH: ageHours(top.offer.checkedAt, now), liveVsCachedPct }
+          : null,
+        cardKinds: cards.flatMap((c) => c.kinds),
+        upstreamCalls: tpStatus.calls + quoteCalls,
+      });
+    } catch {
+      // The audit line never affects the answer.
+    }
+  }
 
   return {
     cards: views,

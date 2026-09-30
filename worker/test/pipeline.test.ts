@@ -3,6 +3,7 @@
  * The mock reproduces the real client's request accounting (k(k+1)/2 per round-trip scan, k per one-way scan).
  */
 import { describe, expect, it, vi } from "vitest";
+import { logMatchAudit } from "../src/audit";
 import { createRepo } from "../src/db";
 import {
   airportPairs,
@@ -27,6 +28,7 @@ import { BAG_FEES, SCORING } from "../src/scoring.config";
 import { buildSplits, countValidPairs, pairOk, validPairs } from "../src/splits";
 import { monthsBetween, TravelpayoutsError } from "../src/travelpayouts";
 import type { FareQuoteSource } from "../src/quotes";
+import { runSnapshot } from "../src/snapshots";
 import type { FxRates, Leg, Offer, OneWayFare, OneWayPair, SearchRequest, SearchResponse, TravelpayoutsClient } from "../src/types";
 import { createTestD1 } from "./helpers/d1";
 
@@ -1567,5 +1569,198 @@ describe("stale-while-revalidate (SearchDeps.staleWhileRevalidate)", () => {
     expect(s.messageHe).toContain("לפני 13 שעות");
     expect(s.messageHe).toContain("חפשו שוב");
     expect(staleInfo(NOW.toISOString(), at(13), false).messageHe).not.toContain("חפשו שוב");
+  });
+});
+
+// --- match_audit (audit.ts) -------------------------------------------------------------------------------
+
+// The real logMatchAudit, wrapped in a spy so one test can swap it for a no-op. Every other test runs the real function.
+vi.mock("../src/audit", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../src/audit")>();
+  return { ...real, logMatchAudit: vi.fn(real.logMatchAudit) };
+});
+
+describe("match_audit: one PII-free log line per user search", () => {
+  type AuditLine = {
+    route: string;
+    fromCache: boolean;
+    staleAgeH: number | null;
+    expiredDropped: number;
+    guardSuspicious: number;
+    guardExcluded: number;
+    liveSources: string[];
+    quotesTotal: number;
+    quotesDisbelieved: number;
+    topCard: { kind: string; source: string | null; ageH: number | null; liveVsCachedPct: number | null } | null;
+    cardKinds: string[];
+    upstreamCalls: number;
+  };
+  const isAudit = (x: unknown): x is string => typeof x === "string" && x.startsWith('{"ev":"match_audit"');
+
+  /** Captures console.log while `fn` runs; returns the raw match_audit lines and fn's result. */
+  async function capture<T>(fn: () => Promise<T>): Promise<{ lines: string[]; parsed: AuditLine[]; result: T }> {
+    const spy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    try {
+      const result = await fn();
+      const lines = spy.mock.calls.map((c) => c[0]).filter(isAudit);
+      return { lines, parsed: lines.map((l) => JSON.parse(l) as AuditLine), result };
+    } finally {
+      spy.mockRestore();
+    }
+  }
+
+  /** A configured stand-in quote vendor answering every date pair with one fare at `price` (per adult, USD). */
+  function vendor(price: number): FareQuoteSource & { asked: string[] } {
+    const asked: string[] = [];
+    return {
+      name: "serpapi",
+      configured: true,
+      quota: { period: "monthly", cap: 100, allowance: 250 },
+      callCount: () => asked.length,
+      asked,
+      quote: async (q) => {
+        asked.push(`${q.departDate}|${q.returnDate}`);
+        return [offer(price, { source: "serpapi", departDate: q.departDate, returnDate: q.returnDate, checkedAt: NOW.toISOString() })];
+      },
+    };
+  }
+
+  it("a user search logs exactly one line; the repeat is a cache hit and says so", async () => {
+    const tp = mockTp({ rt: rtFor([offer(150), offer(200, { departDate: "2026-11-13", returnDate: "2026-11-19" })]) });
+    const { deps } = setup({ tp });
+    const first = await capture(() => runSearch(deps, req()));
+    expect(first.lines).toHaveLength(1);
+    expect(first.parsed[0]).toMatchObject({ route: "TLV-BCN", fromCache: false, staleAgeH: null, liveSources: ["travelpayouts"], upstreamCalls: tp.callCount() });
+    expect(first.parsed[0]?.topCard).toMatchObject({ kind: "cheapest", source: "travelpayouts", liveVsCachedPct: null });
+    expect(first.parsed[0]?.cardKinds).toEqual(kindsOf(first.result.cards).filter((k, i, a) => a.indexOf(k) === i));
+    const before = tp.callCount();
+    const again = await capture(() => runSearch(deps, req()));
+    expect(again.lines).toHaveLength(1);
+    expect(again.parsed[0]).toMatchObject({ route: "TLV-BCN", fromCache: true, upstreamCalls: 0 });
+    expect(tp.callCount()).toBe(before);
+  });
+
+  it("expiredDropped counts the source-expired legs and offers removed before ranking", async () => {
+    const r = req({ windowStart: "2026-11-10", windowEnd: "2026-11-17", stayMin: 5, stayMax: 5 });
+    const gone = ago(60_000);
+    const tp = mockTp({
+      rt: rtFor([offer(500, { departDate: "2026-11-10", returnDate: "2026-11-15" }), offer(90, { departDate: "2026-11-11", returnDate: "2026-11-16", fareExpiresAt: gone })]),
+      ow: (o, d) =>
+        o === "TLV" && d === "BCN"
+          ? [fare("2026-11-10", 10, { expiresAt: gone }), fare("2026-11-10", 30), fare("2026-11-11", 12, { expiresAt: gone })]
+          : o === "BCN" && d === "TLV"
+            ? [fare("2026-11-15", 30), fare("2026-11-16", 8, { expiresAt: gone })]
+            : [],
+    });
+    const { deps } = setup({ tp });
+    const { parsed, result } = await capture(() => runSearch(deps, r));
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0]?.expiredDropped).toBe(4); // three one-way legs + one round trip
+    expect(result.cards.every((c) => c.offer.priceAmount !== 90)).toBe(true);
+  });
+
+  it("guardSuspicious / guardExcluded equal meta.priceGuard", async () => {
+    const week = [10, 11, 12, 13, 14, 15, 16].map((d) =>
+      offer(d === 13 ? 50 : 200, { departDate: `2026-11-${d}`, returnDate: `2026-11-${d + 6}` }),
+    );
+    const { deps } = setup({ tp: mockTp({ rt: rtFor(week) }) });
+    const { parsed, result } = await capture(() => runSearch(deps, req()));
+    expect(result.meta.priceGuard).toBeDefined();
+    expect(result.meta.priceGuard?.suspicious).toBeGreaterThan(0);
+    expect(parsed[0]).toMatchObject({ guardSuspicious: result.meta.priceGuard?.suspicious, guardExcluded: result.meta.priceGuard?.excluded });
+  });
+
+  it("a quote far below the cached fare: quotesTotal / quotesDisbelieved, and upstreamCalls = Travelpayouts + vendor requests", async () => {
+    const tp = mockTp({ rt: rtFor([offer(100)]) });
+    const v = vendor(45); // 45% of the cached fare: not believed
+    const { deps } = setup({ tp, quoteSources: [v] });
+    const { parsed, result } = await capture(() => runSearch(deps, req()));
+    expect(result.cards[0]?.offer.source).toBe("travelpayouts");
+    expect(parsed[0]).toMatchObject({ quotesTotal: 1, quotesDisbelieved: 1, upstreamCalls: tp.callCount() + v.asked.length });
+    expect(v.asked).toHaveLength(1);
+    expect(parsed[0]?.liveSources).toContain("travelpayouts");
+    expect(parsed[0]?.topCard?.liveVsCachedPct).toBeNull(); // a cached fare leads: no gap to report
+  });
+
+  it("a believable live quote on top: liveVsCachedPct is its gap to the cached fare of the same date pair", async () => {
+    const { deps } = setup({ tp: mockTp({ rt: rtFor([offer(100)]) }), quoteSources: [vendor(90)] });
+    const { parsed, result } = await capture(() => runSearch(deps, req()));
+    expect(result.cards[0]?.offer.source).toBe("serpapi");
+    expect(parsed[0]).toMatchObject({ quotesTotal: 1, quotesDisbelieved: 0, liveSources: ["travelpayouts", "serpapi"] });
+    expect(parsed[0]?.topCard).toMatchObject({ source: "serpapi", liveVsCachedPct: -10 });
+  });
+
+  it("no line: skipSearchLog, audit:false, and the background rescan of a stale hit (one line in total)", async () => {
+    const tp = mockTp({ rt: rtFor([offer(164)]) });
+    const a = setup({ tp });
+    expect((await capture(() => runSearch({ ...a.deps, skipSearchLog: true }, req()))).lines).toHaveLength(0);
+    const b = setup({ tp });
+    expect((await capture(() => runSearch({ ...b.deps, audit: false }, req()))).lines).toHaveLength(0);
+
+    // Stale-while-revalidate: the stale answer logs; the whole-pipeline rescan in waitUntil (quotes expired + a vendor) does not.
+    const c = setup({ tp });
+    await capture(() => runSearch(c.deps, req()));
+    const pending: Promise<unknown>[] = [];
+    const v = vendor(160);
+    const later = new Date(NOW.getTime() + 7 * HOUR);
+    const swr: SearchDeps = { ...c.deps, now: later, staleWhileRevalidate: true, waitUntil: (p) => void pending.push(p), quoteSources: [v] };
+    const { lines, parsed, result } = await capture(async () => {
+      const r = await runSearch(swr, req());
+      await Promise.all(pending);
+      return r;
+    });
+    expect(result.meta.stale?.revalidating).toBe(true);
+    expect(v.asked.length).toBeGreaterThan(0); // the background pipeline did run
+    expect(lines).toHaveLength(1);
+    expect(parsed[0]).toMatchObject({ fromCache: true, staleAgeH: 7 });
+  });
+
+  it("the scheduled snapshot run logs no line", async () => {
+    const { deps } = setup({ tp: mockTp({ rt: rtFor([offer(150)]) }) });
+    const { lines, result } = await capture(() => runSnapshot(deps, [["TLV", "BCN"]]));
+    expect(result.ok).toBe(true);
+    expect(lines).toHaveLength(0);
+  });
+
+  it("console.log throwing changes nothing in the answer", async () => {
+    const mk = () => setup({ tp: mockTp({ rt: rtFor([offer(150), offer(200, { departDate: "2026-11-13", returnDate: "2026-11-19" })]) }) }).deps;
+    const normal = await capture(() => runSearch(mk(), req()));
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {
+      throw new Error("log sink down");
+    });
+    try {
+      const res = await runSearch(mk(), req());
+      expect(spy).toHaveBeenCalled();
+      expect(res.cards).toEqual(normal.result.cards);
+      expect(res.meta).toEqual(normal.result.meta);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("a Hebrew free-text request: no Hebrew and no date in the line", async () => {
+    const { deps } = setup({ tp: mockTp({ rt: rtFor([offer(150)]) }) });
+    const withText = { ...req(), q: "טיסה לברצלונה בנובמבר" } as unknown as SearchRequest;
+    const { lines } = await capture(() => runSearch(deps, withText));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).not.toMatch(/[֐-׿]/);
+    expect(lines[0]).not.toMatch(/\d{4}-\d{2}-\d{2}/);
+  });
+
+  it("the SearchResponse is identical with logMatchAudit replaced by a no-op", async () => {
+    const mk = () => setup({ tp: mockTp({ rt: rtFor([offer(150), offer(200, { departDate: "2026-11-13", returnDate: "2026-11-19" })]) }), quoteSources: [vendor(140)] }).deps;
+    const real = await capture(() => runSearch(mk(), req()));
+    expect(real.lines).toHaveLength(1);
+    const mocked = vi.mocked(logMatchAudit);
+    mocked.mockImplementation(() => undefined);
+    try {
+      const noop = await capture(() => runSearch(mk(), req()));
+      expect(noop.lines).toHaveLength(0);
+      expect(noop.result).toEqual(real.result);
+    } finally {
+      mocked.mockReset();
+      const actual = await vi.importActual<typeof import("../src/audit")>("../src/audit");
+      mocked.mockImplementation(actual.logMatchAudit);
+    }
   });
 });

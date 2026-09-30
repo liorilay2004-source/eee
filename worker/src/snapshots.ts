@@ -62,7 +62,7 @@ export async function runSnapshot(deps: SearchDeps, routes: ReadonlyArray<readon
   const route = `${origin}-${destination}`;
   if (!deps.tp.configured) return { route, ok: false, cards: 0 };
   try {
-    const res = await runSearch({ ...deps, waitUntil: undefined }, buildSnapshotRequest(origin, destination, deps.now));
+    const res = await runSearch({ ...deps, waitUntil: undefined, audit: false }, buildSnapshotRequest(origin, destination, deps.now));
     return { route, ok: true, cards: res.cards.length };
   } catch (err) {
     console.error(`snapshot ${route} failed:`, err instanceof PipelineError ? err.code : err instanceof Error ? err.name : typeof err);
