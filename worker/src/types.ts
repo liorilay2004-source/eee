@@ -476,4 +476,10 @@ export interface Env {
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_WEBHOOK_SECRET?: string;
   TELEGRAM_BOT_USERNAME?: string;
+  /**
+   * ADDITIVE (private-use lock, src/access.ts): a secret set only by the owner. Unset or empty = the API is public, as before;
+   * 20-256 visible ASCII characters = every request but health, the Telegram webhook and CORS preflights needs
+   * `Authorization: Bearer <key>`; anything else = misconfigured, and the API fails closed (503).
+   */
+  ACCESS_KEY?: string;
 }

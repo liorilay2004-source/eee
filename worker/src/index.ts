@@ -1,19 +1,26 @@
 /**
- * Worker entry point: the public REST API (SPEC §6).
+ * Worker entry point: the REST API (SPEC §6).
  *   POST /api/search    the search pipeline (rate limited)
  *   GET  /api/airports  autocomplete over the Hebrew/English city dataset, plus country suggestions (src/countries/search.ts)
  *   GET  /api/calendar  cheapest cached round trip per departure day (rate limited, src/calendar.ts)
  *   GET  /api/explore   cheapest destinations from TLV/ETM in a month or window (rate limited, src/explore.ts)
- *   GET  /api/health    D1 liveness, deployed commit, newest applied migration
+ *   GET  /api/health    D1 liveness, deployed commit, newest applied migration, whether the private-use lock is on
  *   POST /api/watches, GET|DELETE /api/watches/<token>, POST /api/telegram/webhook   price alerts (src/watches.ts)
  *   GET  /api/deals     unusual fares per watched route, precomputed by the hourly snapshot cron (dealreports.ts)
  *   POST /api/party-check  "book together or one by one?" for one date pair, on demand (rate limited, src/partycheck.ts)
+ *   GET  /api/auth/check  204 once the access gate let the request through: how the web tests a key (src/access.ts)
+ *
+ * The private-use lock (src/access.ts) runs first in fetch(), before any rate limit, D1 read or cache lookup: with the
+ * ACCESS_KEY secret set, every request but GET /api/health, the Telegram webhook and CORS preflights needs
+ * `Authorization: Bearer <key>`, and every preflight gets the same answer whatever its path (so none says which routes
+ * exist). Without the secret the API is public, as before.
  *
  * Every response is JSON, `Cache-Control: no-store`, `nosniff`. Errors are
  * { error: { code, message, reason?, fields?, fieldCodes?, retryAfterSec? } } (all but code and message are additive)
  * and never carry stack traces, upstream response bodies or secrets. CORS is opt-in for exactly one origin
  * (env.ALLOWED_ORIGIN) and is never a wildcard.
  */
+import { checkAccess, createFailureLimiter, lockInfo } from "./access";
 import {
   CALENDAR_GLOBAL_LIMIT,
   CALENDAR_GLOBAL_WINDOW_SECONDS,
@@ -63,6 +70,8 @@ const fallbackLimiter = createMemoryLimiter(RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_SE
 const calendarFallbackLimiter = createMemoryLimiter(CALENDAR_RATE_LIMIT_MAX, CALENDAR_RATE_LIMIT_WINDOW_SECONDS);
 const exploreFallbackLimiter = createMemoryLimiter(EXPLORE_RATE_LIMIT_MAX, EXPLORE_RATE_LIMIT_WINDOW_SECONDS);
 let lastFallbackLog = 0;
+/** Failed access-key attempts per client (src/access.ts): isolate memory only, so a refused request never costs D1. */
+const accessFailures = createFailureLimiter();
 
 interface ApiResult {
   status: number;
@@ -450,7 +459,9 @@ async function handleDeals(env: Env): Promise<ApiResult> {
 }
 
 async function handleHealth(env: Env): Promise<ApiResult> {
-  return checkHealth(env.DB);
+  const { status, body } = await checkHealth(env.DB);
+  // Additive: whether the private-use lock is on ("on" | "off" | "misconfigured"). Never anything about the key itself.
+  return { status, body: { ...body, ...lockInfo(env) } };
 }
 
 /**
@@ -477,6 +488,7 @@ async function handleTelegramWebhook(request: Request, env: Env): Promise<ApiRes
 }
 
 const ROUTES: Record<string, string> = {
+  "/api/auth/check": "GET",
   "/api/search": "POST",
   "/api/airports": "GET",
   "/api/deals": "GET",
@@ -489,29 +501,45 @@ const ROUTES: Record<string, string> = {
 };
 /** /api/watches/<token>: the token is checked by the handler (a malformed one is simply not found). */
 const WATCH_PATH = /^\/api\/watches\/([^/]+)$/;
+const WATCH_METHODS = "GET, DELETE";
+/**
+ * With the private-use lock on (or misconfigured), every preflight gets this one answer whatever its path: every method some
+ * route accepts. Preflights need no key (browsers never send one on them), so a per-path answer (404 for an unknown path, a
+ * known path's own methods) would let anyone list the routes without the key. The request that follows a preflight still
+ * meets the gate, then the router's own 404 or 405. Built from ROUTES, so a route added later is covered.
+ */
+const LOCKED_PREFLIGHT_METHODS = [...new Set([...Object.values(ROUTES), WATCH_METHODS, "OPTIONS"].flatMap((m) => m.split(", ")))].join(", ");
+
+/** A CORS preflight's answer: the grant goes only to the one configured origin; anyone else gets a bare 204. */
+function preflight(request: Request, env: Env, methods: string): ApiResult {
+  const allowed = allowedOrigin(env);
+  if (!allowed || request.headers.get("Origin") !== allowed) return { status: 204 }; // no CORS grant for anyone else
+  return {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Methods": methods,
+      // Authorization carries the access key (src/access.ts). Granted whether or not the lock is on, so a browser that
+      // still holds a key keeps working after the owner turns the lock off.
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Max-Age": "86400",
+    },
+  };
+}
 
 async function route(request: Request, env: Env, ctx: ExecutionContext): Promise<ApiResult> {
+  // Before the path is even looked up: a locked API's preflight answer must not depend on it (LOCKED_PREFLIGHT_METHODS).
+  if (request.method === "OPTIONS" && lockInfo(env).locked) return preflight(request, env, LOCKED_PREFLIGHT_METHODS);
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, "") || "/";
   const watchToken = WATCH_PATH.exec(path)?.[1];
-  const method = watchToken !== undefined ? "GET, DELETE" : ROUTES[path];
+  const method = watchToken !== undefined ? WATCH_METHODS : ROUTES[path];
   if (method === undefined) return errorResult(404, "not_found", "Not found");
 
-  if (request.method === "OPTIONS") {
-    const allowed = allowedOrigin(env);
-    if (!allowed || request.headers.get("Origin") !== allowed) return { status: 204 }; // no CORS grant for anyone else
-    return {
-      status: 204,
-      headers: {
-        "Access-Control-Allow-Methods": `${method}, OPTIONS`,
-        "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Max-Age": "86400",
-      },
-    };
-  }
+  if (request.method === "OPTIONS") return preflight(request, env, `${method}, OPTIONS`); // the lock off: exactly as before
   if (!method.split(", ").includes(request.method)) {
     return errorResult(405, "method_not_allowed", "Method not allowed", { headers: { Allow: `${method}, OPTIONS` } });
   }
+  if (path === "/api/auth/check") return { status: 204 }; // fetch() already ran the access gate on this request
 
   if (watchToken !== undefined || path === "/api/watches") {
     const deps = { env, repo: createRepo(env.DB), now: new Date(), ip: request.headers.get("CF-Connecting-IP") ?? "unknown" };
@@ -595,6 +623,15 @@ export default {
     let cors: Record<string, string> = {};
     try {
       cors = corsHeaders(request, env);
+      // The private-use lock comes before everything else: no rate-limit row, D1 read or cache lookup for a refused request.
+      // Its answers carry the CORS headers too, so the web can read them.
+      const denied = await checkAccess(request, env, accessFailures, Date.now());
+      if (denied) {
+        return toResponse(
+          errorResult(denied.status, denied.code, denied.message, { reason: denied.reason, retryAfterSec: denied.retryAfterSec, headers: denied.headers }),
+          cors,
+        );
+      }
       return toResponse(await route(request, env, ctx), cors);
     } catch (err) {
       // Name only: messages can echo upstream text, and nothing here is worth a stack trace in a response.

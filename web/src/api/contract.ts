@@ -68,6 +68,8 @@ export interface ApiError {
     message?: string;
     fields?: Record<string, string>;
     retryAfterSec?: number;
+    /** Additive: a machine detail, e.g. why the access lock is misconfigured ("too_short"). Older APIs never send it. */
+    reason?: string;
   };
 }
 
