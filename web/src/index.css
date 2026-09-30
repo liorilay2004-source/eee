@@ -872,3 +872,18 @@ p { text-wrap: pretty; }
   .flight-link-list li { align-items: stretch; flex-direction: column; }
   .flight-link-meta { justify-content: space-between; }
 }
+
+.overlay-page { min-height: 100vh; padding: 18px; background: radial-gradient(120% 70% at 100% 0%, var(--bg-tint) 0%, transparent 60%), var(--bg); color: var(--ink); }
+.overlay-top { display: flex; align-items: start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.overlay-top h1 { margin: 0; font-size: 24px; line-height: 1.15; }
+.overlay-card { margin-top: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); box-shadow: var(--shadow-sm); }
+.overlay-card h2 { margin: 0 0 8px; display: flex; align-items: center; gap: 8px; font-size: 18px; }
+.overlay-card p { margin: 0; color: var(--ink-2); }
+.overlay-card small { display: block; margin-top: 8px; max-height: 54px; overflow: auto; color: var(--muted); font-size: 12px; direction: ltr; text-align: left; }
+.overlay-actions { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 14px; }
+.overlay-facts { margin: 12px 0 0; display: grid; gap: 8px; }
+.overlay-facts div { display: flex; justify-content: space-between; gap: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+.overlay-facts dt { color: var(--muted); font-weight: 700; }
+.overlay-facts dd { margin: 0; font-weight: 800; }
+.overlay-install .btn { margin-top: 12px; width: 100%; }
+@media (min-width: 380px) { .overlay-actions { grid-template-columns: 1fr 1fr; } }

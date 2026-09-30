@@ -6,6 +6,7 @@ import { SearchPage } from "./pages/SearchPage";
 import { ExplorePage } from "./pages/ExplorePage";
 import { DealsPage } from "./pages/DealsPage";
 import { AlertsPage } from "./pages/AlertsPage";
+import { OverlayPage } from "./pages/OverlayPage";
 import { PRODUCT_NAME } from "./config";
 
 const pages = {
@@ -76,6 +77,7 @@ function Pages() {
   if (path === "/explore") return <ExplorePage />;
   if (path === "/deals") return <DealsPage />;
   if (path === "/alerts") return <AlertsPage />;
+  if (path === "/overlay") return <OverlayPage />;
   if (path !== "/") return <NotFound />;
   return <SearchPage />;
 }
