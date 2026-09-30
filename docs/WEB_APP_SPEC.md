@@ -555,6 +555,29 @@ A read-only comparison of §7 with the merged Phase 1 Worker (`worker/`, run loc
 
 The `Worker` rows are the W0(b) work list (§10). The API keeps the additive-change rule of §7.1: none of them removes a field the Worker returns today.
 
+### 7.9 Calendar insights chip (meta.insights)
+`GET /api/calendar` may return an ADDITIVE `meta.insights` object (`worker/src/calendar-insights.ts`). It answers "which departure weekday and which trip length are cheapest" from the fares the same response already loaded: 0 extra subrequests, 0 extra D1 reads or writes. It is recomputed per request from the stored month fares (also on cache hits and stale serves) and is never stored; `apiVersion` stays `1`.
+
+| Field | Meaning |
+|---|---|
+| `byWeekday[]` | `{ weekday, minIls, medianIls, count }` per departure weekday (0 = Sunday … 6 = Saturday, UTC date), sorted 0..6. Only days with `known: true` and a fare count; a day without a fare is never counted as 0. Median: an odd count takes the middle value, an even count the mean of the two middle values, always rounded to whole ₪. |
+| `byNights[]` | `{ nights, minIls, count }` per trip length over every fare that passed the request's nights / stops / FX filters (not only each day's cheapest), departures from today on; lengths seen fewer than twice are dropped. Sorted by nights. |
+| `cheapestWeekday` | lowest median (ties: lower min, then lower weekday). Only weekdays with `count ≥ 2` can be chosen. |
+| `cheapestNights` | the `byNights` length with the lowest min (tie: fewer nights), or `null`. |
+| `savingVsDearestWeekdayPct` | whole percent the cheapest weekday's median is below the dearest one's. **Absent** (never `0`) when the saving is under 3% (checked before rounding, so 2.5% is not shown as 3%). |
+| `summaryHe` | the chip text, e.g. `יציאה ביום ג׳ זולה בממוצע ב-12% מיציאה ביום ו׳`, or without a saving `המחיר הנמוך ביותר בממוצע: יציאה ביום ג׳`. |
+| `labelHe` | always `לפי מחירים שנמצאו לאחרונה (מטמון, 2-7 ימים)` |
+| `basis` | always `cached_fares` |
+
+`meta.insights` is absent unless at least 4 weekdays are priced at least twice (a thin month says nothing rather than something shaky).
+
+UI rules:
+- Render `summaryHe` as a chip above the calendar grid, with `labelHe` **always** visible beneath it (never behind a tap or a tooltip).
+- Tapping the chip expands the `byWeekday` counts and medians and the `byNights` table.
+- Hide the chip entirely when `meta.insights` is absent; never render an empty or placeholder chip.
+- `labelHe` and `basis` are mandatory whenever `insights` is present; a response without them must not show the chip.
+- Never phrase it as a guarantee or a forecast: it describes cached fares of this response only (often 2–7 days old), and the booking site's price is the final one.
+
 ---
 
 ## 8. Non-functional requirements
