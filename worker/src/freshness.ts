@@ -6,7 +6,7 @@
  *  - "live":    the fare was seen at `checkedAt` by our own scrape of the live site (the Google Flights monitor only).
  *  - "bounded": a search API that documents a result cache of at most N minutes (SerpApi: "Cache expires after 1h", and
  *               `no_cache` is not sent): the fare is at most scan age + N old. Only that upper bound is claimed.
- *  - quote vendors that promise no freshness and document no cache (Ignav, Wego, SearchApi, Duffel) are "unknown": the time of
+ *  - quote vendors that promise no freshness and document no cache (Ignav, Wego, SearchApi, Duffel, HasData) are "unknown": the time of
  *    OUR search is known, the fare's own age is not, and the label says exactly that.
  *  - "source":  the vendor stated when it saw the fare (`found_at` on a Travelpayouts row). The v3 `prices_for_dates`
  *               endpoint we use does NOT send it today (verified only against third-party copies of its field list,
@@ -40,7 +40,7 @@ export const VENDOR_CACHE_MAX_MINUTES: Readonly<Partial<Record<SourceName, numbe
  * Live search APIs that neither promise freshness nor document a cache. Must stay in step with QUOTE_SOURCE_NAMES
  * (quotes.ts; not imported here, to keep travelpayouts.ts free of an import cycle) minus VENDOR_CACHE_MAX_MINUTES (tested).
  */
-export const UNSTATED_AGE_QUOTE_SOURCES: readonly SourceName[] = ["ignav", "wego", "searchapi", "duffel"];
+export const UNSTATED_AGE_QUOTE_SOURCES: readonly SourceName[] = ["ignav", "wego", "searchapi", "duffel", "hasdata"];
 
 /** ISO date-time WITH an explicit zone ("Z" or "+HH:MM"): a zoneless time would have to be guessed. */
 const ZONED_ISO = /^(\d{4})-(\d{2})-(\d{2})T([01]\d|2[0-3]):[0-5]\d(:[0-5]\d(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})$/;
