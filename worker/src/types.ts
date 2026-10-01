@@ -10,7 +10,7 @@
  */
 
 export type TicketStructure = "roundtrip" | "split";
-export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi" | "duffel";
+export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata";
 export type Cabin = "economy" | "premium-economy" | "business" | "first";
 export type RecKind = "cheapest" | "best_value" | "my_times";
 
@@ -576,6 +576,7 @@ export interface Env {
   WEGO_API_TOKEN?: string;
   SEARCHAPI_KEY?: string;
   SERPAPI_KEY?: string;
+  HASDATA_API_KEY?: string;
   /**
    * ADDITIVE (price alerts, src/telegram.ts): the free Telegram Bot API. All three must be set or the alert channel is disabled:
    * POST /api/watches answers 503 and the webhook 404 (fail closed). The username is not a secret (a plain var).

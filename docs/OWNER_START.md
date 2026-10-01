@@ -123,6 +123,7 @@ bash scripts/smoke.sh
 | Ignav | `IGNAV_API_KEY` | https://ignav.com/pricing | 1,000 בקשות, פעם אחת (לא מתחדש) | 800 בסך הכול, עד 27 ביום |
 | SerpApi | `SERPAPI_KEY` | https://serpapi.com/pricing | 250 חיפושים בחודש | 240 בחודש (UTC), עד 24 ביום |
 | SearchApi | `SEARCHAPI_KEY` | https://www.searchapi.io/pricing | 100 בקשות, פעם אחת | 50 בסך הכול, עד 2 ביום |
+| HasData | `HASDATA_API_KEY` | https://app.hasdata.com/sign-up | 1,000 קרדיטים בחודש; חיפוש טיסות עולה 15 קרדיטים, כלומר 66 חיפושים, בלי כרטיס (כך כתוב אצלם, לא אומת בקריאה חיה) | 55 בחודש (UTC), עד 5 ביום. המקור נבנה מהתיעוד ולא נבדק מול שירות חי: צעד 4 למטה חובה |
 | Wego | `WEGO_API_TOKEN` | https://developers.wego.com/docs/affiliate/get-started | אין מכסה חינמית מתועדת, רק מפתח בדיקה זמני (עד שבועיים, באישור ידני) | 30 בסך הכול, 1 ביום |
 | Duffel | `DUFFEL_API_TOKEN` | https://duffel.com | מפתח בדיקה (`duffel_test_...`) בלי חיוב | 9 בסך הכול, 1 ביום. **רק מפתח בדיקה.** מפתח אמיתי (`duffel_live_...`) עלול לעלות כסף ולא נקרא בלי `DUFFEL_ALLOW_LIVE=true`: לא מפעילים |
 
@@ -133,7 +134,7 @@ bash scripts/smoke.sh
 2. מגדירים את המפתח (מדביקים אותו רק בשאלה של הפקודה). במפתח הזה לא משתמשים בשום מקום אחר, גם לא בלוח הניסויים באתר הספק:
    ```bash
    cd worker
-   npx wrangler secret put IGNAV_API_KEY      # או SERPAPI_KEY / SEARCHAPI_KEY / WEGO_API_TOKEN
+   npx wrangler secret put IGNAV_API_KEY      # או SERPAPI_KEY / SEARCHAPI_KEY / HASDATA_API_KEY / WEGO_API_TOKEN
    cd ..
    ```
 3. מחפשים טיסה באתר. תנאים: `TRAVELPAYOUTS_TOKEN` מוגדר ובדיקת העשן עוברת; מחפשים מסלול ותאריכים שלא חיפשו לאחרונה (תשובה מהמטמון לא קוראת לאף מקור חי); מחפשים לנוסע בוגר אחד, כי צעד 4 משווה לנוסע אחד. **עבד אם:** ב"על הנתונים של החיפוש הזה" הספק מופיע עם "N מחירים"; בלוח הבקרה של הספק המונה עלה ואתה עדיין במסלול החינמי; והמונה `used` שלו עלה אצלנו (מתוך `worker/`, קריאה בלבד): `npx wrangler d1 execute eee-db --remote --command "SELECT source, period, used FROM source_quota"`

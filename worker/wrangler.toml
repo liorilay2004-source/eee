@@ -33,7 +33,7 @@ crons = ["17 3 * * *", "43 * * * *", "29 * * * *"]
 # Secrets (never in this file): `wrangler secret put TRAVELPAYOUTS_TOKEN`, `TRAVELPAYOUTS_MARKER`, `RATE_LIMIT_SALT`.
 # Local runs read them from worker/.dev.vars (see .dev.vars.example).
 # OPTIONAL live fare sources, each only with its vendor's FREE plan and NEVER with a payment card: `IGNAV_API_KEY`,
-# `WEGO_API_TOKEN`, `SEARCHAPI_KEY`, `SERPAPI_KEY`, `DUFFEL_API_TOKEN`. Duffel live tokens also need plain var
+# `WEGO_API_TOKEN`, `SEARCHAPI_KEY`, `SERPAPI_KEY`, `HASDATA_API_KEY`, `DUFFEL_API_TOKEN`. Duffel live tokens also need plain var
 # `DUFFEL_ALLOW_LIVE = "true"`; test tokens do not. A source without its safe secret is not used and costs nothing; every
 # one has a hard request cap below its free/safe allowance (src/sources/), counted in D1 by migration 0004.
 # OPTIONAL price alerts over the free Telegram Bot API (src/telegram.ts): secrets `TELEGRAM_BOT_TOKEN` and

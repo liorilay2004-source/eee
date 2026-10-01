@@ -58,14 +58,14 @@ export const PARTY_CHECK_SHARE_PERCENT = 50;
 /** And never more than this many checks per source per UTC day, whatever its share. */
 export const PARTY_CHECK_MAX_PER_DAY = 5;
 /** The fixed order the live check picks its source in (the same order as the search's live sources, index.ts quoteSources). */
-export const PARTY_CHECK_ORDER: readonly QuoteSourceName[] = ["ignav", "wego", "searchapi", "serpapi", "duffel"];
+export const PARTY_CHECK_ORDER: readonly QuoteSourceName[] = ["ignav", "wego", "searchapi", "serpapi", "duffel", "hasdata"];
 /** A difference counts only from max(PARTY_MIN_DIFF_ILS, PARTY_MIN_DIFF_SHARE of the group total). */
 export const PARTY_MIN_DIFF_ILS = 20;
 export const PARTY_MIN_DIFF_SHARE = 0.03;
 /** A card's token is accepted this long after the search answer that carried it. */
 export const PARTY_TOKEN_TTL_SECONDS = 86_400;
 
-const SOURCE_LABEL: Record<QuoteSourceName, string> = { ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi", duffel: "Duffel" };
+const SOURCE_LABEL: Record<QuoteSourceName, string> = { ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi", duffel: "Duffel", hasdata: "HasData" };
 
 // --- A) the free part: links on the cards ---------------------------------------------------------------
 

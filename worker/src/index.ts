@@ -50,6 +50,7 @@ import { createDuffelSource } from "./sources/duffel";
 import { createIgnavSource } from "./sources/ignav";
 import { sourceRegistry } from "./source-registry";
 import { sourceSetup } from "./source-setup";
+import { createHasDataSource } from "./sources/hasdata";
 import { createSearchApiSource } from "./sources/searchapi";
 import { createSerpApiSource } from "./sources/serpapi";
 import { createWegoSource } from "./sources/wego";
@@ -227,11 +228,13 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
   const searchApi = secret(env.SEARCHAPI_KEY);
   const serpApi = secret(env.SERPAPI_KEY);
   const duffel = secret(env.DUFFEL_API_TOKEN);
+  const hasData = secret(env.HASDATA_API_KEY);
   return [
     ignav ? createIgnavSource({ ...shared, apiKey: ignav, marker }) : null,
     wego ? createWegoSource({ ...shared, apiKey: wego }) : null,
     searchApi ? createSearchApiSource({ ...shared, apiKey: searchApi, marker }) : null,
     serpApi ? createSerpApiSource({ ...shared, apiKey: serpApi, marker }) : null,
+    hasData ? createHasDataSource({ ...shared, apiKey: hasData, marker }) : null,
     duffel ? createDuffelSource({ ...shared, apiToken: duffel, allowLive: env.DUFFEL_ALLOW_LIVE === "true", marker }) : null,
   ].filter((s): s is FareQuoteSource => s !== null && s.configured);
 }

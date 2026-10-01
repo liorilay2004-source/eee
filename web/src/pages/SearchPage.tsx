@@ -659,7 +659,7 @@ function FlightLinkMemoryPanel({ request, announce }: { request: SearchRequest; 
 }
 
 function sourceName(source: SourceStatus): string {
-  const names: Record<string, string> = { travelpayouts: "Aviasales (דרך Travelpayouts)", google_flights: "Google Flights", ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi", duffel: "Duffel" };
+  const names: Record<string, string> = { travelpayouts: "Aviasales (דרך Travelpayouts)", google_flights: "Google Flights", ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi", duffel: "Duffel", hasdata: "HasData" };
   return names[source.name] ?? source.name;
 }
 
