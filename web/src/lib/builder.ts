@@ -446,7 +446,7 @@ export function bagView(
 ): BagView {
   const tags = new Set(offer.tags);
   if (tags.has("bonus_checked_bag")) return { text: "מזוודה נגררת כלולה במחיר", short: "כולל מזוודה", tone: "good" };
-  const advertised = tags.has("published_advertisement") || ["aegean", "air_canada", "tap", "ethiopian", "air_europa", "philippine", "virgin_atlantic", "air_new_zealand", "direct_combination"].includes(offer.source ?? "");
+  const advertised = tags.has("published_advertisement") || ["aegean", "air_canada", "tap", "ethiopian", "air_europa", "philippine", "virgin_atlantic", "air_new_zealand", "air_baltic", "direct_combination"].includes(offer.source ?? "");
   if (!request.checkedBag && advertised && offer.includes.checkedBag === undefined) return { text: "תנאי המזוודה לא נמסרו במקור; בדקו באתר החברה", short: "מזוודה: בדקו באתר", tone: "warn" };
   if (!request.checkedBag) return { text: "המחיר בלי מזוודה נגררת", short: "בלי מזוודה", tone: "plain" };
   if (offer.includes?.checkedBag === true) return { text: "מזוודה נגררת כלולה במחיר", short: "כולל מזוודה", tone: "good" };

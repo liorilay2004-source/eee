@@ -32,6 +32,17 @@ describe("shared public fare data", () => {
     expect(await cache.get(url)).toBeNull();
     await expect(cache.put(url, [])).resolves.toBeUndefined();
   });
+  it("shares only the verified airBaltic pages and keeps their original expiry", async () => {
+    const db = storage();
+    const first = createPublicFareCache(db as unknown as Cache, now);
+    const key = "https://www.airbaltic.com/en/flight-deals/flights-from-israel";
+    const fares = [{ amount: 298.55, currency: "EUR", checkedAt: now.toISOString() }];
+    await first.put(key, fares);
+    expect(await createPublicFareCache(db as unknown as Cache, new Date(now.getTime() + 1000)).get(key)).toEqual({ fares, expires: now.getTime() + 600_000 });
+    await first.put(`${key}?token=secret`, []);
+    await first.put("https://www.airbaltic.com/en/flight-deals/unverified", []);
+    expect(db.rows.size).toBe(1);
+  });
   it("serves exact-date calendars from shared data with no airline request", async () => {
     const db = storage();
     const shared = createPublicFareCache(db as unknown as Cache, now);

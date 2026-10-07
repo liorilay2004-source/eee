@@ -60,6 +60,7 @@ import { createTapPublishedSource } from "./sources/tap-published";
 import { createEthiopianPublishedSource } from "./sources/ethiopian-published";
 import { createAirEuropaPublishedSource } from "./sources/aireuropa-published";
 import { createPhilippinePublishedSource } from "./sources/philippine-published";
+import { createAirBalticPublishedSource } from "./sources/airbaltic-published";
 import { createAirNzPublishedSource } from "./sources/airnz-published";
 import { createVirginPublishedSource } from "./sources/virgin-published";
 import { createDirectCombinationSource } from "./sources/direct-combination";
@@ -251,6 +252,7 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
     env.PHILIPPINE_PUBLISHED_ENABLED === "true" ? createPhilippinePublishedSource(now, fetchFn, publicCache) : null,
     env.VIRGIN_PUBLISHED_ENABLED === "true" ? createVirginPublishedSource(now, fetchFn, publicCache) : null,
     env.AIRNZ_PUBLISHED_ENABLED === "true" ? createAirNzPublishedSource(now, fetchFn, publicCache) : null,
+    env.AIRBALTIC_PUBLISHED_ENABLED === "true" ? createAirBalticPublishedSource(now, fetchFn, publicCache) : null,
     ignav ? createIgnavSource({ ...shared, apiKey: ignav, marker }) : null,
     wego ? createWegoSource({ ...shared, apiKey: wego }) : null,
     searchApi ? createSearchApiSource({ ...shared, apiKey: searchApi, marker }) : null,

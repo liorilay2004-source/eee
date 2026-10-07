@@ -57,11 +57,11 @@ function NewTab() {
 
 /** Official airline links; a homepage is explicitly distinguished from a prefilled offer. */
 function publishedPriceLink(source: string, link: string | null): string | null {
-  const host = source === "air_canada" ? "www.aircanada.com" : source === "aegean" ? "flights.aegeanair.com" : source === "tap" ? "www.flytap.com" : source === "ethiopian" ? "www.ethiopianairlines.com" : source === "air_europa" ? "www.aireuropa.com" : source === "philippine" ? "flights.philippineairlines.com" : source === "virgin_atlantic" ? "flights.virginatlantic.com" : source === "air_new_zealand" ? "www.airnewzealand.com" : null;
+  const host = source === "air_canada" ? "www.aircanada.com" : source === "aegean" ? "flights.aegeanair.com" : source === "tap" ? "www.flytap.com" : source === "ethiopian" ? "www.ethiopianairlines.com" : source === "air_europa" ? "www.aireuropa.com" : source === "philippine" ? "flights.philippineairlines.com" : source === "virgin_atlantic" ? "flights.virginatlantic.com" : source === "air_new_zealand" ? "www.airnewzealand.com" : source === "air_baltic" ? "www.airbaltic.com" : null;
   if (!host || !link) return null;
   try {
     const url = new URL(link);
-    const pathAllowed = source === "tap" && url.pathname === "/en_il/flights-from-tel-aviv" ? true : source === "air_new_zealand" ? url.pathname === "/flights/en-us/flights-from-los-angeles" : source === "air_canada" && url.pathname === "/en-ca/flights-from-tel-aviv" ? true : source === "virgin_atlantic" ? url.pathname === "/en-il/flights-from-tel-aviv" : source === "philippine" ? url.pathname === "/en-ph/flights-from-manila-to-bangkok" : source === "air_europa" ? url.pathname === "/en-il/flight-deals-from-tel-aviv-to-spain" : source === "ethiopian" ? url.pathname === "/en-il/" : /^\/(en-ca|he|en|en_pt)\/flights-from-[a-z-]+-to-[a-z-]+$/.test(url.pathname);
+    const pathAllowed = source === "air_baltic" ? ["/en/flight-deals/flights-from-israel", "/en/flight-deals/flights-from-riga-to-tel-aviv"].includes(url.pathname) : source === "tap" && url.pathname === "/en_il/flights-from-tel-aviv" ? true : source === "air_new_zealand" ? url.pathname === "/flights/en-us/flights-from-los-angeles" : source === "air_canada" && url.pathname === "/en-ca/flights-from-tel-aviv" ? true : source === "virgin_atlantic" ? url.pathname === "/en-il/flights-from-tel-aviv" : source === "philippine" ? url.pathname === "/en-ph/flights-from-manila-to-bangkok" : source === "air_europa" ? url.pathname === "/en-il/flight-deals-from-tel-aviv-to-spain" : source === "ethiopian" ? url.pathname === "/en-il/" : /^\/(en-ca|he|en|en_pt)\/flights-from-[a-z-]+-to-[a-z-]+$/.test(url.pathname);
     if (url.protocol !== "https:" || url.hostname !== host || url.username || url.password || url.port || url.search || url.hash || !pathAllowed) return null;
     return url.href;
   } catch { return null; }
@@ -75,7 +75,7 @@ export function BookingActions({ card, demo, compact }: { card: CardView; demo?:
       { title: "הלוך", code: offer.outbound.airlines[0], link: offer.deeplink },
       { title: "חזור", code: offer.inbound.airlines[0], link: offer.returnDeeplink },
     ].map(d => {
-      const sourceByCarrier: Record<string, Offer["source"]> = { A3: "aegean", AC: "air_canada", TP: "tap", ET: "ethiopian", UX: "air_europa", PR: "philippine", VS: "virgin_atlantic", NZ: "air_new_zealand" };
+      const sourceByCarrier: Record<string, Offer["source"]> = { A3: "aegean", AC: "air_canada", TP: "tap", ET: "ethiopian", UX: "air_europa", PR: "philippine", VS: "virgin_atlantic", NZ: "air_new_zealand", BT: "air_baltic" };
       const source = sourceByCarrier[d.code ?? ""];
       return { ...d, url: source ? publishedPriceLink(source, d.link ?? null) : d.code === "FR" && d.link === "https://www.ryanair.com/" ? d.link : null };
     });
@@ -117,6 +117,7 @@ export function FlightDetailsCard({ card, request, originLabel, destinationLabel
     {offer.source === "direct_combination" && <p className="note note-warn">שילוב שני מחירי כיוון אחד שפורסמו באתרים הרשמיים, למבוגר אחד בלבד. יש לאמת כל כרטיס בנפרד; שינוי בכיוון אחד אינו מבטיח הגנה לכיוון השני.</p>}
     {offer.source === "air_canada" && <p className="note note-warn">מחיר שפורסם באתר Air Canada למבוגר אחד בתאריכים המוצגים. זמינות ומחיר סופי נבדקים באתר החברה.</p>}
     {offer.source === "tap" && <p className="note note-warn">מחיר שפורסם באתר TAP למבוגר אחד בתאריכים המוצגים. זמינות ומחיר סופי נבדקים באתר החברה.</p>}
+    {offer.source === "air_baltic" && <p className="note note-warn">מחיר שפורסם באתר airBaltic למבוגר אחד בתאריכים המוצגים. זמינות, מפעיל הטיסה ותנאי הכרטיס נבדקים באתר החברה.</p>}
     {offer.source === "air_new_zealand" && <p className="note note-warn">מחיר הלוך ושוב שפורסם באתר Air New Zealand למבוגר אחד בתאריכים המוצגים. זמינות, מפעיל הטיסה וחיובים נוספים נבדקים באתר החברה.</p>}
     {offer.source === "virgin_atlantic" && <p className="note note-warn">מחיר תיירים שפורסם באתר Virgin Atlantic למבוגר אחד בתאריכים המוצגים. ייתכנו טיסות שותפים; זמינות, המפעיל והמחיר הסופי נבדקים באתר החברה.</p>}
     {offer.source === "philippine" && <p className="note note-warn">מחיר שפורסם באתר Philippine Airlines למבוגר אחד. אינו כולל מס נסיעות פיליפיני למי שחייב בו. זמינות, חיובים והמחיר הסופי נבדקים באתר החברה.</p>}

@@ -94,6 +94,22 @@ describe("flight details and official airline handoff", () => {
     card.offer.deeplink += "?api_key=untrusted";
     expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("untrusted");
   });
+  it("shows the dated airBaltic fare, unknown baggage and the verified official page", () => {
+    const { card, request } = fixture();
+    card.offer.source = "air_baltic";
+    card.offer.deeplink = "https://www.airbaltic.com/en/flight-deals/flights-from-israel";
+    card.offer.outbound.airlines = card.offer.inbound.airlines = ["BT"];
+    card.offer.priceAmount = 298.55;
+    card.offer.priceCurrency = "EUR";
+    card.offer.tags = [];
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).toContain(card.offer.deeplink);
+    const details = renderToStaticMarkup(<FlightDetailsCard card={card} request={request} originLabel="תל אביב" destinationLabel="ריגה" />);
+    expect(details).toContain("298.55 EUR");
+    expect(details).toContain("מחיר שפורסם באתר airBaltic למבוגר אחד");
+    expect(details).toContain("תנאי המזוודה לא נמסרו במקור");
+    card.offer.deeplink = "https://www.airbaltic.com.evil.test/en/flight-deals/flights-from-israel";
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("evil.test");
+  });
   it("discloses excluded Philippine travel tax beside the advertised fare", () => {
     const { card, request } = fixture();
     card.offer.source = "philippine";
