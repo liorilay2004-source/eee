@@ -4,6 +4,8 @@ import {
   Share2, WifiOff, X,
 } from "lucide-react";
 import { Builder } from "../components/Builder";
+import { FlyFindDiscover, FlyFindHeader, FlyFindHero } from "../components/FlyFind";
+import "../flyfind.css";
 import { SiteFooter, SiteHeader } from "../components/Chrome";
 import { BoardingPass, CompactCard, PassSkeleton } from "../components/OfferCards";
 import { WatchPanel } from "../components/WatchPanel";
@@ -327,14 +329,17 @@ export function SearchPage() {
   const showBuilder = !hasSubmitted || editing || invalid;
   const stale = run.status === "done" && ((editing && editedAfterResults) || !sameRequest(toRequest(form), run.submitted.request));
   const formChanged = run.status === "done" && !sameRequest(toRequest(form), run.submitted.request);
+  const landing = run.status === "idle" && !demo;
 
   return <>
-    <div className={`app ${showBuilder ? "has-cta" : ""} ${showBuilder && editing && run.status === "done" ? "cta-tall" : ""}`} inert={openQuestion !== null}>
-      <SiteHeader current="/" />
+    <div className={`app ${landing ? "flyfind" : ""} ${showBuilder ? "has-cta" : ""} ${showBuilder && editing && run.status === "done" ? "cta-tall" : ""}`} inert={openQuestion !== null}>
+      {landing ? <FlyFindHeader /> : <SiteHeader current="/" />}
+      {landing && <FlyFindHero />}
       {!online && <p className="offline-bar" role="status"><WifiOff size={16} aria-hidden="true" />אין חיבור לאינטרנט כרגע.</p>}
       <main id="main" className="main">
         {showBuilder && prefilled && <p className="prefill-note" role="status"><Compass size={18} aria-hidden="true" /><span>{prefilled}</span></p>}
         {showBuilder && <Builder
+          flyFind={landing}
           form={form} patch={patch} today={today} errors={fieldErrors} rawErrors={rawErrors}
           openQuestion={openQuestion} setOpenQuestion={setOpenQuestion} onSubmit={submit}
           editing={editing && run.status === "done"} onCancelEdit={cancelEdit}
@@ -346,7 +351,7 @@ export function SearchPage() {
             <Info size={18} aria-hidden="true" /><span>{he.stale}.</span>
             {formChanged && <button type="button" className="btn btn-small" onClick={submit}>חפשו עם השינויים</button>}
           </div>}
-          {run.status === "idle" && (demo ? <DemoResults today={today} onClose={closeDemo} /> : <IdleIntro onDemo={showDemo} knownSources={knownSources} />)}
+          {run.status === "idle" && (demo ? <DemoResults today={today} onClose={closeDemo} /> : landing ? <FlyFindDiscover onDestination={(destination, destinationLabel) => { patch({ destination, destinationLabel }); setOpenQuestion("when"); }} /> : <IdleIntro onDemo={showDemo} knownSources={knownSources} />)}
           {run.status === "loading" && <Loading onCancel={cancelSearch} />}
           {run.status === "cancelled" && <StateCard icon={<X size={24} aria-hidden="true" />} title="החיפוש בוטל" body="אפשר לחפש שוב, או לשנות את פרטי החיפוש.">
             <button type="button" className="btn btn-primary" onClick={() => trySearch(run.submitted.form)}><RefreshCw size={18} aria-hidden="true" />חיפוש שוב</button>

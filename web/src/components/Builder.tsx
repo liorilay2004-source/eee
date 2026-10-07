@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
 import { ChevronDown, CircleAlert, Clock3, Compass, MapPinned, Search, SlidersHorizontal } from "lucide-react";
 import { Sheet } from "./Sheet";
+import { FlyFindFields, FlyFindTabs } from "./FlyFind";
 import { FromQuestion, PairHint, ToQuestion, WhenQuestion, StayQuestion, WhoQuestion, type Patch } from "./Questions";
 import {
   QUESTIONS, QUESTION_TITLES, placeLabel, rangeLabel, stayLabel, whenLabel, whoLabel,
@@ -9,6 +10,7 @@ import {
 import { hasHourPreferences, type SearchForm } from "../lib/search";
 
 interface Props {
+  flyFind?: boolean;
   form: SearchForm;
   patch: Patch;
   today: string;
@@ -114,7 +116,7 @@ function Chip({ q, value, empty, open, error, chipRef, onOpen }: {
   </button>;
 }
 
-export function Builder({ form, patch, today, errors, rawErrors, openQuestion, setOpenQuestion, onSubmit, editing, onCancelEdit }: Props) {
+export function Builder({ form, patch, today, errors, rawErrors, openQuestion, setOpenQuestion, onSubmit, editing, onCancelEdit, flyFind = false }: Props) {
   const refs = {
     from: useRef<HTMLButtonElement>(null),
     to: useRef<HTMLButtonElement>(null),
@@ -133,7 +135,7 @@ export function Builder({ form, patch, today, errors, rawErrors, openQuestion, s
   };
 
   const submit = (event: FormEvent) => { event.preventDefault(); onSubmit(); };
-  const chip = (q: Question) => <Chip q={q} {...values[q]} open={openQuestion === q} error={errors.byQuestion[q]} chipRef={refs[q]} onOpen={() => setOpenQuestion(q)} />;
+  const chip = (q: Question) => <Chip q={q} {...values[q]} open={openQuestion === q} error={errors.byQuestion[q]} chipRef={flyFind ? { current: null } : refs[q]} onOpen={() => setOpenQuestion(q)} />;
 
   const open = openQuestion;
   const nextQ = open ? QUESTIONS[QUESTIONS.indexOf(open) + 1] : undefined;
@@ -149,14 +151,16 @@ export function Builder({ form, patch, today, errors, rawErrors, openQuestion, s
 
   const errorEntries = QUESTIONS.filter((q) => errors.byQuestion[q]);
   return <form className="builder" onSubmit={submit} noValidate aria-labelledby="builder-title">
-    <div className="builder-head">
+    {flyFind && <FlyFindTabs />}
+    <div className="builder-head" hidden={flyFind}>
       <p className="kicker">חיפוש גמיש · שאלה אחת בכל פעם</p>
       <h1 id="builder-title">{editing ? "מה משנים?" : "לאן בא לכם לטוס?"}</h1>
       <p className="builder-sub">הקישו על כל חלק במשפט כדי לבחור. אנחנו נמצא את הצירוף הזול ביותר.</p>
       {!editing && <a className="explore-link" href="/explore"><Compass size={18} aria-hidden="true" /><span>לא יודע לאן? <strong>גלו יעדים זולים</strong></span></a>}
     </div>
 
-    <div className="sentence" role="group" aria-label="פרטי החיפוש">
+    {flyFind && <FlyFindFields form={form} open={setOpenQuestion} refs={refs} swap={() => patch({ origin: form.destination, originLabel: form.destinationLabel, destination: form.origin, destinationLabel: form.originLabel })} />}
+    <div className="sentence" role="group" aria-label="פרטי החיפוש" hidden={flyFind}>
       <span className="unit"><span className="w" aria-hidden="true">מ־</span>{chip("from")}</span>
       <span className="unit"><span className="w" aria-hidden="true">ל־</span>{chip("to")}</span>
       <span className="unit">{chip("when")}</span>
@@ -177,7 +181,7 @@ export function Builder({ form, patch, today, errors, rawErrors, openQuestion, s
     <Advanced form={form} patch={patch} rawErrors={rawErrors} />
 
     <div className="cta-bar">
-      <button type="submit" className="btn btn-cta"><Search size={22} aria-hidden="true" />מצאו לי את הזול ביותר</button>
+      <button type="submit" className="btn btn-cta"><Search size={22} aria-hidden="true" />{flyFind ? "חפש טיסות" : "מצאו לי את הזול ביותר"}</button>
       {editing && <button type="button" className="btn btn-ghost" onClick={onCancelEdit}>חזרה לתוצאות</button>}
     </div>
 

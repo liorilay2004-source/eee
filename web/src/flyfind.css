@@ -1,0 +1,99 @@
+.flyfind { color-scheme: light; background: #fbfcfe; color: #17223c; padding-bottom: 0; --ink: #17223c; --ink-2: #34415b; --muted: #667085; --line: #e1e6ee; --surface: #fff; --surface-2: #f3f7fc; --bg: #fbfcfe; --primary: #237ded; --accent: #237ded; --on-accent: white; --on-primary: white; }
+.fly-header { height: 68px; padding: 0 max(32px, calc((100vw - 1190px)/2)); display: flex; direction: ltr; align-items: center; gap: 54px; background: white; }
+.fly-logo { display: flex; align-items: center; gap: 10px; color: #2165b5; text-decoration: none; flex-shrink: 0; }
+.fly-logo > svg { width: 36px; height: 36px; color: #2681e9; transform: rotate(-8deg); }
+.fly-logo strong { font-size: 29px; font-weight: 800; line-height: 1; display: block; letter-spacing: -.8px; }
+.fly-logo small { display: block; font-size: 9px; color: #566278; margin-top: 2px; }
+.fly-header nav { display: flex; align-items: stretch; gap: 32px; height: 100%; flex: 1; justify-content: center; direction: ltr; white-space: nowrap; }
+.fly-header nav a { display: flex; align-items: center; font-size: 14px; text-decoration: none; position: relative; }
+.fly-header nav a[aria-current] { color: #237ded; font-weight: 700; }
+.fly-header nav a[aria-current]::after { content: ''; position: absolute; bottom: 12px; left: 0; right: 0; height: 2px; background: #237ded; }
+.fly-header-actions { display: flex; align-items: center; gap: 24px; font-size: 14px; }
+.fly-header-actions > span, .fly-login { display: flex; align-items: center; gap: 8px; }
+.fly-login { border: 1px solid #e0e3e9; border-radius: 30px; padding: 9px 14px; white-space: nowrap; text-decoration: none; }
+.fly-hero { height: 365px; background: linear-gradient(90deg,rgba(7,43,86,.18),rgba(10,25,55,.05)), url('/images/santorini.jpg') center 49%/cover; text-align: center; color: white; }
+.fly-hero > div { padding-top: 57px; text-shadow: 0 2px 10px #132d5750; }
+.fly-hero h1 { color: white; font-size: clamp(42px,5.2vw,68px); font-weight: 800; line-height: 1.18; margin: 0; letter-spacing: -1.5px; }
+.fly-hero p { font-size: 25px; margin: 4px 0 0; }
+.flyfind .main { width: min(1174px, calc(100% - 64px)); margin-top: -132px; position: relative; }
+.flyfind .builder { position: relative; background: white; border: 0; border-radius: 10px; box-shadow: 0 7px 25px #1426410b; padding: 36px 21px 21px; margin: 0; }
+.flyfind .builder-head[hidden], .flyfind .sentence[hidden] { display: none; }
+.fly-tabs { position: absolute; top: -39px; height: 58px; width: 850px; max-width: calc(100% - 80px); left: 50%; transform: translateX(-50%); background: white; display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; padding: 11px 54px 5px; direction: ltr; border-radius: 12px 12px 0 0; }
+.fly-tabs > * { height: 43px; border-radius: 8px; background: #f7f9fc; display: flex; align-items: center; justify-content: center; gap: 14px; direction: rtl; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.fly-tabs svg { width: 23px; height: 23px; }
+.fly-tabs .selected { background: linear-gradient(110deg,#0063ee,#388dee); color: white; }
+.fly-trip-type { display: flex; direction: ltr; align-items: center; gap: 32px; margin: 5px 5px 15px; font-size: 14px; }
+.fly-trip-type > * { display: flex; flex-direction: row-reverse; align-items: center; gap: 8px; text-decoration: none; }
+.fly-trip-type i { border: 1.5px solid #929baa; width: 18px; height: 18px; border-radius: 50%; }
+.fly-trip-type > span i { background: #237ded; box-shadow: inset 0 0 0 3px white; border-color: #8fbcec; }
+.fly-fields { display: grid; grid-template-columns: 1.8fr 1.4fr .94fr; gap: 12px; direction: ltr; }
+.fly-route, .fly-dates, .fly-passengers { border: 1px solid #dde0e6; border-radius: 8px; height: 60px; display: flex; position: relative; min-width: 0; background: #fff; }
+.fly-fields button { cursor: pointer; text-align: right; direction: ltr; display: flex; align-items: center; gap: 14px; padding: 9px 13px; min-width: 0; flex: 1; }
+.fly-fields button:hover { background: #f3f8ff; }
+.fly-fields button span { direction: rtl; display: flex; flex-direction: column; text-align: right; min-width: 0; }
+.fly-fields small { color: #7a8190; font-size: 12px; line-height: 1.25; }
+.fly-fields strong { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fly-fields svg { width: 21px; color: #687084; flex-shrink: 0; }
+.fly-route > button, .fly-dates > button { width: 50%; }
+.fly-dates > button + button { position: relative; }
+.fly-dates > button + button::before { content: ''; position: absolute; left: 0; height: 40px; width: 1px; background: #dde0e6; }
+.fly-route .fly-swap { position: absolute; left: 50%; transform: translateX(-50%); top: 9px; width: 38px; height: 38px; border: 1px solid #d6dce7; border-radius: 50%; background: white; padding: 8px; z-index: 1; }
+.fly-passengers > svg:last-child { margin-left: auto; }
+.flyfind .advanced { margin-top: 0; position: relative; padding-top: 0; border-top: 0; }
+.flyfind .adv-toggle { position: absolute; right: 0; top: 18px; width: auto; font-size: 12px; padding: 0; min-height: 32px; gap: 6px; color: #667085; }
+.flyfind .adv-panel:not([hidden]) { margin-top: 16px; padding-top: 48px; }
+.flyfind .cta-bar { position: static; width: 76.8%; padding: 0; margin: 10px auto 0 0; background: none; z-index: auto; }
+.flyfind .btn-cta { height: 50px; min-height: 50px; border-radius: 7px; background: #237ded; color: white; box-shadow: none; font-size: 18px; font-weight: 600; }
+.flyfind .cta-bar .btn-cta { width: 100%; min-width: 0; }
+.flyfind .builder-range { font-size: 12px; margin-top: 8px; }
+.flyfind .results { margin-top: 0; }
+.fly-benefits { display: flex; direction: ltr; justify-content: space-between; margin: 26px 40px 35px; gap: 20px; }
+.fly-benefits > div { display: flex; align-items: center; gap: 18px; }
+.fly-benefits svg { color: #2580e8; flex-shrink: 0; }
+.fly-benefits span { direction: rtl; text-align: right; }
+.fly-benefits strong { display: block; font-size: 14px; }
+.fly-benefits small { display: block; color: #697180; font-size: 14px; }
+.fly-section-heading { display: flex; direction: ltr; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.fly-section-heading h2 { font-size: 29px; font-weight: 800; margin: 0; }
+.fly-section-heading a { display: flex; gap: 14px; }
+.fly-section-heading svg { border: 1px solid #dfe3ea; border-radius: 50%; width: 36px; height: 36px; padding: 7px; }
+.fly-section-heading svg:first-child { opacity: .35; }
+.fly-destination-grid { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 14px; direction: ltr; }
+.fly-destination-grid button { padding: 0; overflow: hidden; border: 1px solid #e7e9ee; background: white; border-radius: 9px; box-shadow: 0 3px 5px #1c314313; text-align: left; cursor: pointer; transition: transform .2s; }
+.fly-destination-grid button:hover { transform: translateY(-4px); }
+.fly-destination-grid img { width: 100%; height: 109px; object-fit: cover; }
+.fly-destination-grid button > div { position: relative; padding: 9px 15px 10px; }
+.fly-destination-grid strong { display: block; font-size: 15px; }
+.fly-destination-grid small { display: block; color: #88909e; font-size: 11px; margin-top: 2px; }
+.fly-destination-grid span { display: block; color: #1c5fab; font-size: 14px; font-weight: 700; }
+.fly-destination-grid i { position: absolute; right: 10px; bottom: 17px; border: 1px solid #c9d8ee; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: #237ded; }
+.fly-newsletter { height: 174px; border-radius: 8px; margin-top: 27px; background: linear-gradient(90deg,#b8def36b,transparent),url('/images/beach.jpg') center 56%/cover; display: flex; direction: ltr; align-items: center; position: relative; overflow: hidden; }
+.fly-newsletter > div { width: 54%; text-align: center; padding: 10px 30px; direction: rtl; }
+.fly-newsletter h2 { font-size: 23px; margin: 0; font-weight: 800; }
+.fly-newsletter p:not(.fly-handwriting) { margin: 1px 0 10px; font-size: 15px; }
+.fly-newsletter a { display: flex; direction: rtl; gap: 9px; text-decoration: none; }
+.fly-newsletter a > span:first-child { background: white; color: #7a8494; flex: 1; padding: 9px 12px; border-radius: 5px; text-align: right; font-size: 14px; }
+.fly-signup { background: #0768ed; color: white; padding: 9px 25px; border-radius: 5px; font-size: 14px; }
+.fly-newsletter small { display: flex; justify-content: center; gap: 6px; font-size: 11px; color: #546579; margin-top: 7px; }
+.fly-handwriting { font-family: cursive; font-style: italic; font-size: 23px; line-height: 1.2; transform: rotate(-13deg); text-align: center; margin-left: 6%; }
+.fly-banner-plane { position: absolute; right: 5%; top: 26px; color: white; transform: rotate(-15deg); }
+.fly-bottom-links { display: flex; justify-content: space-between; direction: ltr; margin: 32px 0 28px; }
+.fly-bottom-links a { display: flex; align-items: center; justify-content: center; gap: 18px; flex: 1; font-size: 14px; color: #596174; text-decoration: none; border-right: 1px solid #edf0f4; }
+.fly-bottom-links a:last-child { border: 0; }
+.fly-bottom-links svg { color: #2580e8; }
+.flyfind .site-footer { margin-top: 0; }
+@media (min-width: 1500px) { .fly-hero { height: 400px; } .flyfind .main { margin-top: -132px; } }
+@media (max-width: 1100px) { .fly-header { gap: 25px; padding: 0 24px; } .fly-header nav { gap: 18px; } .fly-header-actions { gap: 14px; } .fly-login { display: none; } .fly-benefits { margin-inline: 0; gap: 14px; } .fly-benefits > div { gap: 10px; } .fly-benefits strong,.fly-benefits small { font-size: 12px; } }
+@media (max-width: 760px) {
+ .fly-header { height: 68px; padding: 0 20px; justify-content: space-between; } .fly-header nav { display: none; } .fly-logo strong { font-size: 26px; } .fly-header-actions { gap: 18px; }
+ .fly-hero { height: 310px; } .fly-hero > div { padding: 38px 16px; } .fly-hero h1 { font-size: 43px; } .fly-hero p { font-size: 18px; }
+ .flyfind .main { width: calc(100% - 28px); margin-top: -112px; } .flyfind .builder { padding: 27px 14px 16px; } .fly-tabs { max-width: calc(100% - 28px); padding: 8px 8px 4px; gap: 4px; height: 52px; top: -35px; } .fly-tabs > * { gap: 5px; font-size: 11px; height: 38px; } .fly-tabs svg { width: 18px; }
+ .fly-trip-type { gap: 16px; font-size: 12px; margin-bottom: 13px; } .fly-trip-type i { width: 15px; height: 15px; }
+ .fly-fields { grid-template-columns: 1fr; gap: 9px; } .fly-route, .fly-dates, .fly-passengers { height: 60px; } .fly-fields strong { font-size: 14px; }
+ .flyfind .cta-bar { width: 100%; margin-top: 45px; } .flyfind .adv-toggle { left: 0; right: auto; top: 7px; } .flyfind .btn-cta { height: 48px; }
+ .fly-benefits { display: grid; grid-template-columns: repeat(2,1fr); margin: 23px 4px 28px; gap: 20px 8px; } .fly-benefits svg { width: 27px; }
+ .fly-section-heading h2 { font-size: 24px; } .fly-section-heading svg { width: 30px; height: 30px; padding: 5px; } .fly-destination-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; } .fly-destination-grid img { height: 110px; }
+ .fly-newsletter { height: 220px; background-position: 65% center; } .fly-newsletter > div { width: 100%; padding: 20px; background: #eaf6ffd9; } .fly-newsletter h2 { font-size: 23px; } .fly-newsletter p:not(.fly-handwriting) { font-size: 13px; } .fly-handwriting, .fly-banner-plane { display: none; } .fly-signup { padding-inline: 12px; }
+ .fly-bottom-links { flex-wrap: wrap; gap: 22px 0; } .fly-bottom-links a { flex: 1 1 50%; font-size: 12px; gap: 10px; } .fly-bottom-links a:last-child { flex-basis: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { .fly-destination-grid button { transition: none; } }
