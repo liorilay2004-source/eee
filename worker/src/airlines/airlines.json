@@ -6,7 +6,8 @@
     "IATA codes: the infobox of each carrier's English Wikipedia article.",
     "nameHe with heSource 'hewiki': the title of the carrier's Hebrew Wikipedia article (interlanguage link), with disambiguation parentheses removed. heSource 'transliteration': no Hebrew article exists, the name is a plain Hebrew transliteration of the brand.",
     "lowCost: true only when the carrier is listed in English Wikipedia 'List of low-cost airlines' (revision of 2026-09-29). Everything else is false, which means 'not listed there', not a statement about the fares of a given ticket.",
-    "Sundor (El Al's leisure brand) sells under LY and has no own IATA code, so it is covered by the LY row."
+    "Sundor (El Al's leisure brand) sells under LY and has no own IATA code, so it is covered by the LY row.",
+    "NZ added for the Air New Zealand official published-fare adapter on 2026-10-08: code/English brand from the bundled OpenFlights airline reference; verified official fare page https://www.airnewzealand.com/flights/en-us/flights-from-los-angeles. Hebrew brand is a transliteration."
   ],
   "airlines": [
     {"iata": "2S", "nameEn": "Southwind Airlines", "nameHe": "סאות'ווינד", "lowCost": false, "heSource": "transliteration"},
@@ -72,6 +73,7 @@
     {"iata": "MS", "nameEn": "EgyptAir", "nameHe": "איג'יפטאייר", "lowCost": false, "heSource": "hewiki"},
     {"iata": "MW", "nameEn": "Malta Air", "nameHe": "מלטה אייר", "lowCost": true, "heSource": "transliteration"},
     {"iata": "NO", "nameEn": "Neos", "nameHe": "נאוס", "lowCost": true, "heSource": "hewiki"},
+    {"iata": "NZ", "nameEn": "Air New Zealand", "nameHe": "אייר ניו זילנד", "lowCost": false, "heSource": "transliteration"},
     {"iata": "OS", "nameEn": "Austrian Airlines", "nameHe": "אוסטריאן איירליינס", "lowCost": false, "heSource": "hewiki"},
     {"iata": "OU", "nameEn": "Croatia Airlines", "nameHe": "קרואטיה איירליינס", "lowCost": false, "heSource": "hewiki"},
     {"iata": "PC", "nameEn": "Pegasus Airlines", "nameHe": "פגאסוס איירליינס", "lowCost": true, "heSource": "hewiki"},

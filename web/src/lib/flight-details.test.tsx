@@ -60,10 +60,13 @@ describe("flight details and official airline handoff", () => {
     card.offer.deeplink = "https://www.airnewzealand.com/flights/en-us/flights-from-los-angeles";
     card.offer.priceAmount = 911.53;
     card.offer.priceCurrency = "USD";
+    card.offer.tags = ["published_advertisement"];
     card.offer.outbound.airlines = card.offer.inbound.airlines = ["NZ"];
     expect(renderToStaticMarkup(<BookingActions card={card} />)).toContain('href="https://www.airnewzealand.com/flights/en-us/flights-from-los-angeles"');
     const details = renderToStaticMarkup(<FlightDetailsCard card={card} request={request} originLabel="לוס אנג׳לס" destinationLabel="אוקלנד" />);
     expect(details).toContain("911.53 USD");
+    expect(details).toContain("תנאי המזוודה לא נמסרו במקור");
+    expect(details).not.toContain("המחיר בלי מזוודה נגררת");
     expect(details).toContain("מחיר הלוך ושוב שפורסם באתר Air New Zealand למבוגר אחד");
     card.offer.deeplink = "https://www.airnewzealand.com.evil.test/flights/en-us/flights-from-los-angeles";
     expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("evil.test");
