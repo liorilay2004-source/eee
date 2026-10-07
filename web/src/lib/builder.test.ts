@@ -231,7 +231,8 @@ describe("results helpers", () => {
     expect(copy.body).toContain("מכסה מתחדשת בחצות UTC");
     expect(copy.body).toContain("התאריכים שבחרתם נשמרו ללא שינוי");
     expect(copy.body).not.toContain("כמה דקות");
-    expect(sourceNote(sources[1].error!).text).toContain("מכסת");
+    expect(sourceNote(sources[1].error!).text).toContain("המכסה היומית");
+    expect(copy.body).toContain("או שלא ניתן לבדוק אותה כרגע");
   });
 
   it("does not claim absent flights or blame unavailable sources for an empty result", () => {
