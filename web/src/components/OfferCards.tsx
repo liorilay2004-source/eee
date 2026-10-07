@@ -57,11 +57,11 @@ function NewTab() {
 
 /** Official airline links; a homepage is explicitly distinguished from a prefilled offer. */
 function publishedPriceLink(source: string, link: string | null): string | null {
-  const host = source === "air_canada" ? "www.aircanada.com" : source === "aegean" ? "flights.aegeanair.com" : null;
+  const host = source === "air_canada" ? "www.aircanada.com" : source === "aegean" ? "flights.aegeanair.com" : source === "tap" ? "www.flytap.com" : null;
   if (!host || !link) return null;
   try {
     const url = new URL(link);
-    if (url.protocol !== "https:" || url.hostname !== host || url.username || url.password || url.port || url.search || url.hash || !/^\/(en-ca|he)\/flights-from-[a-z-]+-to-[a-z-]+$/.test(url.pathname)) return null;
+    if (url.protocol !== "https:" || url.hostname !== host || url.username || url.password || url.port || url.search || url.hash || !/^\/(en-ca|he|en_pt)\/flights-from-[a-z-]+-to-[a-z-]+$/.test(url.pathname)) return null;
     return url.href;
   } catch { return null; }
 }
@@ -100,6 +100,7 @@ export function FlightDetailsCard({ card, request, originLabel, destinationLabel
     {offer.source === "ryanair" && <p className="note note-warn">מחיר מלוח המחירים הרשמי של Ryanair למבוגר אחד. יש לבדוק זמינות ומחיר סופי באתר החברה.</p>}
     {offer.source === "aegean" && <p className="note note-warn">מחיר שפורסם באתר Aegean למבוגר אחד בתאריכים המוצגים. זמינות ומחיר סופי נבדקים באתר החברה.</p>}
     {offer.source === "air_canada" && <p className="note note-warn">מחיר שפורסם באתר Air Canada למבוגר אחד בתאריכים המוצגים. זמינות ומחיר סופי נבדקים באתר החברה.</p>}
+    {offer.source === "tap" && <p className="note note-warn">מחיר שפורסם באתר TAP למבוגר אחד בתאריכים המוצגים. זמינות ומחיר סופי נבדקים באתר החברה.</p>}
     {isSuspicious(card) && <p className="note note-warn">{SUSPICIOUS_TEXT}</p>}
     <p className="flight-details-freshness">{freshnessLine(card)}</p>
     <BookingActions card={card} />

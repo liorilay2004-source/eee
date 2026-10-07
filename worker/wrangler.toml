@@ -19,6 +19,7 @@ ALLOWED_ORIGIN = "https://eee-web-bly.pages.dev"
 RYANAIR_DIRECT_ENABLED = "true"
 AEGEAN_PUBLISHED_ENABLED = "true"
 AIRCANADA_PUBLISHED_ENABLED = "true"
+TAP_PUBLISHED_ENABLED = "true"
 
 # Created in the owner's Cloudflare account on 2026-09-29 (not a secret: it only identifies the database).
 [[d1_databases]]

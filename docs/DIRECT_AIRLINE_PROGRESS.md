@@ -94,3 +94,18 @@ unknown, rather than being inferred from the route's usual schedule.
 Every other airline still needs independently verified collection and deployed
 integration. Official links and source-registry entries alone are not price coverage.
 The goal of all-airline collection and fast cheapest-price comparisons is not complete.
+
+## TAP public route-page data
+
+Verified October 7 from https://www.flytap.com/en_pt/flights-from-tel-aviv-to-lisbon.
+The page embeds five distinct future cash economy round trips for TLV–LIS.
+June 16–20 2027 is EUR 434.69; August 1–14 is EUR 396.45. The page also embeds
+executive fares over EUR 2,500, which are excluded. Economy casing varies within
+the page and is normalized before filtering. Only exact route/date matches for
+one adult qualify; missing times and stops stay unknown.
+
+`published-source.ts` now supplies shared bounded page collection, per-request
+pending work, ten-minute parsed-data caching and exact-date matching for Aegean,
+Air Canada and TAP. Each wrapper contains only independently verified page URLs.
+El Al's New York route-page request returned a browser access challenge rather
+than flight data; no challenge was bypassed and no El Al prices were claimed.

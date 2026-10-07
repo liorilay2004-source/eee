@@ -10,7 +10,7 @@
  */
 
 export type TicketStructure = "roundtrip" | "split";
-export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "ryanair" | "aegean" | "air_canada";
+export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "ryanair" | "aegean" | "air_canada" | "tap";
 export type Cabin = "economy" | "premium-economy" | "business" | "first";
 export type RecKind = "cheapest" | "best_value" | "my_times";
 
@@ -579,6 +579,7 @@ export interface Env {
   RYANAIR_DIRECT_ENABLED?: string;
   AEGEAN_PUBLISHED_ENABLED?: string;
   AIRCANADA_PUBLISHED_ENABLED?: string;
+  TAP_PUBLISHED_ENABLED?: string;
   HASDATA_API_KEY?: string;
   /**
    * ADDITIVE (price alerts, src/telegram.ts): the free Telegram Bot API. All three must be set or the alert channel is disabled:

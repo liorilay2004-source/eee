@@ -759,7 +759,7 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
     tpStatus.error = hit.notes && hit.notes.length > 0 ? hit.notes.join("; ") : null;
     tpStatus.coverage = coverageFromNotes(hit.notes);
     tpStatus.truncated = (tpStatus.coverage?.skippedRequests ?? 0) > 0;
-    carriedQuotes = sanitizeOffers(hit.quotes, QUOTE_SOURCE_NAMES).filter((o) => (o.ticketStructure === "roundtrip" || o.source === "ryanair" || o.source === "aegean") && (!isPublishedSource(o.source) || pax === 1 && req.adults === 1) && ageHours(o.checkedAt, now) <= QUOTE_MAX_AGE_HOURS);
+    carriedQuotes = sanitizeOffers(hit.quotes, QUOTE_SOURCE_NAMES).filter((o) => (o.ticketStructure === "roundtrip" || isPublishedSource(o.source)) && (!isPublishedSource(o.source) || pax === 1 && req.adults === 1) && ageHours(o.checkedAt, now) <= QUOTE_MAX_AGE_HOURS);
     // Started now, awaited at the end: the lock and budget reads run while this request ranks the stale fares.
     if (isStale) revalidation = startRevalidation(deps, req, searchKey, pairs, fx, carriedQuotes);
   } else {
