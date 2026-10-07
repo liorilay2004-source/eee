@@ -862,7 +862,7 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
     return work;
   };
 
-  if (live.length + fromDb.length === 0 && tpUnavailable && !(deps.quoteSources ?? []).some((s) => s.configured)) {
+  if (live.length + fromDb.length === 0 && tpUnavailable && !(deps.quoteSources ?? []).some((s) => s.configured && s.name === "ryanair")) {
     await write(persist(wholeJob()));
     throw new PipelineError("source_unavailable", "No fare source is available right now", {
       reason: tpStatus.reason ?? "upstream_down",
@@ -899,7 +899,7 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   const quoters = (deps.quoteSources ?? []).filter((s) => s.configured);
   const primary = pairs[0];
   const emptyCachedAnswer = fromCache && working.length === 0 && carriedQuotes.length === 0;
-  const canAskQuotes = quoters.length > 0 && primary && (scanComplete || emptyCachedAnswer || tpUnavailable);
+  const canAskQuotes = quoters.length > 0 && primary && (scanComplete || emptyCachedAnswer || tpUnavailable && quoters.some((s) => s.name === "ryanair"));
   const cachedDates = scanComplete && canAskQuotes && primary ? pickQuotePairs(working, primary) : [];
   const dates = canAskQuotes ? (cachedDates.length > 0 ? cachedDates : fallbackQuotePairs(req)) : [];
   let scanStored: Promise<void> | null = null; // the scan's own write, when it was made before the quote phase
@@ -913,7 +913,7 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
     await write(scanStored);
     // A vendor whose stored quote for a pair is still live (step 6) is not asked for that pair again: the pair is already confirmed.
     const covered = new Set(fromDb.filter((o) => isQuoteSource(o.source)).map((o) => coverKey(o.source, o.origin, o.destination, o.departDate, o.returnDate)));
-    const run = await attempt(() => runQuotes(quoters, primary, dates, party, covered));
+    const run = await attempt(() => runQuotes(tpUnavailable ? quoters.filter((s) => s.name === "ryanair") : quoters, primary, dates, party, covered));
     if (run) {
       quoteStats = run.stats;
       const raw = run.offers.filter((o) => pairOk(req, o.departDate, o.returnDate)).map((o) => scaledCopy(o, pax)); // per adult -> party, like every raw fare

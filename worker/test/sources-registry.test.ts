@@ -126,6 +126,11 @@ describe("source registry", () => {
   it("does not pretend planned airlines are live price adapters", () => {
     for (const source of SOURCE_REGISTRY) {
       if (source.kind !== "airline") continue;
+      if (source.id === "ryanair") {
+        expect(source.status).toBe("active");
+        expect(source.capabilities.livePrice).toBe(true);
+        continue;
+      }
       expect(source.status === "active" || source.status === "api", source.id).toBe(false);
       expect(source.capabilities.livePrice, source.id).toBe(false);
       expect(source.capabilities.cachedPrice, source.id).toBe(false);

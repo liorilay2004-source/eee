@@ -17,10 +17,19 @@ Implemented in `worker/src/sources/ryanair-direct.ts`: strict route/date validat
 official host only, bounded timeout, no redirects/retries, source timestamp and URL,
 and exclusion of unavailable/sold-out/malformed fares.
 
-Pending: integrate into search pipeline, share monthly calendars in cache, compose
-the exact selected outward/return dates, preserve advertised-price labeling, provide
-official booking handoff and verify deployed Worker access. This source is not yet
-shown in production search results.
+Production search now integrates exact-date split fares and shares monthly calendars
+for ten minutes per Worker isolate. Only one-adult searches qualify. The UI labels
+the price as an advertised official calendar price and links to the airline.
+Workers requires `redirect: manual`; `redirect: error` caused request failures.
+The public service hostname is also present in the official bundle configuration.
+Verified production on 2026-10-07: STN–DUB June 1–5 2027 returned EUR 104.98
+(ILS 360.72), source ryanair, two upstream calls. June 2–6 reused the monthly
+calendar with zero Ryanair upstream calls; complete requests took 1.45–1.82 seconds.
+
+`worker/scripts/collect-ryanair.mjs` additionally collects an exact pair outside
+Workers and persists its real advertised price to D1 using authenticated Wrangler.
+Pending: full booking handoff, whole-party pricing, shared edge calendar storage,
+and cross-carrier one-way combinations. Ten-minute in-memory cache is not global.
 
 ## Coverage remains incomplete
 

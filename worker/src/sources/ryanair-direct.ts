@@ -39,8 +39,8 @@ export function createRyanairDirectSource(now: Date, fetchFn: typeof fetch = fet
     const value = fetchRyanairCalendar(origin, destination, month, now, fetchFn).then((fares) => {
       calendars.set(key, { expires: now.getTime() + 10 * 60_000, value: fares });
       return fares;
-    }).catch(() => {
-      throw new QuoteError("network");
+    }).catch((error) => {
+      throw error instanceof QuoteError ? error : new QuoteError("network");
     }).finally(() => inFlight.delete(key));
     inFlight.set(key, value);
     return value;
@@ -75,7 +75,8 @@ const localTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
 
 export function ryanairCalendarUrl(origin: string, destination: string, month: string): string {
   if (!airport.test(origin) || !airport.test(destination) || !monthPattern.test(month) || origin === destination) throw new Error("Invalid route or month");
-  return `https://www.ryanair.com/api/farfnd/v4/oneWayFares/${origin}/${destination}/cheapestPerDay?outboundMonthOfDate=${month}-01&currency=EUR`;
+  // CORE_API_AWS_OLD in the official bundle names this same public service host.
+  return `https://services-api.ryanair.com/farfnd/v4/oneWayFares/${origin}/${destination}/cheapestPerDay?outboundMonthOfDate=${month}-01&currency=EUR`;
 }
 
 export function parseRyanairCalendar(body: unknown, origin: string, destination: string, month: string, now: Date): DirectFare[] {
@@ -98,10 +99,11 @@ export function parseRyanairCalendar(body: unknown, origin: string, destination:
 /** Fixed official host, no credentials, redirects or unbounded retries. */
 export async function fetchRyanairCalendar(origin: string, destination: string, month: string, now: Date, fetchFn: typeof fetch = fetch): Promise<DirectFare[]> {
   const response = await fetchFn(ryanairCalendarUrl(origin, destination, month), {
-    headers: { Accept: "application/json" }, redirect: "error", signal: AbortSignal.timeout(8_000),
+    headers: { Accept: "application/json" }, redirect: "manual", signal: AbortSignal.timeout(8_000),
   });
-  if (!response.ok) throw new Error(`Ryanair HTTP ${response.status}`);
+  if (!response.ok) throw new QuoteError("http", response.status);
   const text = await response.text();
-  if (text.length > 100_000) throw new Error("Fare calendar too large");
-  return parseRyanairCalendar(JSON.parse(text), origin, destination, month, now);
+  if (text.length > 100_000) throw new QuoteError("response");
+  try { return parseRyanairCalendar(JSON.parse(text), origin, destination, month, now); }
+  catch { throw new QuoteError("response"); }
 }

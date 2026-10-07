@@ -42,7 +42,7 @@ describe("official Ryanair fare calendar", () => {
   });
   it("fetches once and never follows redirects", async () => {
     let calls = 0;
-    const fetchFn = (async (_url, init) => { calls++; expect(init?.redirect).toBe("error"); return new Response(JSON.stringify({ outbound: { fares: [row] } })); }) as typeof fetch;
+    const fetchFn = (async (_url, init) => { calls++; expect(init?.redirect).toBe("manual"); return new Response(JSON.stringify({ outbound: { fares: [row] } })); }) as typeof fetch;
     expect(await fetchRyanairCalendar("STN", "DUB", "2027-06", now, fetchFn)).toHaveLength(1);
     expect(calls).toBe(1);
   });

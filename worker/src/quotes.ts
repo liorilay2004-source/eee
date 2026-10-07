@@ -684,7 +684,7 @@ export function quoteStatus(source: FareQuoteSource, stat: QuoteStat | undefined
   return {
     name: source.name,
     enabled: true,
-    ok: quoteOk(stat), // a source that was refused before any request did not work
+    ok: source.name === "ryanair" && stat.succeeded > 0 && stat.failures.length === 0 || quoteOk(stat), // direct calendar cache hits succeed without a network call
     calls: stat.calls,
     offers: stat.offers,
     error: notes.length > 0 ? notes.join("; ") : null,
