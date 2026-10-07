@@ -177,6 +177,7 @@ export function ExplorePage() {
                   ? <>{preview.summary && <span><Sparkles size={16} aria-hidden="true" />הבנו: <strong>{preview.summary}</strong></span>}
                     {preview.message && <small>{preview.message}</small>}</>
                   : <small>למשל: ״4 לילות בנובמבר״, ״סופ״ש בחודש הבא״, ״שבועיים בדצמבר״.</small>}
+                {(input.month || input.nights) && <small>הבחירות בשדות גוברות על הטקסט: {input.month ? months.find(m => m.key === input.month)?.label : "החודש לפי הטקסט"} · {input.nights ? EXPLORE_NIGHTS.find(n => n.value === input.nights)?.label : "משך החופשה לפי הטקסט"}.</small>}
               </p>
               {fieldError("text") && <p className="q-error" id="xf-text-error"><Info size={16} aria-hidden="true" />{fieldError("text")}</p>}
             </div>
