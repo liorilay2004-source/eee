@@ -584,7 +584,7 @@ describe("GET /api/calendar: budget, limits and failures", () => {
     const { res, data } = await cal(makeEnv(), `${Q}&months=3`);
     expect(res.status).toBe(200);
     expect(data.meta.months.map((m) => m.status)).toEqual(["fresh", "failed", "failed"]);
-    expect(data.meta.upstreamCalls).toBe(3);
+    expect(data.meta.upstreamCalls).toBe(5); // the December 5xx uses two bounded retries
     expect(data.days.filter((d) => !d.known).map((d) => d.date.slice(0, 7))).toEqual([...Array(31).fill("2026-12"), ...Array(31).fill("2027-01")]);
   });
 

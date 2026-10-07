@@ -47,7 +47,16 @@ function makeFetch(handler: Handler = tpHandler) {
   return { fn: fn as unknown as typeof fetch, mock: fn, calls };
 }
 
-function setup(handler: Handler = tpHandler, opts: { token?: string; marker?: string; marketFor?: (o: string) => string | null } = {}) {
+function setup(
+  handler: Handler = tpHandler,
+  opts: {
+    token?: string;
+    marker?: string;
+    marketFor?: (o: string) => string | null;
+    sleepFn?: (ms: number) => Promise<void>;
+    randomFn?: () => number;
+  } = {},
+) {
   const f = makeFetch(handler);
   const client = createTravelpayoutsClient({ token: TOKEN, marker: MARKER, marketFor: () => "il", ...opts, fetchFn: f.fn });
   return { client, ...f };
@@ -287,11 +296,11 @@ describe("requests: token, market, parameters", () => {
     expect(calls[0]!.params.has("market")).toBe(false);
   });
 
-  it("gives every request a 15s abort signal", async () => {
+  it("gives every request a 12s abort signal", async () => {
     const timeout = vi.spyOn(AbortSignal, "timeout");
     const { client, calls } = setup();
     await client.roundTrips("TLV", "BCN", ...NOV);
-    expect(timeout).toHaveBeenCalledWith(15000);
+    expect(timeout).toHaveBeenCalledWith(12000);
     expect(calls[0]!.init.signal).toBeInstanceOf(AbortSignal);
     expect(calls[0]!.init.signal!.aborted).toBe(false);
   });
@@ -363,13 +372,22 @@ describe("month scanning", () => {
     expect(client.callCount()).toBe(3);
   });
 
-  it("stops at the first failing call (no wasted requests) and still counts what was issued", async () => {
+  it("retries a transient 5xx and counts every HTTP attempt", async () => {
     let n = 0;
-    const { client, calls } = setup(() => (++n === 2 ? json({ error: "boom" }, 500) : json(roundtripFixture)));
-    const e = await rejection(client.roundTrips("TLV", "BCN", "2026-10-20", "2026-12-05"));
-    expect(e.status).toBe(500);
-    expect(calls).toHaveLength(2);
-    expect(client.callCount()).toBe(2);
+    const { client, calls } = setup(() => (++n === 2 ? json({ error: "boom" }, 500) : json(roundtripFixture)), { sleepFn: async () => undefined, randomFn: () => 0 });
+    expect(await client.roundTrips("TLV", "BCN", "2026-10-20", "2026-12-05")).toHaveLength(3);
+    expect(calls).toHaveLength(7); // six planned month pairs plus one retry
+    expect(client.callCount()).toBe(7);
+  });
+
+  it("uses exponential backoff with bounded jitter", async () => {
+    const waits: number[] = [];
+    const { client } = setup(() => json({ error: "temporarily unavailable" }, 503), {
+      sleepFn: async (ms) => { waits.push(ms); },
+      randomFn: () => 0.5,
+    });
+    await rejection(client.roundTrips("TLV", "BCN", ...NOV));
+    expect(waits).toEqual([75, 150]);
   });
 });
 
@@ -447,12 +465,20 @@ describe("one-way fares", () => {
 
 describe("errors never leak the token", () => {
   it("HTTP 401 -> TravelpayoutsError with the status", async () => {
-    const { client } = setup(() => json({ error: "Unauthorized" }, 401));
+    const { client, calls } = setup(() => json({ error: "Unauthorized" }, 401));
     const e = await rejection(client.roundTrips("TLV", "BCN", ...NOV));
     expect(e.status).toBe(401);
     expect(e.message).toContain("HTTP 401");
     expect(e.name).toBe("TravelpayoutsError");
+    expect(calls).toHaveLength(1); // permanent 4xx failures are never retried
     expectNoToken(e);
+  });
+
+  it("does not retry 429 rate-limit failures", async () => {
+    const { client, calls } = setup(() => json({ error: "rate limited" }, 429), { sleepFn: async () => undefined, randomFn: () => 0 });
+    const e = await rejection(client.roundTrips("TLV", "BCN", ...NOV));
+    expect(e.status).toBe(429);
+    expect(calls).toHaveLength(1);
   });
 
   it("HTTP 500 -> TravelpayoutsError, even when the server body echoes the token back", async () => {
@@ -495,25 +521,25 @@ describe("errors never leak the token", () => {
   it("a network failure whose message contains the token is scrubbed", async () => {
     const { client } = setup(() => {
       throw new TypeError(`Headers.append: "${TOKEN}" is an invalid header value`);
-    });
+    }, { sleepFn: async () => undefined, randomFn: () => 0 });
     const e = await rejection(client.roundTrips("TLV", "BCN", ...NOV));
     expect(e.message).toContain("network error");
     expect(e.cause).toBeUndefined();
     expectNoToken(e);
+    expect(client.callCount()).toBe(3);
   });
 
-  it("a timed-out request -> TravelpayoutsError('timed out')", async () => {
+  it("a timed-out request is retried at most three times", async () => {
     const { client } = setup(() => {
       throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
-    });
+    }, { sleepFn: async () => undefined, randomFn: () => 0 });
     const e = await rejection(client.roundTrips("TLV", "BCN", ...NOV));
     expect(e.message).toContain("timed out");
-    expect(e.message).toContain("15000");
-    expect(client.callCount()).toBe(1);
+    expect(e.message).toContain("12000");
+    expect(client.callCount()).toBe(3);
   });
 
-  it("the abort signal really cancels a hanging request", async () => {
-    // Drive the timeout ourselves: AbortSignal.timeout is not affected by fake timers.
+  it("a manual abort really cancels a hanging request without retrying", async () => {
     const ctl = new AbortController();
     vi.spyOn(AbortSignal, "timeout").mockReturnValue(ctl.signal);
     const { client } = setup(
@@ -523,9 +549,9 @@ describe("errors never leak the token", () => {
         }),
     );
     const pending = client.roundTrips("TLV", "BCN", ...NOV);
-    ctl.abort(new DOMException("timeout", "TimeoutError"));
+    ctl.abort(new DOMException("cancelled", "AbortError"));
     const e = await rejection(pending);
-    expect(e.message).toContain("timed out");
+    expect(e.message).toContain("aborted");
   });
 
   it("a manual abort -> TravelpayoutsError('aborted')", async () => {
@@ -596,7 +622,14 @@ describe("callCount", () => {
     expect(client.callCount()).toBe(3);
     fail = true;
     await rejection(client.roundTrips("TLV", "BCN", ...NOV));
-    expect(client.callCount()).toBe(4);
+    expect(client.callCount()).toBe(6);
+  });
+
+  it("caps transient retries at five for one client, even across separate calls", async () => {
+    const { client, calls } = setup(() => json({ error: "temporarily unavailable" }, 503), { sleepFn: async () => undefined, randomFn: () => 0 });
+    for (let i = 0; i < 6; i += 1) await rejection(client.roundTrips("TLV", "BCN", ...NOV));
+    expect(client.callCount()).toBe(11); // six original calls plus at most five retries
+    expect(calls).toHaveLength(11);
   });
 
   it("does not count validation failures or empty windows", async () => {

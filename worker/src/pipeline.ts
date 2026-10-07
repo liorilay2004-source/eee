@@ -80,7 +80,7 @@ import type {
 
 // --- limits ---------------------------------------------------------------------------------------------
 
-/** Free Workers allow ~50 subrequests per invocation: leave room for FX, D1 and the rest. */
+/** Planned Travelpayouts requests; the client reserves at most five extra transient retries per invocation. */
 export const MAX_TP_REQUESTS = 30;
 /** Airport pairs considered (origin airports x destination airports), primary pair first. */
 export const MAX_AIRPORT_PAIRS = 24;
@@ -905,7 +905,7 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   let quotesTotal = 0; // match_audit only: live quotes this search's quote phase considered...
   let quotesDisbelieved = 0; // ...and how many of them were not believed (far below the cached fare)
   if (primary && dates.length > 0) {
-    // The scan is worth up to 30 upstream requests: store it BEFORE the vendors are asked, so a client that gives up during
+    // The scan plans up to 30 upstream requests (plus at most five transient retries): store it BEFORE the vendors are asked, so a client that gives up during
     // the phase (a new search cancels the old one) does not lose it. The price history is written after the ranking has read
     // its context (below), and what depends on the quotes (their history, their health, the cache row's quotes) after the phase.
     scanStored = persist(jobOf({ cache: cacheRow([]), health: scanHealth }));

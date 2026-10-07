@@ -13,7 +13,12 @@ import type { Leg, Offer, OneWayFare, TravelpayoutsClient } from "./types";
 export const API = "https://api.travelpayouts.com/aviasales/v3/prices_for_dates";
 export const AVIASALES = "https://www.aviasales.com";
 const REQUEST_CURRENCY = "usd";
-const TIMEOUT_MS = 15_000;
+/** Keep a single upstream request inside the interactive search budget (user spec: HTTP 12s). */
+const TIMEOUT_MS = 12_000;
+/** Retries are deliberately scarce: the scan already spends up to 30 calls within a Worker invocation. */
+const MAX_ATTEMPTS = 3;
+const MAX_RETRIES_PER_CLIENT = 5;
+const RETRY_BASE_MS = 50;
 /** Rows per request (the API's maximum): a page this full may have been cut off. */
 const PAGE_LIMIT = 1000;
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -240,13 +245,19 @@ export function createTravelpayoutsClient(opts: {
   marker?: string;
   fetchFn?: typeof fetch;
   marketFor?: (origin: string) => string | null;
+  /** Test seams; production uses bounded exponential backoff with jitter. */
+  sleepFn?: (milliseconds: number) => Promise<void>;
+  randomFn?: () => number;
 }): TravelpayoutsClient {
   // A stray newline in a pasted secret would make the header invalid (and the failure would echo it).
   const token = (opts.token ?? "").trim();
   const marker = (opts.marker ?? "").trim();
   // Wrapped, not stored bare: workerd throws "Illegal invocation" if fetch loses its global receiver.
   const doFetch: typeof fetch = opts.fetchFn ?? ((input, init) => fetch(input, init));
+  const sleep = opts.sleepFn ?? ((milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
+  const random = opts.randomFn ?? Math.random;
   let calls = 0;
+  let retries = 0;
 
   const redact = (s: string): string => (token ? s.split(token).join("[redacted]") : s);
   const snippet = (s: string): string => redact(s).replace(/\s+/g, " ").trim().slice(0, 200);
@@ -289,38 +300,53 @@ export function createTravelpayoutsClient(opts: {
   /** One HTTP call -> rows tagged with the response currency. Throws TravelpayoutsError on any failure. */
   async function get(params: URLSearchParams): Promise<{ rows: Row[]; currency: string }> {
     requireConfigured();
-    calls += 1; // counted when the request is issued, so failed/timed-out attempts still show in callCount()
-    let status: number;
-    let text: string;
-    try {
-      const res = await doFetch(`${API}?${params.toString()}`, {
-        method: "GET",
-        headers: { "X-Access-Token": token, Accept: "application/json" },
-        // Custom headers survive cross-origin redirects, so never follow one with the token attached.
-        redirect: "manual",
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-      });
-      status = res.status;
-      text = await res.text();
-    } catch (err) {
-      const name = err instanceof Error ? err.name : "";
-      if (name === "TimeoutError") throw new TravelpayoutsError(`request timed out after ${TIMEOUT_MS}ms`);
-      if (name === "AbortError") throw new TravelpayoutsError("request aborted");
-      throw new TravelpayoutsError(`network error: ${snippet(err instanceof Error ? err.message : String(err))}`);
-    }
-    if (status !== 200) throw new TravelpayoutsError(`HTTP ${status}: ${snippet(text)}`, status);
+    for (let attempt = 1; ; attempt += 1) {
+      calls += 1; // each issued attempt counts against the invocation's upstream request budget
+      let status: number;
+      let text: string;
+      try {
+        const res = await doFetch(`${API}?${params.toString()}`, {
+          method: "GET",
+          headers: { "X-Access-Token": token, Accept: "application/json" },
+          // Custom headers survive cross-origin redirects, so never follow one with the token attached.
+          redirect: "manual",
+          signal: AbortSignal.timeout(TIMEOUT_MS),
+        });
+        status = res.status;
+        text = await res.text();
+      } catch (err) {
+        const name = err instanceof Error ? err.name : "";
+        if (name === "AbortError") throw new TravelpayoutsError("request aborted");
+        const error = name === "TimeoutError"
+          ? new TravelpayoutsError(`request timed out after ${TIMEOUT_MS}ms`)
+          : new TravelpayoutsError(`network error: ${snippet(err instanceof Error ? err.message : String(err))}`);
+        if (attempt >= MAX_ATTEMPTS || retries >= MAX_RETRIES_PER_CLIENT) throw error;
+        retries += 1;
+        const exponential = RETRY_BASE_MS * 2 ** (attempt - 1);
+        await sleep(exponential + Math.floor(Math.max(0, Math.min(1, random())) * exponential));
+        continue;
+      }
+      if (status !== 200) {
+        const error = new TravelpayoutsError(`HTTP ${status}: ${snippet(text)}`, status);
+        if (status < 500 || status > 599 || attempt >= MAX_ATTEMPTS || retries >= MAX_RETRIES_PER_CLIENT) throw error;
+        retries += 1;
+        const exponential = RETRY_BASE_MS * 2 ** (attempt - 1);
+        await sleep(exponential + Math.floor(Math.max(0, Math.min(1, random())) * exponential));
+        continue;
+      }
 
-    let body: unknown;
-    try {
-      body = JSON.parse(text);
-    } catch {
-      throw new TravelpayoutsError(`invalid JSON in response: ${snippet(text)}`, status);
+      let body: unknown;
+      try {
+        body = JSON.parse(text);
+      } catch {
+        throw new TravelpayoutsError(`invalid JSON in response: ${snippet(text)}`, status);
+      }
+      if (!isRow(body)) throw new TravelpayoutsError(`unexpected response: ${snippet(text)}`, status);
+      if (!body.success) throw new TravelpayoutsError(`API error: ${snippet(text)}`, status);
+      const data = body.data ?? [];
+      if (!Array.isArray(data)) throw new TravelpayoutsError(`unexpected response: ${snippet(text)}`, status);
+      return { rows: data.filter(isRow), currency: str(body.currency, REQUEST_CURRENCY).toUpperCase() };
     }
-    if (!isRow(body)) throw new TravelpayoutsError(`unexpected response: ${snippet(text)}`, status);
-    if (!body.success) throw new TravelpayoutsError(`API error: ${snippet(text)}`, status);
-    const data = body.data ?? [];
-    if (!Array.isArray(data)) throw new TravelpayoutsError(`unexpected response: ${snippet(text)}`, status);
-    return { rows: data.filter(isRow), currency: str(body.currency, REQUEST_CURRENCY).toUpperCase() };
   }
 
   /** A row without a usable `link` still gets a search link (one adult, like the API's own), never a dead card. */
