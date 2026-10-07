@@ -399,7 +399,7 @@ export function hasTruncation(sources: readonly SourceStatus[]): boolean {
  * unrecognised note becomes a generic Hebrew line instead of being shown raw.
  */
 export function sourceNote(error: string): { text: string; codes?: string } {
-  if (/today's share of the free quota used up/i.test(error)) return { text: "מכסת בדיקת המחירים להיום נגמרה. היא מתחדשת בחצות לפי שעון UTC (03:00 בישראל בשעון קיץ, 02:00 בשעון חורף)" };
+  if (/today's share of the free quota used up/i.test(error)) return { text: "בדיקת המחירים החיים חסומה: המכסה היומית נגמרה או שלא ניתן לבדוק אותה כרגע. המכסה מתחדשת בחצות לפי שעון UTC (03:00 בישראל בשעון קיץ, 02:00 בשעון חורף)" };
   if (/free quota used up/i.test(error)) return { text: "מכסת בדיקת המחירים של המקור נגמרה לתקופה הנוכחית" };
   const truncated = /truncated:\s*(\d+)\s+of\s+(\d+)/i.exec(error);
   if (truncated) return { text: `${truncated[1]} מתוך ${truncated[2]} בדיקות מתוכננות לא בוצעו הפעם` };
@@ -414,7 +414,7 @@ export function emptySearchCopy(sources: readonly SourceStatus[]): { title: stri
   const dailyQuota = sources.some((s) => s.enabled && /today's share of the free quota used up/i.test(s.error ?? ""));
   if (dailyQuota) return {
     title: "אין כרגע מחיר מאומת לתאריכים שבחרתם",
-    body: "לא נמצא מחיר שמור לתאריכים האלה, ומכסת בדיקת המחירים החיים להיום נגמרה. המכסה מתחדשת בחצות UTC (03:00 בישראל בשעון קיץ, 02:00 בשעון חורף). זה לא אומר שאין טיסות. התאריכים שבחרתם נשמרו ללא שינוי.",
+    body: "לא נמצא מחיר שמור לתאריכים האלה, ובדיקת המחירים החיים חסומה: המכסה היומית נגמרה או שלא ניתן לבדוק אותה כרגע. המכסה מתחדשת בחצות UTC (03:00 בישראל בשעון קיץ, 02:00 בשעון חורף). זה לא אומר שאין טיסות. התאריכים שבחרתם נשמרו ללא שינוי.",
   };
   const gaps = scanGaps(sources);
   if (gaps.failed || gaps.truncated) return {
