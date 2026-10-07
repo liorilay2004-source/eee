@@ -10,9 +10,9 @@
  */
 
 export type TicketStructure = "roundtrip" | "split";
-export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata";
+export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "elal";
 export type Cabin = "economy" | "premium-economy" | "business" | "first";
-export type RecKind = "cheapest" | "best_value" | "my_times";
+export type RecKind = "cheapest" | "best_value" | "most_convenient" | "my_times";
 
 /** One direction of a trip. Unknown values stay null (never guessed). */
 export interface Leg {
@@ -373,11 +373,11 @@ export interface PartyCheckResult {
  * ADDITIVE (WEB_APP_SPEC §7.2 `meta.recommendations`, bag-cost part only): drives the 💰/⚖️ gating notes (§5.3).
  * `excludedForUnknownBagFee` = offers left out of 💰 because a bag was requested and their bag fee is unknown, counted only
  * when their lower-bound total is below the shown 💰 total (0 when no offer has a known bag cost and the lower bound is shown).
- * Not yet emitted: bestValue `insufficient_data` and the `myTimes` member.
+ * `bestValue.flight_details_unknown` means price exists but complete time/stop data does not. The client never fills those gaps.
  */
 export interface RecommendationsMeta {
   cheapest: { status: "shown" | "no_offers"; excludedForUnknownBagFee: number };
-  bestValue: { status: "shown" | "merged" | "bag_cost_unknown" | "no_offers" };
+  bestValue: { status: "shown" | "merged" | "bag_cost_unknown" | "flight_details_unknown" | "no_offers" };
 }
 
 export interface AirlinePriceLink {
@@ -577,6 +577,8 @@ export interface Env {
   SEARCHAPI_KEY?: string;
   SERPAPI_KEY?: string;
   HASDATA_API_KEY?: string;
+  /** Enable the bounded, public EL AL Flight Deals page reader (no booking interaction or browser automation). */
+  ELAL_PUBLIC_DEALS_ENABLED?: string;
   /**
    * ADDITIVE (price alerts, src/telegram.ts): the free Telegram Bot API. All three must be set or the alert channel is disabled:
    * POST /api/watches answers 503 and the webhook 404 (fail closed). The username is not a secret (a plain var).

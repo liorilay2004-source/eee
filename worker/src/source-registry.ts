@@ -278,6 +278,17 @@ export const SOURCE_REGISTRY: readonly SourceRegistryEntry[] = Object.freeze([
     noteHe: "API רב-חברתי פעיל בקוד: עובד עם DUFFEL_API_TOKEN; טוקן live דורש DUFFEL_ALLOW_LIVE=true כדי למנוע עלות לא מכוונת.",
   },
   {
+    id: "elal",
+    name: "El Al",
+    kind: "airline",
+    status: "active",
+    homeUrl: homeUrl("elal"),
+    capabilities: { livePrice: false, cachedPrice: true, bookingLink: false, directBooking: false, combinations: false },
+    markets: ["IL"],
+    priority: 79,
+    noteHe: "מחירי ״החל מ־״ מעמודי Flight Deals הרשמיים, לנוסע אחד במחלקת תיירים; הנתון עשוי להיות עד 12 שעות ישן ואינו אימות זמינות.",
+  },
+  {
     id: "amadeus",
     name: "Amadeus",
     kind: "metasearch",
@@ -322,7 +333,6 @@ export const SOURCE_REGISTRY: readonly SourceRegistryEntry[] = Object.freeze([
     noteHe: "משמש כיעד אימות עתידי, לא כמקור הזמנה ישיר כרגע.",
   },
 
-  entry("elal", "El Al", "manual-link", 79, ["IL", "EU", "US", "Asia"], "קישור חיפוש ישיר מתוכנן, בלי קריאת מחיר חיה כרגע."),
   entry("arkia", "Arkia", "manual-link", 78, ["IL", "EU"], "קישור חיפוש ישיר מתוכנן, בלי קריאת מחיר חיה כרגע."),
   entry("israir", "Israir", "manual-link", 77, ["IL", "EU"], "קישור חיפוש ישיר מתוכנן, בלי קריאת מחיר חיה כרגע."),
   entry("turkish", "Turkish Airlines", "manual-link", 76, ["IL", "EU", "Asia", "US"], "מקור עדיפות גבוהה לקונקשנים מישראל."),
@@ -436,4 +446,3 @@ export function sourceRegistryForRoute(req: Pick<SearchRequest, "origin" | "dest
     return copied;
   });
 }
-

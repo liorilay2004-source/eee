@@ -47,6 +47,7 @@ import { defaultResolver, PipelineError, runSearch, sha256Hex, type ScanBudgetVe
 import { withDailyShare, type FareQuoteSource } from "./quotes";
 import { clientIdentity, createMemoryLimiter, limiterSalt } from "./ratelimit";
 import { createDuffelSource } from "./sources/duffel";
+import { createElalDealsSource, elalDealsRouteUrl } from "./sources/elal-deals";
 import { createIgnavSource } from "./sources/ignav";
 import { sourceRegistry } from "./source-registry";
 import { sourceSetup } from "./source-setup";
@@ -57,7 +58,7 @@ import { createWegoSource } from "./sources/wego";
 import { pickSnapshotRoute, runSnapshot } from "./snapshots";
 import { secretMatches, telegramConfig } from "./telegram";
 import { createTravelpayoutsClient, marketForCountry } from "./travelpayouts";
-import type { Env } from "./types";
+import type { Env, SearchRequest } from "./types";
 import { handleBotUpdate, handleCreateWatch, handleWatchByToken, runWatchChecks } from "./watches";
 import { GLOBAL_SCAN_LIMIT, GLOBAL_SCAN_WINDOW_SECONDS, MAX_BODY_BYTES, parseSearchBody, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_SECONDS } from "./validate";
 
@@ -218,7 +219,7 @@ const secret = (value: unknown): string | undefined => (typeof value === "string
  * them: the scheduled job never does. The hard request caps live in the adapters and are counted in D1 (migration 0004);
  * the daily shares (rate_limits) come on top.
  */
-function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: typeof fetch, now: Date): FareQuoteSource[] {
+function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: typeof fetch, now: Date, search?: SearchRequest): FareQuoteSource[] {
   const marker = env.TRAVELPAYOUTS_MARKER;
   // Every vendor request also takes one unit of that vendor's daily share first (see withDailyShare): a client that dodges the
   // search cache cannot use up a whole allowance in minutes. Fails closed like the caps.
@@ -229,6 +230,10 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
   const serpApi = secret(env.SERPAPI_KEY);
   const duffel = secret(env.DUFFEL_API_TOKEN);
   const hasData = secret(env.HASDATA_API_KEY);
+  const elal = env.ELAL_PUBLIC_DEALS_ENABLED === "true" && search?.cabin === "economy" && search.adults === 1 && search.children === 0 && search.infants === 0 &&
+    elalDealsRouteUrl(search.origin, search.destination, defaultResolver)
+    ? createElalDealsSource({ origin: search.origin, destination: search.destination, resolver: defaultResolver, ...shared })
+    : null;
   return [
     ignav ? createIgnavSource({ ...shared, apiKey: ignav, marker }) : null,
     wego ? createWegoSource({ ...shared, apiKey: wego }) : null,
@@ -236,6 +241,7 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
     serpApi ? createSerpApiSource({ ...shared, apiKey: serpApi, marker }) : null,
     hasData ? createHasDataSource({ ...shared, apiKey: hasData, marker }) : null,
     duffel ? createDuffelSource({ ...shared, apiToken: duffel, allowLive: env.DUFFEL_ALLOW_LIVE === "true", marker }) : null,
+    elal,
   ].filter((s): s is FareQuoteSource => s !== null && s.configured);
 }
 
@@ -301,7 +307,7 @@ async function handleSearch(request: Request, env: Env, ctx: ExecutionContext): 
         resolver: defaultResolver,
         waitUntil: (p) => ctx.waitUntil(p),
         scanBudget: () => scanBudgetLeft(repo, now),
-        quoteSources: quoteSources(env, repo, fetchFn, now),
+        quoteSources: quoteSources(env, repo, fetchFn, now, parsed.req),
         // A cache row past its TTL (up to 24h) answers at once, marked meta.stale, and is rescanned in the background.
         staleWhileRevalidate: true,
         // Round-trip cards get the signed token POST /api/party-check needs (only when that check can run: see partycheck.ts).

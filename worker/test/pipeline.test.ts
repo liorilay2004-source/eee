@@ -203,14 +203,14 @@ describe("recommendations (SPEC §8)", () => {
     const res = await runSearch(deps, req({ outHours: [7, 12], retHours: [15, 23] }));
     const mine = cardOf(res.cards, "my_times");
     expect(mine?.offer.priceAmount).toBe(200);
-    expect(mine?.kinds).toEqual(["best_value", "my_times"]); // same offer, shown once with two tags
+    expect(mine?.kinds).toEqual(["best_value", "most_convenient", "my_times"]); // same offer, shown once with its recommendation tags
   });
 
   it("shows one offer once when it wins everything", async () => {
     const { deps } = setup({ tp: mockTp({ rt: rtFor([offer(100)]) }) });
     const res = await runSearch(deps, req());
     expect(res.cards).toHaveLength(1);
-    expect(res.cards[0]?.kinds).toEqual(["cheapest", "best_value"]);
+    expect(res.cards[0]?.kinds).toEqual(["cheapest", "best_value", "most_convenient"]);
   });
 
   it("returns no cards (not an error) when Travelpayouts has no fares", async () => {
@@ -274,7 +274,7 @@ describe("bag extras (SPEC §4.1, §16)", () => {
     const zz = offer(50, { outbound: leg({ airlines: ["ZZ"] }), inbound: leg({ airlines: ["ZZ"] }) }); // 150 ILS, fee unknown
     const { deps } = setup({ tp: mockTp({ rt: rtFor([zz, lowcost()]) }) });
     const res = await runSearch(deps, req({ checkedBag: true }));
-    expect(kindsOf(res.cards)).toEqual(["cheapest", "best_value"]);
+    expect(kindsOf(res.cards)).toEqual(["cheapest", "best_value", "most_convenient"]);
     expect(cardOf(res.cards, "cheapest")?.offer).toMatchObject({ totalIls: 615, tags: [] });
     expect(res.meta.recommendations).toEqual({ cheapest: { status: "shown", excludedForUnknownBagFee: 1 }, bestValue: { status: "merged" } });
 
@@ -289,7 +289,7 @@ describe("bag extras (SPEC §4.1, §16)", () => {
     const zz = offer(50, { outbound: leg({ airlines: ["ZZ"] }), inbound: leg({ airlines: ["ZZ"] }) });
     const { deps } = setup({ tp: mockTp({ rt: rtFor([zz]) }) });
     const res = await runSearch(deps, req({ checkedBag: true }));
-    expect(kindsOf(res.cards)).toEqual(["cheapest"]);
+    expect(kindsOf(res.cards)).toEqual(["cheapest", "most_convenient"]);
     expect(res.cards[0]?.offer.tags).toContain("bag_fee_unknown");
     expect(res.meta.recommendations).toEqual({ cheapest: { status: "shown", excludedForUnknownBagFee: 0 }, bestValue: { status: "bag_cost_unknown" } });
   });

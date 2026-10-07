@@ -10,9 +10,9 @@ from .config import CITY_HE, CURRENCY_SYMBOL, PROJECT
 from .fx import FxRates
 from .models import Leg, Offer
 from .pipeline import TAG_BAG_UNKNOWN, TAG_BONUS_BAG, SearchResult
-from .scoring import BEST_VALUE, CHEAPEST, MY_TIMES, Card
+from .scoring import BEST_VALUE, CHEAPEST, MOST_CONVENIENT, MY_TIMES, Card
 
-KIND_LABEL = {CHEAPEST: "💰 הכי זול", BEST_VALUE: "⚖️ הכי משתלם", MY_TIMES: "🎯 מתאים לשעות שלי"}
+KIND_LABEL = {CHEAPEST: "💰 הכי זול", BEST_VALUE: "⚖️ הכי משתלם", MOST_CONVENIENT: "🛋️ הכי נוח", MY_TIMES: "🎯 מתאים לשעות שלי"}
 SOURCE_LABEL = {"travelpayouts": "Travelpayouts", "google_flights": "Google Flights"}
 STRUCTURE_LABEL = {"roundtrip": "כרטיס הלוך-חזור", "split": "שני כרטיסים נפרדים"}
 DISCLAIMER = "המחיר הסופי מוצג באתר ההזמנה. ייתכנו עמלות המרת מטבע בכרטיס האשראי."

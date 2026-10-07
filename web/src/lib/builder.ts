@@ -380,13 +380,15 @@ export function describeFailure(failure: Failure): FailureView {
 
 export const KIND_TITLES: Record<RecKind, string> = {
   cheapest: "הכי זול",
-  best_value: "התמורה הטובה ביותר",
+  best_value: "הכי משתלם",
+  most_convenient: "הכי נוח",
   my_times: "מתאים לשעות שלכם",
 };
 
 export const KIND_REASONS: Record<RecKind, string> = {
   cheapest: "הכי זול",
-  best_value: "איזון בין מחיר לזמן",
+  best_value: "איזון בין מחיר, זמן ועצירות",
+  most_convenient: "הכי מעט עצירות וזמן טיסה קצר",
   my_times: "מתאים לשעות שבחרתם",
 };
 
@@ -401,6 +403,7 @@ export function hasTruncation(sources: readonly SourceStatus[]): boolean {
 export function sourceNote(error: string): { text: string; codes?: string } {
   const truncated = /truncated:\s*(\d+)\s+of\s+(\d+)/i.exec(error);
   if (truncated) return { text: `${truncated[1]} מתוך ${truncated[2]} בדיקות מתוכננות לא בוצעו הפעם` };
+  if (/blocked by source/i.test(error)) return { text: "המקור חסם את הבקשה; דילגנו עליו." };
   const notSearchable = /not searchable at Travelpayouts:\s*([A-Z0-9, -]+)/i.exec(error);
   if (notSearchable) return { text: "מסלולים שהמקור לא תומך בהם:", codes: notSearchable[1].trim() };
   if (/not configured/i.test(error)) return { text: "המקור לא זמין כרגע" };

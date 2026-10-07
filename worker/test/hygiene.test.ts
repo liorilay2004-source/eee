@@ -78,7 +78,7 @@ describe("src/ runs in the Workers runtime", () => {
   it("only quotes.ts and wego.ts can reach fetch: the other adapters describe a request and read an answer, nothing more", () => {
     const callsFetch = (file: string) => /\bfetch\s*\(/.test(readFileSync(file, "utf8"));
     const adapters = sourceFiles(join(worker, "src", "sources"));
-    expect(adapters.map((f) => basename(f)).sort()).toEqual(["duffel.ts", "hasdata.ts", "ignav.ts", "searchapi.ts", "serpapi.ts", "wego.ts"]);
+    expect(adapters.map((f) => basename(f)).sort()).toEqual(["duffel.ts", "elal-deals.ts", "hasdata.ts", "ignav.ts", "searchapi.ts", "serpapi.ts", "wego.ts"]);
     for (const file of adapters) expect(callsFetch(file), file).toBe(file.endsWith("wego.ts"));
     expect(callsFetch(join(worker, "src", "quotes.ts"))).toBe(true);
   });

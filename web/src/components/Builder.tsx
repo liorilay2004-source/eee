@@ -152,7 +152,7 @@ export function Builder({ form, patch, today, errors, rawErrors, openQuestion, s
     <div className="builder-head">
       <p className="kicker">חיפוש גמיש · שאלה אחת בכל פעם</p>
       <h1 id="builder-title">{editing ? "מה משנים?" : "לאן בא לכם לטוס?"}</h1>
-      <p className="builder-sub">הקישו על כל חלק במשפט כדי לבחור. אנחנו נמצא את הצירוף הזול ביותר.</p>
+      <p className="builder-sub">הקישו על כל חלק כדי לבחור מוצא, יעד, תאריכים וכבודה. נשווה בין הזול, המשתלם והנוח ביותר.</p>
       {!editing && <a className="explore-link" href="/explore"><Compass size={18} aria-hidden="true" /><span>לא יודע לאן? <strong>גלו יעדים זולים</strong></span></a>}
     </div>
 
@@ -177,7 +177,7 @@ export function Builder({ form, patch, today, errors, rawErrors, openQuestion, s
     <Advanced form={form} patch={patch} rawErrors={rawErrors} />
 
     <div className="cta-bar">
-      <button type="submit" className="btn btn-cta"><Search size={22} aria-hidden="true" />מצאו לי את הזול ביותר</button>
+      <button type="submit" className="btn btn-cta"><Search size={22} aria-hidden="true" />השוו מחירים ומסלולים</button>
       {editing && <button type="button" className="btn btn-ghost" onClick={onCancelEdit}>חזרה לתוצאות</button>}
     </div>
 

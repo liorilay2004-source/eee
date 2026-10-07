@@ -17,6 +17,8 @@ describe("search helpers", () => {
   it("rounds ILS up and refuses untrusted booking destinations", () => {
     expect(formatILS(968.01)).toBe("₪969");
     expect(trustedBookingUrl("https://www.aviasales.com/search/TLVBCN")).toContain("aviasales.com");
+    expect(trustedBookingUrl("https://www.elal.com/flight-deals/en-il/flights-from-tel-aviv-to-athens")).toContain("elal.com");
+    expect(trustedBookingUrl("https://elal.com.attacker.example/flight-deals")).toBeNull();
     expect(trustedBookingUrl("https://aviasales.com.attacker.example/redirect")).toBeNull();
     expect(trustedBookingUrl("javascript:alert(1)")).toBeNull();
   });

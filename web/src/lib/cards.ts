@@ -68,5 +68,8 @@ export function metaNotes(meta: Partial<Pick<SearchResponse["meta"], "priceGuard
   }
   const excluded = meta.recommendations?.cheapest?.excludedForUnknownBagFee ?? 0;
   if (excluded > 0) notes.push(`${excluded === 1 ? "הצעה אחת זולה יותר לא הוצגה" : `${excluded} הצעות זולות יותר לא הוצגו`} כי עלות המזוודה בהן לא ידועה.`);
+  if (meta.recommendations?.bestValue?.status === "flight_details_unknown") {
+    notes.push("הצעות בלי זמני המראה, משך טיסה ועצירות לא נכנסו לדירוג התמורה.");
+  }
   return notes;
 }

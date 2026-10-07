@@ -13,7 +13,7 @@ from tpe import report  # noqa: E402
 from tpe.fx import FxRates  # noqa: E402
 from tpe.models import Leg, Offer, SearchRequest  # noqa: E402
 from tpe.pipeline import TAG_BAG_UNKNOWN, TAG_BONUS_BAG, apply_extras_and_fx, build_splits, run_search  # noqa: E402
-from tpe.scoring import BEST_VALUE, CHEAPEST, MY_TIMES, recommend, recommendations_meta  # noqa: E402
+from tpe.scoring import BEST_VALUE, CHEAPEST, MOST_CONVENIENT, MY_TIMES, recommend, recommendations_meta  # noqa: E402
 from tpe.sources.travelpayouts import Travelpayouts, aviasales_search_link  # noqa: E402
 
 FX = FxRates({"USD": 3.0, "EUR": 3.5}, "test")
@@ -101,7 +101,41 @@ def test_same_offer_shown_once_with_multiple_tags():
     o = offer(100)
     apply_extras_and_fx([o], r, FX)
     cards = recommend([o], r)
-    assert len(cards) == 1 and cards[0].kinds == [CHEAPEST, BEST_VALUE]
+    assert len(cards) == 1 and cards[0].kinds == [CHEAPEST, BEST_VALUE, MOST_CONVENIENT]
+
+
+def test_most_convenient_prefers_nonstop_even_when_it_costs_more_and_takes_longer():
+    r = req()
+    one_stop = offer(100, out=Leg("10:00", stops=1, duration_min=240, airlines=["LH"]),
+                     inb=Leg("18:00", stops=1, duration_min=240, airlines=["LH"]))
+    direct = offer(180, out=Leg("10:00", stops=0, duration_min=360, airlines=["LY"]),
+                   inb=Leg("18:00", stops=0, duration_min=360, airlines=["LY"]), dep=date(2026, 11, 13))
+    apply_extras_and_fx([one_stop, direct], r, FX)
+    cards = recommend([one_stop, direct], r)
+    assert [c for c in cards if CHEAPEST in c.kinds][0].offer is one_stop
+    assert [c for c in cards if MOST_CONVENIENT in c.kinds][0].offer is direct
+
+
+def test_most_convenient_includes_unknown_bag_prices_and_keeps_stable_order_for_ties():
+    r = req(checked_bag=True)
+    unknown_bag = offer(100, out=Leg("10:00", stops=1, duration_min=300, airlines=["LY"]),
+                        inb=Leg("18:00", stops=1, duration_min=300, airlines=["LY"]))
+    known_bag = offer(200, out=Leg("10:00", stops=1, duration_min=300, airlines=["W6"]),
+                      inb=Leg("18:00", stops=1, duration_min=300, airlines=["W6"]), dep=date(2026, 11, 13))
+    offers = [unknown_bag, known_bag]
+    apply_extras_and_fx(offers, r, FX)
+    cards = recommend(offers, r)
+    assert [c for c in cards if MOST_CONVENIENT in c.kinds][0].offer is unknown_bag
+
+
+def test_price_only_fare_cannot_win_value_or_convenience():
+    r = req()
+    price_only = offer(100, out=Leg(depart_time=None, stops=None, duration_min=None, airlines=["LY"]),
+                       inb=Leg(depart_time=None, stops=None, duration_min=None, airlines=["LY"]))
+    apply_extras_and_fx([price_only], r, FX)
+    cards = recommend([price_only], r)
+    assert [c.kinds for c in cards] == [[CHEAPEST]]
+    assert recommendations_meta([price_only], r, cards)["bestValue"] == {"status": "flight_details_unknown"}
 
 
 def test_split_cheaper_shows_savings():
@@ -167,6 +201,15 @@ def test_travelpayouts_parsing_and_token_in_header_only():
         assert params["market"] == "il"
 
 
+def test_travelpayouts_replaces_aviasales_round_trip_link_with_wrong_dates():
+    row = json.loads((FIXTURES / "tp_roundtrip.json").read_text())["data"][0] | {
+        "_currency": "USD", "link": "/search/TLV1211BCN1?expected_price=55",
+    }
+    offer = Travelpayouts(token="t", marker="12345").row_to_roundtrip(row, "TLV", "BCN")
+    assert offer is not None
+    assert offer.deeplink == "https://www.aviasales.com/search/TLV1211BCN18111?marker=12345"
+
+
 def test_pipeline_works_with_fast_flights_disabled():
     r = req()
     tp = Travelpayouts(token="t", marker="m", session=FakeSession(tp_handler))
@@ -204,7 +247,8 @@ def test_unknown_bag_fee_does_not_win_cheapest_or_best_value():
     apply_extras_and_fx([unknown, known], r, FX)
     assert TAG_BAG_UNKNOWN in unknown.tags
     cards = recommend([unknown, known], r)
-    assert [c.kinds for c in cards] == [[CHEAPEST, BEST_VALUE]] and cards[0].offer is known
+    assert [c.kinds for c in cards] == [[CHEAPEST, BEST_VALUE], [MOST_CONVENIENT]]
+    assert cards[0].offer is known and cards[1].offer is unknown
     assert recommendations_meta([unknown, known], r, cards) == {
         "cheapest": {"status": "shown", "excludedForUnknownBagFee": 1}, "bestValue": {"status": "merged"}}
 
@@ -214,7 +258,8 @@ def test_all_unknown_bag_fees_show_lower_bound_and_hide_best_value():
     a, b = offer(300), offer(100)
     apply_extras_and_fx([a, b], r, FX)
     cards = recommend([a, b], r)
-    assert [c.kinds for c in cards] == [[CHEAPEST]] and cards[0].offer is b
+    assert [c.kinds for c in cards] == [[CHEAPEST], [MOST_CONVENIENT]]
+    assert cards[0].offer is b and cards[1].offer is a
     assert recommendations_meta([a, b], r, cards)["bestValue"] == {"status": "bag_cost_unknown"}
     assert recommendations_meta([a, b], r, cards)["cheapest"]["excludedForUnknownBagFee"] == 0
 

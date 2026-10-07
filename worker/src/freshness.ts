@@ -34,7 +34,7 @@ export const LIVE_FARE_SOURCES: readonly SourceName[] = ["google_flights"];
  * Documented upper bound of a vendor's result cache, in minutes. SerpApi (https://serpapi.com/search-api): "Cache expires
  * after 1h"; serpapi.ts does not send `no_cache`, so an answer may be up to an hour old when we get it.
  */
-export const VENDOR_CACHE_MAX_MINUTES: Readonly<Partial<Record<SourceName, number>>> = { serpapi: 60 };
+export const VENDOR_CACHE_MAX_MINUTES: Readonly<Partial<Record<SourceName, number>>> = { serpapi: 60, elal: 12 * 60 };
 
 /**
  * Live search APIs that neither promise freshness nor document a cache. Must stay in step with QUOTE_SOURCE_NAMES

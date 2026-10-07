@@ -926,10 +926,11 @@ describe("source_quota (migration 0004) and reserveQuota", () => {
     expect(await count(db, "source_quota")).toBe(0);
   });
 
-  it("stored quote fares (the four optional sources) survive the round trip through the price history", async () => {
+  it("stored quote fares survive the round trip through the price history", async () => {
     const repo = createRepo(createTestD1());
-    const sources = ["ignav", "wego", "searchapi", "serpapi"] as const;
-    await repo.savePrices(sources.map((source, i) => mkOffer({ source, priceAmount: 100 + i, departDate: `2026-11-1${i}`, returnDate: `2026-11-1${i + 5}` })));
+    const sources = ["ignav", "wego", "searchapi", "serpapi", "duffel", "hasdata", "elal"] as const;
+    const day = (n: number) => new Date(Date.UTC(2026, 10, n)).toISOString().slice(0, 10);
+    await repo.savePrices(sources.map((source, i) => mkOffer({ source, priceAmount: 100 + i, departDate: day(10 + i), returnDate: day(15 + i) })));
     expect((await loadAll(repo)).map((o) => o.source).sort()).toEqual([...sources].sort());
     expect((await loadAll(repo, 24, ["serpapi"])).map((o) => o.source)).toEqual(["serpapi"]);
   });

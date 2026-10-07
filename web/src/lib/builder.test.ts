@@ -206,6 +206,7 @@ describe("results helpers", () => {
     expect(hasTruncation([source("not searchable at Travelpayouts: VDA-ATH")])).toBe(false);
     expect(hasTruncation([source(null)])).toBe(false);
     expect(sourceNote("truncated: 4 of 30 planned requests skipped").text).toBe("4 מתוך 30 בדיקות מתוכננות לא בוצעו הפעם");
+    expect(sourceNote("El Al: blocked by source").text).toBe("המקור חסם את הבקשה; דילגנו עליו.");
     expect(sourceNote("not searchable at Travelpayouts: VDA-ATH")).toEqual({ text: "מסלולים שהמקור לא תומך בהם:", codes: "VDA-ATH" });
   });
 

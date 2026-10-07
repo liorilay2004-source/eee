@@ -36,12 +36,12 @@ function primaryKind(kinds: RecKind[]): RecKind {
   return kinds.includes("cheapest") ? "cheapest" : kinds[0] ?? "cheapest";
 }
 
-function LegRow({ title, date, leg, names }: { title: string; date: string; leg: Leg; names: Record<string, string> | undefined }) {
+function LegRow({ title, date, leg, names, source }: { title: string; date: string; leg: Leg; names: Record<string, string> | undefined; source: string }) {
   const airlines = airlineLabels(leg.airlines, names);
   const times = leg.departTime && leg.arriveTime ? `${leg.departTime} – ${leg.arriveTime}` : leg.departTime ? `המראה ${leg.departTime}` : null;
   return <div className="leg">
     <div className="leg-head"><span className="leg-title">{title}</span><span className="leg-date num" dir="ltr">{formatShortDate(date)}</span></div>
-    <div className="leg-time">{times ? <span className="num">{times}</span> : <span className="leg-unknown"><Clock3 size={15} aria-hidden="true" />השעה תופיע באתר ההזמנה</span>}</div>
+    <div className="leg-time">{times ? <span className="num">{times}</span> : <span className="leg-unknown"><Clock3 size={15} aria-hidden="true" />{source === "elal" ? "פרטי הטיסה אינם מופיעים בעמוד המחיר" : "השעה תופיע באתר ההזמנה"}</span>}</div>
     <div className="leg-meta">
       <span>{stopsText(leg.stops)}</span>
       {leg.durationMin !== null && <span>{formatDuration(leg.durationMin)}</span>}
@@ -62,6 +62,9 @@ export function BookingActions({ card, demo, compact }: { card: CardView; demo?:
   const back = trustedBookingUrl(offer.returnDeeplink);
   const verify = trustedBookingUrl(offer.verifyLink);
   const btn = compact ? "btn btn-secondary" : "btn btn-book btn-wide";
+  if (offer.source === "elal") return verify
+    ? <div className="booking"><a className={btn} href={verify} target="_blank" rel="noopener noreferrer">לצפייה במחיר באתר אל על<ExternalLink size={16} aria-hidden="true" /><NewTab /></a></div>
+    : <p className="booking-missing">המחיר פורסם באתר אל על, אבל קישור המקור אינו זמין.</p>;
   if (offer.ticketStructure === "split") {
     return <div className="booking split">
       {out ? <a className={btn} href={out} target="_blank" rel="sponsored noopener noreferrer">כרטיס הלוך<ExternalLink size={16} aria-hidden="true" /><NewTab /></a>
@@ -111,7 +114,7 @@ export function BoardingPass({ card, request, originLabel, destinationLabel, dem
     <p className="sr-only">{`מ־${originName || offer.origin} אל ${destinationName || offer.destination}`}</p>
 
     <div className="pass-price-block">
-      <div className="pass-price num">{atLeast && <span className="price-prefix">לפחות </span>}<span dir="ltr">{formatILS(offer.totalIls)}</span></div>
+      <div className="pass-price num">{(offer.source === "elal" || atLeast) && <span className="price-prefix">{offer.source === "elal" ? "החל מ־" : "לפחות "}</span>}<span dir="ltr">{formatILS(offer.totalIls)}</span></div>
       <div className="pass-price-detail num">{partyPriceLine(offer.totalIls, people, atLeast)}</div>
       {offer.priceCurrency !== "ILS" && <div className="pass-original" dir="rtl">{originalPriceLabel(offer.extrasAmountIls)}: <span dir="ltr" className="num">{Math.ceil(offer.priceAmount).toLocaleString("en-US")} {offer.priceCurrency}</span></div>}
     </div>
@@ -125,8 +128,8 @@ export function BoardingPass({ card, request, originLabel, destinationLabel, dem
     <div className="perforation" aria-hidden="true" />
 
     <div className="pass-legs">
-      <LegRow title="הלוך" date={offer.departDate} leg={offer.outbound} names={card.airlineNames} />
-      <LegRow title="חזור" date={offer.returnDate} leg={offer.inbound} names={card.airlineNames} />
+      <LegRow title="הלוך" date={offer.departDate} leg={offer.outbound} names={card.airlineNames} source={offer.source} />
+      <LegRow title="חזור" date={offer.returnDate} leg={offer.inbound} names={card.airlineNames} source={offer.source} />
     </div>
 
     <ul className="pass-notes">
@@ -162,7 +165,7 @@ export function CompactCard({ card, request, demo, autoCheck }: CardProps) {
         {suspicious && <span className="mini-flag"><TriangleAlert size={14} aria-hidden="true" />{SUSPICIOUS_BADGE}</span>}
       </div>
       <div className="mini-price-block">
-        <div className="mini-price num">{atLeast && <span className="price-prefix">לפחות </span>}<span dir="ltr">{formatILS(offer.totalIls)}</span></div>
+        <div className="mini-price num">{(offer.source === "elal" || atLeast) && <span className="price-prefix">{offer.source === "elal" ? "החל מ־" : "לפחות "}</span>}<span dir="ltr">{formatILS(offer.totalIls)}</span></div>
         <div className="mini-party num">{partyPriceLine(offer.totalIls, people, atLeast)}</div>
       </div>
     </div>
@@ -196,4 +199,3 @@ export function PassSkeleton() {
     <div className="sk sk-button" />
   </div>;
 }
-

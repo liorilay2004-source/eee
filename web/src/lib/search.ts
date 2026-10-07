@@ -200,6 +200,7 @@ export function trustedBookingUrl(raw: string | null | undefined): string | null
     const host = url.hostname.toLowerCase();
     if (url.protocol !== "https:") return null;
     if (host === "aviasales.com" || host.endsWith(".aviasales.com")) return url.toString();
+    if (host === "elal.com" || host.endsWith(".elal.com")) return url.toString();
   } catch { /* invalid URLs are never actionable */ }
   return null;
 }

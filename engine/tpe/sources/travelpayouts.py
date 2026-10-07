@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import os
 from datetime import date, datetime
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 import requests
 
@@ -53,6 +53,17 @@ def aviasales_search_link(origin: str, dest: str, dep: date, ret: date | None, p
         path += f"{ret:%d%m}"
     path += str(pax)
     return affiliate_link(path, marker)  # type: ignore[return-value]
+
+
+def _aviasales_roundtrip_link_matches(link: str, origin: str, dest: str, dep: date, ret: date) -> bool | None:
+    parsed = urlparse(link)
+    host = parsed.hostname.lower() if parsed.hostname else ""
+    if host != "aviasales.com" and not host.endswith(".aviasales.com"):
+        return None
+    prefix = f"/search/{origin.upper()}{dep:%d%m}{dest.upper()}{ret:%d%m}".upper()
+    path = parsed.path.upper()
+    suffix = path[len(prefix):] if path.startswith(prefix) else ""
+    return path.startswith(prefix) and suffix.isdigit() and 1 <= len(suffix) <= 3
 
 
 def _hhmm(iso: str | None) -> str | None:
@@ -129,11 +140,18 @@ class Travelpayouts:
         if not row.get("return_at") or not row.get("price"):
             return None
         airline = row.get("airline")
+        departure = _date(row["departure_at"])
+        returning = _date(row["return_at"])
+        from_airport = row.get("origin_airport") or origin
+        to_airport = row.get("destination_airport") or dest
+        link = affiliate_link(row.get("link"), self.marker)
+        if link and _aviasales_roundtrip_link_matches(link, from_airport, to_airport, departure, returning) is False:
+            link = None
         return Offer(
-            origin=row.get("origin_airport") or origin,
-            destination=row.get("destination_airport") or dest,
-            depart_date=_date(row["departure_at"]),
-            return_date=_date(row["return_at"]),
+            origin=from_airport,
+            destination=to_airport,
+            depart_date=departure,
+            return_date=returning,
             price_amount=float(row["price"]),
             price_currency=row["_currency"],
             source="travelpayouts",
@@ -150,7 +168,7 @@ class Travelpayouts:
                 duration_min=row.get("duration_back"),
                 airlines=[airline] if airline else [],
             ),
-            deeplink=affiliate_link(row.get("link"), self.marker),
+            deeplink=link or aviasales_search_link(from_airport, to_airport, departure, returning, 1, self.marker),
         )
 
     # ---- one-ways for split-ticket check -----------------------------------------

@@ -48,8 +48,8 @@ const MAX_BODY_CHARS = 500_000;
 
 // --- contracts ------------------------------------------------------------------------------------------
 
-export type QuoteSourceName = Extract<SourceName, "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata">;
-export const QUOTE_SOURCE_NAMES: readonly QuoteSourceName[] = ["ignav", "wego", "searchapi", "serpapi", "duffel", "hasdata"];
+export type QuoteSourceName = Extract<SourceName, "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "elal">;
+export const QUOTE_SOURCE_NAMES: readonly QuoteSourceName[] = ["ignav", "wego", "searchapi", "serpapi", "duffel", "hasdata", "elal"];
 export const isQuoteSource = (name: SourceName): name is QuoteSourceName => (QUOTE_SOURCE_NAMES as readonly string[]).includes(name);
 
 export type QuotaPeriod = "monthly" | "lifetime";
@@ -60,6 +60,8 @@ export interface QuotaSpec {
   cap: number;
   /** The vendor's documented free allowance for that same period. The margin rules below hold `cap` under it. */
   allowance: number;
+  /** Set only for a public source whose cap is an owner-side request budget, not a vendor's free allowance. */
+  localBudget?: boolean;
 }
 
 /**
@@ -133,7 +135,7 @@ export interface FareQuoteSource {
   partySeries?(queries: QuoteQuery[], comparable?: (fare: PartyFare) => boolean): Promise<PartyFare[][]>;
 }
 
-export type QuoteErrorCode = "not_configured" | "quota_exhausted" | "ration_exhausted" | "timeout" | "network" | "http" | "response";
+export type QuoteErrorCode = "not_configured" | "quota_exhausted" | "ration_exhausted" | "timeout" | "network" | "http" | "response" | "blocked";
 
 /** The message is only the code: vendor bodies, URLs and keys never reach an error. */
 export class QuoteError extends Error {
@@ -187,11 +189,21 @@ export interface PartyFare {
 export interface QuoteAdapter {
   readonly name: QuoteSourceName;
   readonly quota: QuotaSpec;
+  /** Adapters default to requiring a key and returning JSON for each date-pair request. */
+  readonly enabled?: boolean;
+  readonly requiresKey?: boolean;
+  readonly responseFormat?: "json" | "text";
+  readonly accept?: string;
+  readonly requestScope?: "query" | "search";
+  readonly blockedStatuses?: readonly number[];
+  readonly maxResponseChars?: number;
+  /** Override the default metasearch link for sources that point to their official fare page. */
+  offerLinks?(q: QuoteQuery): { deeplink: string | null; verifyLink: string | null };
   /** ADDITIVE (party check): how a multi-adult price is read (see PartyPricing; the doc's URL where it is set). Absent = "unknown". */
   readonly partyPricing?: PartyPricing;
   /**
    * Pure: builds ONE request for ONE date pair, one adult (or q.adults when the party check sets it; see vendorAdults). `key` is the
-   * trimmed secret (a header wherever the vendor allows).
+   * trimmed secret (or empty only for an adapter that sets requiresKey=false).
    */
   request(q: QuoteQuery, key: string): { url: string; method?: "GET" | "POST"; headers: Record<string, string>; body?: string };
   /** Pure: drops what it cannot read, never guesses. May throw on garbage (mapped to a "response" error). */
@@ -286,11 +298,12 @@ export function createQuoteSource(
 ): FareQuoteSource {
   const key = (opts.key ?? "").trim(); // a stray newline in a pasted secret would make the header invalid
   const quota: QuotaSpec = Object.freeze({ ...adapter.quota }); // the cap that was checked is the cap that is used
-  const usable = key !== "" && quotaSpecIsSafe(quota);
+  const usable = adapter.enabled !== false && (adapter.requiresKey === false || key !== "") && quotaSpecIsSafe(quota);
   const doFetch: typeof fetch = opts.fetchFn ?? ((input, init) => fetch(input, init)); // workerd: fetch needs its global receiver
   let calls = 0;
+  let searchResponse: Promise<unknown> | null = null;
 
-  async function call(q: QuoteQuery): Promise<unknown> {
+  async function request(q: QuoteQuery): Promise<unknown> {
     if (!usable) throw new QuoteError("not_configured");
     // Build (and so validate) the request first: a bad query must not burn a unit.
     const req = adapter.request(q, key);
@@ -308,28 +321,43 @@ export function createQuoteSource(
     return send(req);
   }
 
+  function call(q: QuoteQuery): Promise<unknown> {
+    if (adapter.requestScope !== "search") return request(q);
+    if (searchResponse === null) searchResponse = request(q); // share one route page across all date-pair lanes
+    return searchResponse;
+  }
+
   /** ONE request whose unit is already reserved: counted, sent, read. Every failure is a bare QuoteError (no body, URL or key). */
   async function send(req: ReturnType<QuoteAdapter["request"]>): Promise<unknown> {
     calls += 1;
 
     let status: number;
-    let text: string;
+    let res: Response;
     try {
-      const res = await doFetch(req.url, {
+      res = await doFetch(req.url, {
         method: req.method ?? "GET",
-        headers: { Accept: "application/json", ...req.headers },
+        headers: { Accept: adapter.accept ?? "application/json", ...req.headers },
         ...(req.body !== undefined ? { body: req.body } : {}),
         // Never follow a redirect with a key attached (and a followed redirect would be a second request).
         redirect: "manual",
         signal: AbortSignal.timeout(QUOTE_TIMEOUT_MS),
       });
       status = res.status;
+    } catch (err) {
+      throw new QuoteError(err instanceof Error && err.name === "TimeoutError" ? "timeout" : "network");
+    }
+    if (status !== 200) {
+      if (adapter.blockedStatuses?.includes(status)) throw new QuoteError("blocked", status);
+      throw new QuoteError("http", status);
+    }
+    let text: string;
+    try {
       text = await res.text();
     } catch (err) {
       throw new QuoteError(err instanceof Error && err.name === "TimeoutError" ? "timeout" : "network");
     }
-    if (status !== 200) throw new QuoteError("http", status);
-    if (text.length > MAX_BODY_CHARS) throw new QuoteError("response", status);
+    if (text.length > (adapter.maxResponseChars ?? MAX_BODY_CHARS)) throw new QuoteError("response", status);
+    if (adapter.responseFormat === "text") return text;
     try {
       return JSON.parse(text) as unknown;
     } catch {
@@ -349,7 +377,8 @@ export function createQuoteSource(
   function readFares(body: unknown, q: QuoteQuery): ParsedFare[] {
     try {
       return adapter.parse(body, q);
-    } catch {
+    } catch (err) {
+      if (err instanceof QuoteError) throw err;
       throw new QuoteError("response");
     }
   }
@@ -362,6 +391,7 @@ export function createQuoteSource(
       return usable;
     },
     callCount: () => calls,
+    nextQuoteRequests: () => (adapter.requestScope === "search" ? (searchResponse === null ? 1 : 0) : 1),
 
     async partySeries(queries, comparable) {
       if (!usable) throw new QuoteError("not_configured");
@@ -388,6 +418,7 @@ export function createQuoteSource(
       const body = await call(q);
       const fares = readFares(body, q);
       const checkedAt = opts.now.toISOString();
+      const links = adapter.offerLinks?.(q) ?? { deeplink: link(q), verifyLink: null };
       const seen = new Set<string>();
       const offers: Offer[] = [];
       for (const f of fares) {
@@ -407,8 +438,8 @@ export function createQuoteSource(
           outbound: { ...f.outbound, airlines: [...f.outbound.airlines] },
           inbound: { ...f.inbound, airlines: [...f.inbound.airlines] },
           includes: typeof f.checkedBag === "boolean" ? { checkedBag: f.checkedBag } : {},
-          deeplink: link(q), // an Aviasales search for the same dates (affiliate marker), like Travelpayouts' own fallback
-          verifyLink: null,
+          deeplink: links.deeplink,
+          verifyLink: links.verifyLink,
           checkedAt,
           extrasAmountIls: 0,
           totalIls: null,
@@ -551,7 +582,7 @@ function requestsOf(source: FareQuoteSource): number {
   return typeof n === "number" && Number.isFinite(n) && n >= 0 ? Math.ceil(n) : 1;
 }
 
-const LABEL: Record<QuoteSourceName, string> = { ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi", duffel: "Duffel", hasdata: "HasData" };
+const LABEL: Record<QuoteSourceName, string> = { ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi", duffel: "Duffel", hasdata: "HasData", elal: "El Al" };
 
 /** Fixed texts only: nothing of a vendor response, URL or key can get into meta.sources. */
 export function describeQuoteError(source: FareQuoteSource, e: unknown): string {
@@ -559,9 +590,13 @@ export function describeQuoteError(source: FareQuoteSource, e: unknown): string 
   if (!(e instanceof QuoteError)) return `${label}: unexpected error`;
   switch (e.code) {
     case "quota_exhausted":
-      return `${label}: free quota used up (${source.quota.period})`; // also what an unreadable counter looks like: fail closed
+      return source.quota.localBudget
+        ? `${label}: ${source.quota.period} request budget reached`
+        : `${label}: free quota used up (${source.quota.period})`; // also what an unreadable counter looks like: fail closed
     case "ration_exhausted":
-      return `${label}: today's share of the free quota used up`; // also what an unreadable daily counter looks like: fail closed
+      return source.quota.localBudget
+        ? `${label}: today's request budget reached`
+        : `${label}: today's share of the free quota used up`; // also what an unreadable daily counter looks like: fail closed
     case "not_configured":
       return `${label}: not configured`;
     case "timeout":
@@ -572,6 +607,8 @@ export function describeQuoteError(source: FareQuoteSource, e: unknown): string 
       return `${label}: HTTP ${e.status ?? "error"}`;
     case "response":
       return `${label}: unexpected response`;
+    case "blocked":
+      return `${label}: blocked by source`;
   }
 }
 
@@ -638,7 +675,10 @@ export async function runQuotes(
         const list = spent ? stat.notes : stat.failures;
         if (!list.includes(text)) list.push(text);
         if (noRequest) slots -= cost; // nothing went out: give the slots back
-        if (noRequest || (err?.code === "http" && (err.status === 401 || err.status === 403 || err.status === 429))) stopped.add(source.name);
+        const sharedBadResponse = err?.code === "response" && requestsOf(source) === 0;
+        if (noRequest || err?.code === "blocked" || sharedBadResponse || (err?.code === "http" && (err.status === 401 || err.status === 403 || err.status === 429))) {
+          stopped.add(source.name);
+        }
       } finally {
         flying.set(source.name, (flying.get(source.name) ?? 1) - 1);
       }

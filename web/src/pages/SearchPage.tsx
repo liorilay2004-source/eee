@@ -470,9 +470,9 @@ function IdleIntro({ onDemo, knownSources }: { onDemo: () => void; knownSources:
   return <div className="idle">
     <h2 id="results-heading" tabIndex={-1}>איך זה עובד</h2>
     <ol className="steps">
-      <li><span className="step-n num">1</span><span><strong>עונים על כמה שאלות קצרות.</strong> יעד, חודש, כמה לילות ומי טס.</span></li>
-      <li><span className="step-n num">2</span><span><strong>אנחנו משווים עשרות צירופי תאריכים.</strong> כולל שני כרטיסים נפרדים כשזה זול יותר.</span></li>
-      <li><span className="step-n num">3</span><span><strong>מזמינים באתר שבו נמצא המחיר.</strong> כשהמקור הוא רק קישור ידני, נפתח את החיפוש באתר שלו.</span></li>
+      <li><span className="step-n num">1</span><span><strong>מזינים את פרטי הנסיעה.</strong> מוצא, יעד, תאריכים, נוסעים וכבודה.</span></li>
+      <li><span className="step-n num">2</span><span><strong>אנחנו משווים מחירים ומסלולים.</strong> גם טיסות עם קונקשן ושני כרטיסים נפרדים, כשהנתונים קיימים.</span></li>
+      <li><span className="step-n num">3</span><span><strong>מקבלים שלוש המלצות.</strong> הזולה, המשתלמת והנוחה — בלי להציג שעות או עצירות שלא נמסרו.</span></li>
     </ol>
     <p className="honest"><Info size={16} aria-hidden="true" />המנוע מכיר {sourceSummary.total || "עשרות"} מקורות. {sourceSummary.live > 0 && <>מתוכם <span className="num">{sourceSummary.api}</span> API/מקורות פעילים בקוד, ו־<span className="num">{sourceSummary.manualLinks}</span> קישורים רשמיים לאתרי חברות.</>} אנחנו לא מוכרים כרטיסים.</p>
     <button type="button" id="demo-open" className="btn btn-ghost" onClick={onDemo}><Eye size={18} aria-hidden="true" />איך נראית תוצאה? הצגת דוגמה</button>
@@ -659,7 +659,7 @@ function FlightLinkMemoryPanel({ request, announce }: { request: SearchRequest; 
 }
 
 function sourceName(source: SourceStatus): string {
-  const names: Record<string, string> = { travelpayouts: "Aviasales (דרך Travelpayouts)", google_flights: "Google Flights", ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi", duffel: "Duffel", hasdata: "HasData" };
+  const names: Record<string, string> = { travelpayouts: "Aviasales (דרך Travelpayouts)", google_flights: "Google Flights", ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi", duffel: "Duffel", hasdata: "HasData", elal: "El Al · עמוד מחירים רשמי" };
   return names[source.name] ?? source.name;
 }
 
@@ -669,8 +669,8 @@ function AirlinePriceLinksPanel({ response }: { response: SearchResponse }) {
   return <section className="airline-price-links" aria-labelledby="airline-price-links-title">
     <div className="airline-price-head">
       <div>
-        <h3 id="airline-price-links-title"><Link2 size={18} aria-hidden="true" />אתרי חברות התעופה לפי המחיר שמצאנו</h3>
-        <p>מסודר מהזול ליקר לפי המחיר הזול ביותר שנמצא לכל חברת תעופה בחיפוש הזה. הקישור נפתח באתר הרשמי של החברה.</p>
+        <h3 id="airline-price-links-title"><Link2 size={18} aria-hidden="true" />מחירים לפי חברת תעופה</h3>
+        <p>אלה המחירים הזולים ביותר שמצאו מקורות החיפוש הפעילים לכל חברה. הקישור פותח את האתר הרשמי, שבו אפשר לבדוק את המחיר והזמינות.</p>
       </div>
     </div>
     <ol>
@@ -714,6 +714,7 @@ function Results({ submitted, response, dimmed, announce, knownSources }: { subm
     </div>}
     {truncated && <p className="calm-note"><Info size={18} aria-hidden="true" /><span>{he.truncated}</span></p>}
     <BoardingPass card={hero} request={request} originLabel={originLabel} destinationLabel={destinationLabel} autoCheck={autoCheck} />
+    {!cards.some((card) => card.kinds.includes("most_convenient")) && <p className="calm-note"><Info size={18} aria-hidden="true" /><span>לא נמצאה טיסת הלוך־חזור עם פרטים מלאים על משך ועצירות, ולכן אי אפשר לדרג נוחות בחיפוש הזה.</span></p>}
     <AirlinePriceLinksPanel response={response} />
     {others.length > 0 && <>
       <h3 className="minis-title">עוד אפשרויות ששווה להכיר</h3>

@@ -53,7 +53,7 @@ export interface MatchAuditLine {
 const SOURCE_ALLOW: readonly SourceName[] = (["travelpayouts", "google_flights"] as SourceName[]).concat(QUOTE_SOURCE_NAMES);
 
 /** Runtime copy of RecKind. The two checks below fail the typecheck if the union and this list ever drift apart. */
-const CARD_KINDS = ["cheapest", "best_value", "my_times"] as const satisfies readonly RecKind[];
+const CARD_KINDS = ["cheapest", "best_value", "most_convenient", "my_times"] as const satisfies readonly RecKind[];
 type MissingKind = Exclude<RecKind, (typeof CARD_KINDS)[number]>;
 const _allKindsListed: [MissingKind] extends [never] ? true : never = true;
 void _allKindsListed;

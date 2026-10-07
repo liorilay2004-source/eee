@@ -438,8 +438,9 @@ describe("recommend: cards", () => {
     const b = offer(90, { departDate: "2026-11-13" });
     priced([a, b], r);
     const cards = recommend([noTotal, a, b], r);
-    expect(cards.map((c) => c.offer)).toEqual([b]);
+    expect(cards.map((c) => c.offer)).toEqual([b, a]);
     expect(cards[0]!.kinds).toEqual(["cheapest", "best_value"]);
+    expect(cards[1]!.kinds).toEqual(["most_convenient"]);
   });
 
   it("a single offer is one card holding cheapest + best_value (and my_times when it matches)", () => {
@@ -448,18 +449,18 @@ describe("recommend: cards", () => {
     const cards = recommend([o], r);
     expect(cards).toHaveLength(1);
     expect(cards[0]!.offer).toBe(o);
-    expect(cards[0]!.kinds).toEqual(["cheapest", "best_value"]);
+    expect(cards[0]!.kinds).toEqual(["cheapest", "best_value", "most_convenient"]);
     expect(cards[0]!.savingsVsRoundtripIls).toBeNull();
 
     const r2 = req({ outHours: [9, 11] });
     priced([o], r2);
-    expect(recommend([o], r2)[0]!.kinds).toEqual(["cheapest", "best_value", "my_times"]);
+    expect(recommend([o], r2)[0]!.kinds).toEqual(["cheapest", "best_value", "most_convenient", "my_times"]);
   });
 
   it("shows the same offer once with several kinds, in cheapest, best_value, my_times order", () => {
     const r = req({ outHours: [9, 11], retHours: [17, 19] });
     const o = priced([offer(100)], r)[0]!;
-    expect(kindsOf(recommend([o], r))).toEqual([["cheapest", "best_value", "my_times"]]);
+    expect(kindsOf(recommend([o], r))).toEqual([["cheapest", "best_value", "most_convenient", "my_times"]]);
   });
 
   it("cheapest ties go to the earliest offer in input order", () => {
@@ -588,6 +589,69 @@ describe("SPEC §16: split ticket savings", () => {
   });
 });
 
+describe("most convenient recommendation", () => {
+  it("prefers a nonstop round trip even when it is longer and costs more", () => {
+    const r = req();
+    const oneStop = offer(100, {
+      outbound: leg({ stops: 1, durationMin: 240 }),
+      inbound: leg({ departTime: "18:00", stops: 1, durationMin: 240 }),
+    });
+    const direct = offer(180, {
+      departDate: "2026-11-13",
+      outbound: leg({ stops: 0, durationMin: 360 }),
+      inbound: leg({ departTime: "18:00", stops: 0, durationMin: 360 }),
+    });
+    const cards = recommend(priced([oneStop, direct], r), r);
+    expect(cardFor(cards, "cheapest")?.offer).toBe(oneStop);
+    expect(cardFor(cards, "most_convenient")?.offer).toBe(direct);
+  });
+
+  it("uses the shorter itinerary when stop counts tie", () => {
+    const r = req();
+    const long = offer(100, { outbound: leg({ durationMin: 500 }), inbound: leg({ departTime: "18:00", durationMin: 500 }) });
+    const short = offer(200, { departDate: "2026-11-13", outbound: leg({ durationMin: 300 }), inbound: leg({ departTime: "18:00", durationMin: 300 }) });
+    const cards = recommend(priced([long, short], r), r);
+    expect(cardFor(cards, "most_convenient")?.offer).toBe(short);
+  });
+
+  it("omits comfort and value labels for price-only fares with unknown itinerary facts", () => {
+    const r = req();
+    const fareOnly = offer(100, {
+      source: "elal",
+      outbound: leg({ departTime: null, stops: null, durationMin: null }),
+      inbound: leg({ departTime: null, stops: null, durationMin: null }),
+    });
+    const offers = priced([fareOnly], r);
+    const cards = recommend(offers, r);
+    expect(kindsOf(cards)).toEqual([["cheapest"]]);
+    expect(recommendationsMeta(offers, r, cards).bestValue).toEqual({ status: "flight_details_unknown" });
+  });
+
+  it("does not use a separate-ticket split as the convenience winner", () => {
+    const r = req();
+    const split = offer(50, { ticketStructure: "split", outbound: leg({ durationMin: 100 }), inbound: leg({ departTime: "18:00", durationMin: 100 }) });
+    const roundtrip = offer(150, { outbound: leg({ stops: 1, durationMin: 400 }), inbound: leg({ departTime: "18:00", stops: 1, durationMin: 400 }) });
+    const cards = recommend(priced([split, roundtrip], r), r);
+    expect(cardFor(cards, "most_convenient")?.offer).toBe(roundtrip);
+  });
+
+  it("ranks convenience with unknown bag prices and uses stable order for itinerary ties", () => {
+    const r = req({ checkedBag: true });
+    const unknownBag = offer(100, {
+      outbound: leg({ airlines: ["LY"], stops: 1, durationMin: 300 }),
+      inbound: leg({ departTime: "18:00", airlines: ["LY"], stops: 1, durationMin: 300 }),
+    });
+    const knownBag = offer(200, {
+      departDate: "2026-11-13",
+      outbound: leg({ airlines: ["W6"], stops: 1, durationMin: 300 }),
+      inbound: leg({ departTime: "18:00", airlines: ["W6"], stops: 1, durationMin: 300 }),
+    });
+    const offers = priced([unknownBag, knownBag], r);
+    const cards = recommend(offers, r);
+    expect(cardFor(cards, "most_convenient")?.offer).toBe(unknownBag);
+  });
+});
+
 // WEB_APP_SPEC §5.3 / AC-R7 (gap 16): with a bag requested an unknown fee must not rank as zero.
 describe("bag-cost pool rule", () => {
   const bag = req({ checkedBag: true });
@@ -600,8 +664,9 @@ describe("bag-cost pool rule", () => {
     const offers = priced([unknownFee(100), knownFee(200)], bag); // 300 ILS lower bound vs 600 + 315 = 915 ILS
     expect(offers[0]!.tags).toContain(TAG_BAG_UNKNOWN);
     const cards = recommend(offers, bag);
-    expect(kindsOf(cards)).toEqual([["cheapest", "best_value"]]);
+    expect(kindsOf(cards)).toEqual([["cheapest", "best_value"], ["most_convenient"]]);
     expect(cards[0]!.offer).toBe(offers[1]);
+    expect(cards[1]!.offer).toBe(offers[0]);
     expect(recommendationsMeta(offers, bag, cards)).toEqual({
       cheapest: { status: "shown", excludedForUnknownBagFee: 1 },
       bestValue: { status: "merged" },
@@ -619,9 +684,10 @@ describe("bag-cost pool rule", () => {
   it("falls back to the cheapest lower bound for 💰, hides ⚖️ and reports bag_cost_unknown when no fee is known", () => {
     const offers = priced([unknownFee(300), unknownFee(100)], bag);
     const cards = recommend(offers, bag);
-    expect(kindsOf(cards)).toEqual([["cheapest"]]);
+    expect(kindsOf(cards)).toEqual([["cheapest"], ["most_convenient"]]);
     expect(cards[0]!.offer).toBe(offers[1]);
-    expect(cards[0]!.offer.tags).toContain(TAG_BAG_UNKNOWN); // the card shows "לפחות" and the warning
+    expect(cards[1]!.offer).toBe(offers[0]);
+    expect(cards[0]!.offer.tags).toContain(TAG_BAG_UNKNOWN); // the cheapest card shows "לפחות" and the warning
     expect(recommendationsMeta(offers, bag, cards)).toEqual({
       cheapest: { status: "shown", excludedForUnknownBagFee: 0 },
       bestValue: { status: "bag_cost_unknown" },

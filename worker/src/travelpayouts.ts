@@ -358,6 +358,24 @@ export function createTravelpayoutsClient(opts: {
     }
   }
 
+  function aviasalesRoundTripLinkMatches(link: string, from: string, to: string, depart: string, ret: string): boolean | null {
+    let url: URL;
+    try {
+      url = new URL(link);
+    } catch {
+      return null;
+    }
+    const host = url.hostname.toLowerCase();
+    if (host !== "aviasales.com" && !host.endsWith(".aviasales.com")) return null;
+    const ddmm = (iso: string): string => {
+      const date = dateParts(iso);
+      return date ? String(date.d).padStart(2, "0") + String(date.m).padStart(2, "0") : "";
+    };
+    const prefix = `/search/${from.toUpperCase()}${ddmm(depart)}${to.toUpperCase()}${ddmm(ret)}`;
+    const path = url.pathname.toUpperCase();
+    return path.startsWith(prefix.toUpperCase()) && /^[0-9]{1,3}$/.test(path.slice(prefix.length));
+  }
+
   function rowToRoundTrip(row: Row, currency: string, origin: string, dest: string, checkedAt: string): Offer | null {
     const price = positive(row.price);
     const departDate = dateOf(row.departure_at);
@@ -366,6 +384,10 @@ export function createTravelpayoutsClient(opts: {
     const airlines = airlinesOf(row);
     const from = str(row.origin_airport, origin);
     const to = str(row.destination_airport, dest);
+    let deeplink = affiliateLink(typeof row.link === "string" ? row.link : null, marker);
+    // Some cached API rows carry an Aviasales link with only the outbound date even though the fare is round trip.
+    // Do not send the user to a search that omits their return date; use a route-and-date search link instead.
+    if (deeplink && aviasalesRoundTripLinkMatches(deeplink, from, to, departDate, returnDate) === false) deeplink = null;
     return {
       origin: from,
       destination: to,
@@ -378,7 +400,7 @@ export function createTravelpayoutsClient(opts: {
       outbound: leg(row.departure_at, row.transfers, positive(row.duration_to), airlines),
       inbound: leg(row.return_at, row.return_transfers, positive(row.duration_back), [...airlines]),
       includes: {},
-      deeplink: affiliateLink(typeof row.link === "string" ? row.link : null, marker) ?? fallbackLink(from, to, departDate, returnDate),
+      deeplink: deeplink ?? fallbackLink(from, to, departDate, returnDate),
       verifyLink: null,
       checkedAt,
       ...fareTimes(row, Date.parse(checkedAt)),

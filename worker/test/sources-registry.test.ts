@@ -126,9 +126,14 @@ describe("source registry", () => {
   it("does not pretend planned airlines are live price adapters", () => {
     for (const source of SOURCE_REGISTRY) {
       if (source.kind !== "airline") continue;
-      expect(source.status === "active" || source.status === "api", source.id).toBe(false);
-      expect(source.capabilities.livePrice, source.id).toBe(false);
-      expect(source.capabilities.cachedPrice, source.id).toBe(false);
+      if (source.id === "elal") {
+        expect(source.status).toBe("active");
+        expect(source.capabilities).toMatchObject({ livePrice: false, cachedPrice: true, bookingLink: false, combinations: false });
+      } else {
+        expect(source.status === "active" || source.status === "api", source.id).toBe(false);
+        expect(source.capabilities.livePrice, source.id).toBe(false);
+        expect(source.capabilities.cachedPrice, source.id).toBe(false);
+      }
     }
   });
 

@@ -150,7 +150,7 @@ export function WhoQuestion({ form, patch, error, errorId }: QuestionProps) {
     <p className="q-help">עד {LIMITS.maxPassengers} נוסעים, ותינוק אחד לכל מבוגר.{multi && " המחיר לכמה נוסעים הוא הערכה."}</p>
     <button type="button" role="switch" aria-checked={form.checkedBag} className={`switch-row ${form.checkedBag ? "is-on" : ""}`} onClick={() => patch({ checkedBag: !form.checkedBag })}>
       <span className="switch-icon"><BaggageClaim size={22} aria-hidden="true" /></span>
-      <span className="switch-copy"><strong>מזוודה נגררת</strong><small>{form.checkedBag ? "נוסיף עלות מזוודה כשהיא ידועה, ונגיד כשלא." : "המחירים יוצגו בלי מזוודה נגררת."}</small></span>
+      <span className="switch-copy"><strong>מזוודה נגררת</strong><small>{form.checkedBag ? "מזוודה אחת לאדם, בכל כיוון. נוסיף את העלות כשהיא ידועה ונסמן כשהיא לא." : "המחירים יוצגו בלי מזוודה נגררת."}</small></span>
       <span className="switch-track" aria-hidden="true"><span className="switch-thumb" /></span>
     </button>
   </div>;

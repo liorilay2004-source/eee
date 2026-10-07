@@ -39,7 +39,7 @@ export function demoResult(today: string): { request: SearchRequest; cards: Card
     cards: [
       card(4, 4, 1234, ["cheapest"]),
       card(9, 4, 1456, ["best_value"], true),
-      card(12, 5, 1678, ["my_times"]),
+      card(12, 5, 1678, ["most_convenient"]),
     ],
   };
 }

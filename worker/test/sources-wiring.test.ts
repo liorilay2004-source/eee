@@ -6,6 +6,7 @@
  * or with a counter that cannot be read is not called, and the scheduled job never uses any of them.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import roundtripFixture from "./fixtures/tp_roundtrip.json";
 import onewayFixture from "./fixtures/tp_oneway.json";
 import * as entry from "../src/index";
@@ -26,6 +27,7 @@ const TP_TOKEN = "tp-SECRET-token-0123456789abcdef";
 const BASE = "https://api.example.test";
 const IP = "203.0.113.7";
 const BODY = { origin: "TLV", destination: "BCN", windowStart: "2026-11-10", windowEnd: "2026-11-25", stayMin: 5, stayMax: 7 };
+const ELAL_DEALS_PAGE = readFileSync("test/fixtures/elal-deals-page.html", "utf8");
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 const clone = <T>(v: T): T => structuredClone(v);
@@ -217,6 +219,32 @@ describe("no key: the extra sources do not exist", () => {
     expect(data.sources.every((s) => /^https:\/\//.test(s.homeUrl))).toBe(true);
     expect(up.fn).not.toHaveBeenCalled();
     expect(await quotaRows(env)).toEqual([]);
+  });
+
+  it("uses the bounded EL AL public-page source only when enabled and persists its price-only fare", async () => {
+    const pageCalls: Outbound[] = [];
+    const up = stubUpstream();
+    // Extend the global fetch stub only for the official route page; all other calls retain normal fixtures.
+    const original = up.fn.getMockImplementation();
+    up.fn.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      if (url.hostname === "www.elal.com") {
+        pageCalls.push({ url, init: init ?? {} });
+        return new Response(ELAL_DEALS_PAGE, { status: 200, headers: { "content-type": "text/html; charset=utf-8" } });
+      }
+      if (!original) throw new Error("upstream stub missing original implementation");
+      return original(input, init);
+    });
+    const env = makeEnv({ ELAL_PUBLIC_DEALS_ENABLED: "true" });
+    const body = { ...BODY, destination: "ATH", windowStart: "2026-10-14", windowEnd: "2026-10-21", stayMin: 7, stayMax: 7 };
+    const { res, data } = await search(env, body);
+    expect(res.status).toBe(200);
+    expect(sourceNames(data)).toContain("elal");
+    expect(data.meta.sources.find((s) => s.name === "elal")).toMatchObject({ enabled: true, ok: true, offers: 1, calls: 1 });
+    expect(pageCalls).toHaveLength(1);
+    expect(pageCalls[0]?.init).toMatchObject({ method: "GET", redirect: "manual" });
+    expect(data.cards.some((card) => card.offer.source === "elal" && card.offer.priceAmount === 261)).toBe(true);
+    expect((await rows(env, "SELECT source FROM prices WHERE source = 'elal'")).length).toBe(1);
   });
 
   it("makes no vendor request, keeps no counter and lists only the built-in sources", async () => {

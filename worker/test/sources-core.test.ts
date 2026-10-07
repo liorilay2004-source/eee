@@ -845,7 +845,7 @@ describe("a cache hit answers like the fresh search that wrote the cache", () =>
       await w.repo.saveFxRates(FX);
       const first = await w.run([w.mk("serpapi", { fares: answer })], r);
       expect(first.meta.fromCache).toBe(false);
-      expect(cardsOf(first)[0]).toEqual(["serpapi", 120, "14:00", ["cheapest", "best_value"]]); // the quote of the cached flight replaced the cheaper cached fare
+      expect(cardsOf(first)[0]).toEqual(["serpapi", 120, "14:00", ["cheapest", "best_value", "most_convenient"]]); // the quote of the cached flight replaced the cheaper cached fare
       const before = { calls: w.fetchFn.mock.calls.length, quota: await rowsOf(w.db, "SELECT source, period, used FROM source_quota ORDER BY source, period") };
 
       const second = await w.run([w.mk("serpapi", { fares: answer })], r, { now: new Date(NOW.getTime() + HOUR) });
@@ -909,8 +909,8 @@ describe("a live quote that does not state its return flight (SearchApi, SerpApi
     expect(merged).toEqual([quote]); // the live price still replaces the cached one
     const extra = timeCandidates(pool, merged, r);
     expect(extra).toEqual([cached]);
-    expect(kindsOf(recommend(merged, r))).toEqual([["serpapi", ["cheapest", "best_value"]]]); // without the candidate the card is gone
-    expect(kindsOf(recommend(merged, r, undefined, extra))).toEqual([["serpapi", ["cheapest", "best_value"]], ["travelpayouts", ["my_times"]]]);
+    expect(kindsOf(recommend(merged, r))).toEqual([["serpapi", ["cheapest"]]]); // missing return details block value and convenience rankings
+    expect(kindsOf(recommend(merged, r, undefined, extra))).toEqual([["serpapi", ["cheapest"]], ["travelpayouts", ["my_times"]]]);
   });
 
   it("the same with max stops: a quote whose stops are unknown cannot be verified, the cached fare can", () => {
@@ -938,7 +938,7 @@ describe("a live quote that does not state its return flight (SearchApi, SerpApi
     const r = req({ retHours: [18, 24] });
     const run = (over: Partial<SearchDeps> = {}) => w.run([w.mk("serpapi", { fares: () => [fare(210, { inbound: { ...NO_RETURN } })] })], r, over);
     const first = await run();
-    expect(kindsOf(first.cards)).toEqual([["serpapi", ["cheapest", "best_value"]], ["travelpayouts", ["my_times"]]]);
+    expect(kindsOf(first.cards)).toEqual([["serpapi", ["cheapest"]], ["travelpayouts", ["my_times"]]]);
     const second = await run({ now: new Date(NOW.getTime() + HOUR) });
     expect(second.meta.fromCache).toBe(true);
     expect(kindsOf(second.cards)).toEqual(kindsOf(first.cards));

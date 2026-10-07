@@ -348,3 +348,16 @@ Scope: the 44 items a research pyramid kept after verification, deduplicated her
 5. Web legal pages: a Hebrew credit section for Hebcal.com under CC BY 4.0.
 
 **Not verified in this pass:** the Eurostat non-EU-source exception for rows with LLBG as partner; Meteostat's bulk path and provider terms; Google TIM's key and billing requirement; the Travelpayouts help-centre pages (Statistics, GraphQL, Partner Links, White Label CNAME); FCM/Mozilla push cost; `Intl.DisplayNames` Hebrew data in workerd; the flydata and travelwarnings licence texts; the successor repo of the Passport Index dataset; the Blue Bird (BZ) checked-bag fee (whether EUR 52 online 20 kg is per passenger per direction, and which currency is charged out of TLV: the page shows EUR 52 / $60), so BZ is not in `config/bag_fees.json`.
+
+## 18. EL AL public fare-page probe (2026-10-07)
+
+- A normal GET to EL AL's public Flight Deals route pages returned **Link11 HTTP 492 (access denied)** from the current environment. The documented Sputnik histogram endpoint returned **401 with `WWW-Authenticate: Bearer`**. No authorized API token or allowlist was available.
+- The Worker has a bounded, GET-only adapter for exact route/date fares from sitemap-listed Flight Deals pages. It is limited to one-adult Economy searches, shares one page request across date pairs, caps requests at 100/month and 10/day, and stops that source after an explicit 401/403/492 block. It does not use a browser, credentials, a proxy, or a challenge workaround.
+- Those pages state “from” round-trip prices, taxes/surcharges, and a freshness window of up to 12 hours. They do not provide flight times, stops, baggage, or confirmed availability. The adapter therefore cannot rank EL AL for “best value” or “most convenient”; it can only contribute a clearly labelled minimum-price lead.
+- **Live status: unverified / blocked from this environment.** The adapter is not counted as live until a normal request from the deployed Worker returns a valid current page and fare. A documented API token or EL AL/EveryMundo allowlisting is the path to verify it. Do not route around the 492 or the Bearer requirement.
+
+## 19. Production search smoke test (2026-10-07)
+
+- `GET /api/health` returned `{"status":"ok"}`. A single search for TLV–ATH, 10–18 November 2026, five nights, one adult returned HTTP 200: Travelpayouts reported 3 offers, SerpApi 21, and Google Flights was disabled. The cheapest card was USD 141 from Travelpayouts and best value was USD 142 from SerpApi; both had `checkedAt=2026-10-07T07:56:43Z`.
+- This confirms the deployed search path currently returns offers, but **does not verify the airline's payable price**. Travelpayouts does not provide a known fare age for this endpoint. Its cheapest result's Aviasales path omitted the return date and the URL's `expected_price=55` did not match the card's USD 141; the parameter's meaning could not be confirmed. The Worker and Python readers now replace an Aviasales round-trip link whose route or dates do not match the offer with a generic search link for the exact round-trip dates. This fixes the destination of the link, not price verification.
+- These code changes are local and were not deployed. The production smoke result reflects the deployment that existed before this patch.

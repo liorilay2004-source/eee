@@ -135,6 +135,24 @@ export function bagCostPool<T extends Offer>(offers: T[], req: Pick<SearchReques
   return known.length > 0 ? { pool: known, fallback: false } : { pool: offers, fallback: offers.length > 0 };
 }
 
+/** Best value needs both legs' stops, duration, and departure time; missing data is never treated as zero penalty. */
+function valueDetailsKnown(o: Offer): boolean {
+  return [o.outbound, o.inbound].every((leg) =>
+    Number.isInteger(leg.stops) && leg.stops! >= 0 &&
+    Number.isFinite(leg.durationMin) && leg.durationMin! > 0 &&
+    departHour(leg) !== null);
+}
+
+/** A protected round trip with complete stops and duration, used for the convenience recommendation. */
+function convenienceDetails(o: Offer): { stops: number; duration: number } | null {
+  if (o.ticketStructure !== "roundtrip" || ![o.outbound, o.inbound].every((leg) =>
+    Number.isInteger(leg.stops) && leg.stops! >= 0 && Number.isFinite(leg.durationMin) && leg.durationMin! > 0)) return null;
+  return {
+    stops: (o.outbound.stops as number) + (o.inbound.stops as number),
+    duration: (o.outbound.durationMin as number) + (o.inbound.durationMin as number),
+  };
+}
+
 export function recommend(offers: Offer[], req: SearchRequest, cfg: ScoringConfig = SCORING, timeOnly: Offer[] = []): Card[] {
   const priced = offers.filter(isPriced);
   if (priced.length === 0) return [];
@@ -145,13 +163,23 @@ export function recommend(offers: Offer[], req: SearchRequest, cfg: ScoringConfi
   const cheapest = firstMin(bagCostPool(priced, req).pool, (a, b) => a.totalIls < b.totalIls);
   if (cheapest) picks.push(["cheapest", cheapest]);
 
-  // ⚖️: the "fastest" reference stays over every priced offer (durations are known whatever the bag fee), but only offers
-  // with a known bag cost are ranked, and when none has one there is no ⚖️ pick at all (status bag_cost_unknown).
-  const fastest = fastestByDirection(priced);
-  const valuePool = priced.filter((o) => bagCostKnown(o, req));
+  // ⚖️: incomplete/price-only rows must not change the duration reference or rank as zero stops/time.
+  const detailPool = priced.filter(valueDetailsKnown);
+  const fastest = fastestByDirection(detailPool);
+  const valuePool = detailPool.filter((o) => bagCostKnown(o, req));
   const scored = valuePool.map((o) => ({ o, score: valueScore(o, fastest, cfg) }));
   const best = firstMin(scored, (a, b) => a.score < b.score || (a.score === b.score && a.o.totalIls < b.o.totalIls));
   if (best) picks.push(["best_value", best.o]);
+
+  // Comfort uses only itinerary facts. Unknown bag fees do not exclude an otherwise rankable trip, and a partial bag
+  // total must never decide which one is called more convenient.
+  const convenience = priced
+    .map((o) => ({ o, rank: convenienceDetails(o) }))
+    .filter((entry): entry is { o: Priced; rank: { stops: number; duration: number } } => entry.rank !== null);
+  const mostConvenient = firstMin(convenience, (a, b) =>
+    a.rank.stops < b.rank.stops ||
+    (a.rank.stops === b.rank.stops && a.rank.duration < b.rank.duration));
+  if (mostConvenient) picks.push(["most_convenient", mostConvenient.o]);
 
   if (hasTimePrefs(req)) {
     const matching = [...priced, ...timeOnly.filter(isPriced)].filter((o) => matchesTimes(o, req));
@@ -196,7 +224,7 @@ export function recommend(offers: Offer[], req: SearchRequest, cfg: ScoringConfi
 /**
  * ADDITIVE `meta.recommendations` (WEB_APP_SPEC §7.2, §5.3): why 💰/⚖️ look the way they do, so the client never re-derives
  * gating. `cards` must be recommend()'s result for the same offers and request. Only the bag-cost part of the contract is
- * computed here: bestValue never reports `insufficient_data` (stops/duration gating is not built yet) and `myTimes` is absent.
+ * computed here: a recommendation requiring unknown itinerary details is omitted and its reason is returned to the UI.
  */
 export function recommendationsMeta(offers: Offer[], req: SearchRequest, cards: Card[]): RecommendationsMeta {
   const priced = offers.filter(isPriced);
@@ -213,7 +241,7 @@ export function recommendationsMeta(offers: Offer[], req: SearchRequest, cards: 
   }
   const bestCard = cards.find((c) => c.kinds.includes("best_value"));
   const bestValue: RecommendationsMeta["bestValue"]["status"] = !bestCard
-    ? "bag_cost_unknown"
+    ? (priced.some((o) => bagCostKnown(o, req)) ? "flight_details_unknown" : "bag_cost_unknown")
     : bestCard.kinds.includes("cheapest")
       ? "merged"
       : "shown";

@@ -166,6 +166,14 @@ describe("round trips: parsing", () => {
     expect(odd[0]!.deeplink).toBeNull();
   });
 
+  it("replaces an Aviasales link that omits or changes the round-trip dates", async () => {
+    const incomplete = await setup(() => json(body([row({ link: "https://www.aviasales.com/search/TLV1211BCN1?expected_price=55" })]))).client.roundTrips("TLV", "BCN", ...NOV);
+    expect(incomplete[0]!.deeplink).toBe(`https://www.aviasales.com/search/TLV1211BCN18111?marker=${MARKER}`);
+
+    const wrongDates = await setup(() => json(body([row({ link: "https://www.aviasales.com/search/TLV1311BCN19111?t=W6_example" })]))).client.roundTrips("TLV", "BCN", ...NOV);
+    expect(wrongDates[0]!.deeplink).toBe(`https://www.aviasales.com/search/TLV1211BCN18111?marker=${MARKER}`);
+  });
+
   it("uses the real airports from the row when the request was a city code", async () => {
     const { client } = setup(() => json(body([row({ origin_airport: "LGW", destination_airport: "BCN" })])));
     const [o] = await client.roundTrips("LON", "BCN", ...NOV);

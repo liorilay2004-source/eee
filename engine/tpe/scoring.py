@@ -10,6 +10,7 @@ from .models import Leg, Offer, SearchRequest
 CHEAPEST = "cheapest"
 BEST_VALUE = "best_value"
 MY_TIMES = "my_times"
+MOST_CONVENIENT = "most_convenient"
 TAG_BAG_UNKNOWN = "bag_fee_unknown"
 
 
@@ -91,6 +92,22 @@ def bag_cost_pool(offers: list[Offer], req: SearchRequest) -> tuple[list[Offer],
     return (known, False) if known else (offers, bool(offers))
 
 
+def _value_details_known(o: Offer) -> bool:
+    """Best value needs complete stops, duration, and local departure time on both legs."""
+    return all(leg.stops is not None and leg.duration_min is not None and leg.duration_min > 0
+               and leg.depart_hour() is not None for leg in (o.outbound, o.inbound))
+
+
+def _convenience_rank(o: Offer) -> tuple[int, int] | None:
+    """Only a complete round trip can win: fewer stops, then shorter total time."""
+    legs = (o.outbound, o.inbound)
+    if o.ticket_structure != "roundtrip" or not all(
+        leg.stops is not None and leg.duration_min is not None and leg.duration_min > 0 for leg in legs
+    ):
+        return None
+    return (sum(leg.stops for leg in legs), sum(leg.duration_min for leg in legs))
+
+
 def recommend(offers: list[Offer], req: SearchRequest, cfg: dict = SCORING) -> list[Card]:
     priced = [o for o in offers if o.total_ils is not None]
     if not priced:
@@ -100,12 +117,21 @@ def recommend(offers: list[Offer], req: SearchRequest, cfg: dict = SCORING) -> l
     cheapest = min(bag_cost_pool(priced, req)[0], key=lambda o: o.total_ils)
     picks.append((CHEAPEST, cheapest))
 
-    # Fastest reference over every priced offer; only offers with a known bag cost are ranked (none -> no pick).
-    fastest = fastest_by_direction(priced)
-    value_pool = [o for o in priced if bag_cost_known(o, req)]
+    # Incomplete/price-only rows must not change the duration reference or rank as zero stops/time.
+    detail_pool = [o for o in priced if _value_details_known(o)]
+    fastest = fastest_by_direction(detail_pool)
+    value_pool = [o for o in detail_pool if bag_cost_known(o, req)]
     if value_pool:
         best = min(value_pool, key=lambda o: (value_score(o, fastest, cfg), o.total_ils))
         picks.append((BEST_VALUE, best))
+
+    # Comfort uses only itinerary facts. Unknown bag fees do not exclude a trip, and a partial bag
+    # total must never decide which one is called more convenient.
+    convenience_pool = [(o, _convenience_rank(o)) for o in priced]
+    convenience_pool = [(o, rank) for o, rank in convenience_pool if rank is not None]
+    if convenience_pool:
+        best = min(convenience_pool, key=lambda item: item[1])
+        picks.append((MOST_CONVENIENT, best[0]))
 
     if req.has_time_prefs:  # hidden otherwise (would duplicate Cheapest)
         matching = [o for o in priced if matches_times(o, req)]
@@ -143,5 +169,6 @@ def recommendations_meta(offers: list[Offer], req: SearchRequest, cards: list[Ca
     if req.checked_bag and not fallback and shown is not None:
         excluded = sum(1 for o in priced if not bag_cost_known(o, req) and o.total_ils < shown)
     best_card = next((c for c in cards if BEST_VALUE in c.kinds), None)
-    status = "bag_cost_unknown" if best_card is None else ("merged" if CHEAPEST in best_card.kinds else "shown")
+    status = ("flight_details_unknown" if any(bag_cost_known(o, req) for o in priced) else "bag_cost_unknown") \
+        if best_card is None else ("merged" if CHEAPEST in best_card.kinds else "shown")
     return {"cheapest": {"status": "shown", "excludedForUnknownBagFee": excluded}, "bestValue": {"status": status}}

@@ -336,7 +336,7 @@ def coverage(scenarios: list[dict]) -> dict[str, int]:
                         "merged_cards", "triple_cards", "bonus_tag", "bag_unknown_tag", "bag_fee_added",
                         "wrap_window", "unmatched_window_scenario", "max_stops", "null_stops", "null_duration",
                         "night_departure", "unknown_carrier", "GBP", "USD", "EUR", "ILS", "pax_2", "pax_3",
-                        "unknown_return_leg", "stale_input", "bag_pool_excluded", "bag_cost_unknown",
+                        "unknown_return_leg", "stale_input", "bag_pool_excluded", "bag_cost_unknown", "most_convenient",
                         "bag_value_merged", "bag_value_shown")}
     for s in scenarios:
         r, offers, exp = s["request"], s["offers"], s["expected"]
@@ -349,6 +349,7 @@ def coverage(scenarios: list[dict]) -> dict[str, int]:
         c["wrap_window"] += any(w and w[0] > w[1] for w in (r["outHours"], r["retHours"]))
         c["savings"] += any(k["savingsVsRoundtripIls"] is not None for k in exp["cards"])
         c["my_times"] += any("my_times" in k["kinds"] for k in exp["cards"])
+        c["most_convenient"] += any("most_convenient" in k["kinds"] for k in exp["cards"])
         c["merged_cards"] += any(len(k["kinds"]) > 1 for k in exp["cards"])
         c["triple_cards"] += any(len(k["kinds"]) == 3 for k in exp["cards"])
         rec = exp["recommendations"]
@@ -391,7 +392,7 @@ def main() -> None:
              "triple_cards": 5, "bonus_tag": 40, "bag_unknown_tag": 40, "bag_fee_added": 60, "wrap_window": 15,
              "unmatched_window_scenario": 3, "max_stops": 30, "null_stops": 50, "night_departure": 50,
              "unknown_return_leg": 20, "GBP": 5, "stale_input": 20, "bag_pool_excluded": 15, "bag_cost_unknown": 5,
-             "bag_value_merged": 10, "bag_value_shown": 10}
+             "bag_value_merged": 10, "bag_value_shown": 10, "most_convenient": 20}
     missing = {k: (cov[k], v) for k, v in floor.items() if cov[k] < v}
     assert not missing, f"fixture coverage too thin (got, need): {missing}"
 
