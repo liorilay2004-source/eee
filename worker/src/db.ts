@@ -1,4 +1,5 @@
 import { bucketKey } from "./deals";
+import { parseTicketPrices } from "./ticket-prices";
 import type { CachedOffers, FxRates, Leg, Offer, OneWayPair, PriceContext, PriceHistoryRow, Repo, SearchRequest, SourceName } from "./types";
 
 /**
@@ -143,7 +144,7 @@ function priceParams(offer: Offer): Bind[] | null {
     offer.ticketStructure,
     JSON.stringify(unionAirlines(outbound, inbound)),
     // The return one-way's link (split tickets) rides in legs_json: the columns of SPEC §12 have no room for it.
-    JSON.stringify({ outbound, inbound, ...(typeof offer.returnDeeplink === "string" ? { returnDeeplink: offer.returnDeeplink } : {}) }),
+    JSON.stringify({ outbound, inbound, ...(typeof offer.returnDeeplink === "string" ? { returnDeeplink: offer.returnDeeplink } : {}), ...(offer.ticketPrices ? { ticketPrices: parseTicketPrices(offer.ticketPrices, offer) } : {}) }),
     JSON.stringify(typeof checkedBag === "boolean" ? { checked_bag: checkedBag } : {}),
     offer.deeplink ?? null,
     offer.verifyLink ?? null,
@@ -174,6 +175,7 @@ export function rowToOffer(row: PriceRow): Offer | null {
     includes: checkedBag === undefined ? {} : { checkedBag },
     deeplink: row.deeplink,
     ...(returnDeeplink !== null ? { returnDeeplink } : {}),
+    ticketPrices: parseTicketPrices(legsRec.ticketPrices, { ticketStructure: row.ticket_structure as Offer["ticketStructure"], priceAmount: row.price_amount, priceCurrency: row.price_currency, outbound: parseLeg(legsRec.outbound), inbound: parseLeg(legsRec.inbound) }),
     verifyLink: row.verify_link,
     checkedAt: row.checked_at,
     // Pipeline-derived fields are recomputed per request, never persisted (SPEC §7 step 7).

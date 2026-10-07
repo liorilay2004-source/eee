@@ -17,6 +17,7 @@
  * `prices` history stores PER-PASSENGER amounts so searches with different party sizes stay comparable.
  */
 import { airlineFieldsFor } from "./airlines/lookup";
+import { parseTicketPrices } from "./ticket-prices";
 import { airlinePriceLinks } from "./airlines/official-links";
 import { logMatchAudit } from "./audit";
 import * as airportData from "./airports/resolve";
@@ -331,6 +332,7 @@ export function sanitizeOffers(raw: unknown, sources: readonly string[] = SOURCE
       includes,
       deeplink: strOrNull(v.deeplink),
       ...(returnDeeplink !== null ? { returnDeeplink } : {}),
+      ticketPrices: parseTicketPrices(v.ticketPrices, { ticketStructure: v.ticketStructure as Offer["ticketStructure"], priceAmount: amount, priceCurrency: v.priceCurrency, outbound, inbound }),
       verifyLink: strOrNull(v.verifyLink),
       checkedAt: v.checkedAt,
       ...vendorTimes(v.fareFoundAt, v.fareExpiresAt, "fareFoundAt", "fareExpiresAt"),

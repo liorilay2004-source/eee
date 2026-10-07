@@ -42,6 +42,8 @@ export interface Offer {
    * offer two buttons. `undefined` on round trips and on splits stored before this field existed.
    */
   returnDeeplink?: string | null;
+  /** Independently observed original prices of the two separate tickets. */
+  ticketPrices?: { outbound: { amount: number; currency: string; airline: string }; inbound: { amount: number; currency: string; airline: string } };
   verifyLink: string | null;
   checkedAt: string;
   /**

@@ -21,6 +21,10 @@ export function createDirectCombinationSource(providers: FareQuoteSource[]): Far
         source: "direct_combination", ticketStructure: "split", priceAmount: c.amount, priceCurrency: c.currency,
         outbound: c.outbound.leg ?? emptyLeg(c.outbound.airline), inbound: c.inbound.leg ?? emptyLeg(c.inbound.airline),
         includes: {}, deeplink: c.outbound.bookingUrl, returnDeeplink: c.inbound.bookingUrl, verifyLink: null,
+        ticketPrices: {
+          outbound: { amount: c.outbound.amount, currency: c.outbound.currency, airline: c.outbound.airline },
+          inbound: { amount: c.inbound.amount, currency: c.inbound.currency, airline: c.inbound.airline },
+        },
         checkedAt: c.checkedAt, extrasAmountIls: 0, totalIls: null, tags: ["published_advertisement"],
       }));
     },
