@@ -1,4 +1,4 @@
-import { useRef, type FormEvent, type ReactNode, type RefObject } from "react";
+import { useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
 import { ChevronDown, CircleAlert, Compass, Search } from "lucide-react";
 import { Sheet } from "./Sheet";
 import { FlyFindFields, FlyFindTabs } from "./FlyFind";
@@ -8,6 +8,7 @@ import {
   type FieldErrors, type Question,
 } from "../lib/builder";
 import { type SearchForm } from "../lib/search";
+import { nightsBetween } from "../lib/date-selection";
 
 interface Props {
   flyFind?: boolean;
@@ -51,6 +52,7 @@ function Chip({ q, value, empty, open, error, chipRef, onOpen }: {
 }
 
 export function Builder({ form, patch, today, errors, openQuestion, setOpenQuestion, onSubmit, editing, onCancelEdit, flyFind = false }: Props) {
+  const [dateTarget, setDateTarget] = useState<"departure" | "return">("departure");
   const refs = {
     from: useRef<HTMLButtonElement>(null),
     to: useRef<HTMLButtonElement>(null),
@@ -78,7 +80,7 @@ export function Builder({ form, patch, today, errors, openQuestion, setOpenQuest
   if (open && questionProps) {
     body = open === "from" ? <FromQuestion {...questionProps} />
       : open === "to" ? <ToQuestion {...questionProps} />
-        : open === "when" ? <WhenQuestion {...questionProps} />
+        : open === "when" ? <WhenQuestion {...questionProps} dateTarget={dateTarget} />
           : open === "stay" ? <StayQuestion {...questionProps} />
             : <WhoQuestion {...questionProps} />;
   }
@@ -93,7 +95,7 @@ export function Builder({ form, patch, today, errors, openQuestion, setOpenQuest
       {!editing && <a className="explore-link" href="/explore"><Compass size={18} aria-hidden="true" /><span>לא יודע לאן? <strong>גלו יעדים זולים</strong></span></a>}
     </div>
 
-    {flyFind && <FlyFindFields form={form} open={setOpenQuestion} refs={refs} openQuestion={openQuestion} errors={errors} swap={() => patch({ origin: form.destination, originLabel: form.destinationLabel, destination: form.origin, destinationLabel: form.originLabel })} />}
+    {flyFind && <FlyFindFields form={form} open={setOpenQuestion} openDates={target => { setDateTarget(target); setOpenQuestion("when"); }} refs={refs} openQuestion={openQuestion} errors={errors} swap={() => patch({ origin: form.destination, originLabel: form.destinationLabel, destination: form.origin, destinationLabel: form.originLabel })} />}
     <div className="sentence" role="group" aria-label="פרטי החיפוש" hidden={flyFind}>
       <span className="unit"><span className="w" aria-hidden="true">מ־</span>{chip("from")}</span>
       <span className="unit"><span className="w" aria-hidden="true">ל־</span>{chip("to")}</span>
@@ -123,7 +125,9 @@ export function Builder({ form, patch, today, errors, openQuestion, setOpenQuest
       anchor={refs[open]}
       onClose={() => setOpenQuestion(null)}
       footer={<>
-        {nextQ
+        {open === "when"
+          ? <button type="button" className="btn btn-primary btn-wide" disabled={!form.windowStart || !form.windowEnd || nightsBetween(form.windowStart, form.windowEnd) <= 0 || Boolean(errors.byQuestion.when)} onClick={() => setOpenQuestion(null)}>שמירת התאריכים</button>
+          : nextQ
           ? <button type="button" className="btn btn-primary btn-wide" onClick={() => setOpenQuestion(nextQ)}>הבא: {QUESTION_TITLES[nextQ]}</button>
           : <button type="button" className="btn btn-primary btn-wide" onClick={() => setOpenQuestion(null)}>סיום</button>}
       </>}

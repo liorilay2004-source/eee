@@ -318,14 +318,14 @@ export function SearchPage() {
   const landing = run.status === "idle" && !demo;
 
   return <>
-    <div className={`app ${landing ? "flyfind" : ""} ${showBuilder ? "has-cta" : ""} ${showBuilder && editing && run.status === "done" ? "cta-tall" : ""}`} inert={openQuestion !== null}>
+    <div className={`app ${landing || showBuilder ? "flyfind" : ""} ${!landing && showBuilder ? "is-editing" : ""} ${showBuilder ? "has-cta" : ""} ${showBuilder && editing && run.status === "done" ? "cta-tall" : ""}`} inert={openQuestion !== null}>
       {landing ? <FlyFindHeader /> : <SiteHeader current="/" />}
       {landing && <FlyFindHero />}
       {!online && <p className="offline-bar" role="status"><WifiOff size={16} aria-hidden="true" />אין חיבור לאינטרנט כרגע.</p>}
       <main id="main" className="main">
         {showBuilder && prefilled && <p className="prefill-note" role="status"><Compass size={18} aria-hidden="true" /><span>{prefilled}</span></p>}
         {showBuilder && <Builder
-          flyFind={landing}
+          flyFind
           form={form} patch={patch} today={today} errors={fieldErrors} rawErrors={rawErrors}
           openQuestion={openQuestion} setOpenQuestion={setOpenQuestion} onSubmit={submit}
           editing={editing && run.status === "done"} onCancelEdit={cancelEdit}

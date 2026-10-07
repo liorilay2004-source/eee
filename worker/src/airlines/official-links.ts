@@ -5,6 +5,7 @@ const URLS: Readonly<Record<string, string>> = Object.freeze({
   "6H": "https://www.israir.co.il/",
   "IZ": "https://www.arkia.com/",
   LY: "https://www.elal.com/",
+  GQ: "https://www.skyexpress.gr/en/book/flight",
   TK: "https://www.turkishairlines.com/",
   PC: "https://www.flypgs.com/",
   A3: "https://en.aegeanair.com/",

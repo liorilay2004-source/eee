@@ -1,15 +1,15 @@
 import { useState, type ReactNode } from "react";
-import { BaggageClaim, CalendarDays, Check, CircleAlert, Info } from "lucide-react";
+import { BaggageClaim, Check, CircleAlert, Info } from "lucide-react";
 import { AirportCombobox } from "./AirportCombobox";
 import { Stepper } from "./Stepper";
-import { PriceCalendar } from "./PriceCalendar";
+import { VacationDates } from "./VacationDates";
 import { LIMITS } from "../config";
 import {
-  POPULAR_DESTINATIONS, QUICK_ORIGINS, STAY_PRESETS, addDays, inferWhen, monthOptions, nextMonthWindow, nightsText,
-  pairCheck, rangeLabel, stayPresetFor, toggleMonth, windowForMonths, type WhenChoice,
+  POPULAR_DESTINATIONS, QUICK_ORIGINS, STAY_PRESETS, nightsText,
+  pairCheck, stayPresetFor,
 } from "../lib/builder";
 import type { SearchForm } from "../lib/search";
-import { initialCalendarMonth } from "../lib/calendar";
+
 
 export type Patch = (patch: Partial<SearchForm>) => void;
 
@@ -66,60 +66,9 @@ export function ToQuestion({ form, patch, error, errorId }: QuestionProps) {
   </div>;
 }
 
-export function WhenQuestion({ form, patch, error, errorId, today }: QuestionProps) {
-  // The chip the user tapped is explicit state (seeded from the dates when the sheet opens), so two chips that
-  // happen to produce the same window never swap under the user's finger.
-  const [choice, setChoice] = useState<WhenChoice>(() => inferWhen(form.windowStart, form.windowEnd, today));
-  const exact = choice.mode === "exact";
-  const months = monthOptions(today);
-  const selected = choice.mode === "months" ? choice.keys : [];
-  const next = nextMonthWindow(today);
-  const pickMonth = (key: string) => {
-    const keys = toggleMonth(selected, key);
-    const w = windowForMonths(keys, today);
-    setChoice(w ? { mode: "months", keys } : { mode: "none" });
-    patch(w ?? { windowStart: "", windowEnd: "" });
-  };
-  const maxStart = addDays(today, LIMITS.maxAdvanceDays);
-  const monthKeys = months.map((m) => m.key);
-  const [calendarMonth] = useState(() => initialCalendarMonth(form, today, monthKeys[0]));
-  const [calendarStay] = useState<[number, number]>(() => [form.stayMin, form.stayMax]);
-  // A tapped calendar day is one exact date pair: that fare's departure, return and nights.
-  const pickDay = (dates: Pick<SearchForm, "windowStart" | "windowEnd" | "stayMin" | "stayMax">) => {
-    setChoice({ mode: "exact" });
-    patch(dates);
-  };
-  return <div className="q">
-    <QuestionError id={errorId} message={error} />
-    <p className="q-help">בחרו חודש אחד, או שני חודשים צמודים. נחפש את הצירוף הזול ביותר בתוכם.</p>
-    <div className="choice-grid three" role="group" aria-label="חודשים">
-      {months.map((m, i) => <ChoiceChip key={m.key} pressed={selected.includes(m.key)} autoFocus={i === 0} onClick={() => pickMonth(m.key)} sub={m.showYear ? <span className="num">{m.year}</span> : undefined}>{m.label}</ChoiceChip>)}
-    </div>
-    <div className="choice-grid two">
-      <ChoiceChip pressed={choice.mode === "next30"} onClick={() => { setChoice({ mode: "next30" }); patch(next); }} sub={<span className="num">{rangeLabel(next.windowStart, next.windowEnd)}</span>}>בחודש הקרוב</ChoiceChip>
-      <ChoiceChip pressed={exact} onClick={() => setChoice({ mode: "exact" })} sub="טווח לבחירתכם">תאריכים מדויקים</ChoiceChip>
-    </div>
-    {exact && <div className="date-pair">
-      <label className="date-field"><span>יציאה מוקדמת ביותר</span>
-        <input type="date" min={today} max={maxStart} value={form.windowStart} aria-describedby={error ? errorId : undefined}
-          onChange={(e) => patch({ windowStart: e.target.value })} />
-      </label>
-      <label className="date-field"><span>חזרה מאוחרת ביותר</span>
-        <input type="date" min={form.windowStart ? addDays(form.windowStart, 1) : today} max={form.windowStart ? addDays(form.windowStart, LIMITS.maxWindowDays) : undefined} value={form.windowEnd} aria-describedby={error ? errorId : undefined}
-          onChange={(e) => patch({ windowEnd: e.target.value })} />
-      </label>
-    </div>}
-    <div className="resolved" aria-live="polite">
-      <CalendarDays size={18} aria-hidden="true" />
-      {form.windowStart && form.windowEnd
-        ? <span>טווח החיפוש: <strong className="num">{rangeLabel(form.windowStart, form.windowEnd)}</strong><br /><small>היציאה והחזרה יהיו בתוך הטווח.</small></span>
-        : <span>עוד לא נבחר טווח.</span>}
-    </div>
-    <PairHint form={form} />
-    <PriceCalendar form={form} today={today} months={monthKeys} initialMonth={calendarMonth} stay={calendarStay} onPick={pickDay} />
-  </div>;
+export function WhenQuestion({ form, patch, error, errorId, today, dateTarget }: QuestionProps & { dateTarget?: "departure" | "return" }) {
+  return <div className="q"><QuestionError id={errorId} message={error} /><VacationDates form={form} patch={patch} today={today} dateTarget={dateTarget} /><PairHint form={form} /></div>;
 }
-
 export function StayQuestion({ form, patch, error, errorId }: QuestionProps) {
   const presetKey = stayPresetFor(form.stayMin, form.stayMax);
   const [custom, setCustom] = useState(presetKey === "custom");

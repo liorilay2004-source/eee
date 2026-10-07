@@ -129,6 +129,21 @@ button, a, input, select, textarea { touch-action: manipulation; }
 .flight-details-bag { display: flex; align-items: center; gap: 8px; font-size: 14px; }
 .flight-details-freshness, .official-booking small { color: #596579; font-size: 13px; }
 .official-booking { display: grid; gap: 10px; }
+.vacation-month { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; }
+.vacation-month h3 { margin: 0; font-size: 19px; }
+.vacation-month button { display: grid; place-items: center; background: #fff; border: 1px solid #d6dfeb; border-radius: 7px; width: 44px; height: 44px; }
+.vacation-prompt { margin: 10px 0; color: #0058ba; font-weight: 700; font-size: 14px; }
+.vacation-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; text-align: center; }
+.vacation-weekday { color: #596579; font-size: 13px; padding-block: 8px; }
+.vacation-grid button { height: 44px; min-width: 0; padding: 0; border: 1px solid transparent; border-radius: 7px; background: #fff; color: #152443; font-weight: 600; }
+.vacation-grid button:hover:not(:disabled) { background: #eaf3ff; border-color: #006ce4; }
+.vacation-grid button.in-range { background: #eaf3ff; }
+.vacation-grid button.is-selected { background: #006ce4; color: #fff; }
+.vacation-grid button:disabled { color: #8c95a3; cursor: not-allowed; }
+.vacation-flex { display: flex; align-items: center; gap: 9px; min-height: 44px; font-size: 14px; cursor: pointer; }
+.vacation-flex input { width: 20px; height: 20px; accent-color: #006ce4; }
+.vacation-dates > small { display: block; color: #596579; font-size: 12px; }
+.flyfind.is-editing .main { margin-top: 56px; }
 .official-booking small { line-height: 1.6; }
 @media (max-width: 760px) {
   .fly-header { padding: 10px 16px; gap: 8px; }
