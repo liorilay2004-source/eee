@@ -63,4 +63,13 @@ describe("flight details and official airline handoff", () => {
     expect(details).toContain("אינו כולל מס נסיעות פיליפיני למי שחייב בו");
     expect(renderToStaticMarkup(<BookingActions card={card} />)).toContain('href="https://flights.philippineairlines.com/en-ph/flights-from-manila-to-bangkok"');
   });
+  it("allows the verified Air Canada origin fare page", () => {
+    const { card } = fixture();
+    card.offer.source = "air_canada";
+    card.offer.outbound.airlines = card.offer.inbound.airlines = ["AC"];
+    card.offer.deeplink = "https://www.aircanada.com/en-ca/flights-from-tel-aviv";
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).toContain('href="https://www.aircanada.com/en-ca/flights-from-tel-aviv"');
+    card.offer.deeplink += "?token=untrusted";
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("untrusted");
+  });
 });

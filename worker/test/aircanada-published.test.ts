@@ -24,4 +24,15 @@ describe("Air Canada official published prices", () => {
     expect(await source.quote({ ...q, destination: "YTO" })).toEqual([]);
     expect(source.callCount()).toBe(0);
   });
+  it("reads Montreal cash fares but excludes Aeroplan points and keeps Chicago separate", async () => {
+    const montreal = { ...fare, destinationAirportCode: "YUL", departureDate: "2026-12-17", returnDate: "2026-12-31", totalPrice: 1208 };
+    const chicago = { ...fare, destinationAirportCode: "ORD", departureDate: "2027-04-18", returnDate: "2027-06-05", totalPrice: 1670 };
+    const source = createAirCanadaPublishedSource(new Date("2026-10-22T00:00:00Z"), (async () => new Response(html([montreal, chicago, { ...montreal, totalPrice: 85000, redemption: { unit: "POINTS", amount: 85000 } }]))) as typeof fetch);
+    const quotes = await source.quote({ ...q, destination: "YUL", departDate: montreal.departureDate, returnDate: montreal.returnDate });
+    expect(quotes).toHaveLength(1);
+    expect(quotes[0]).toMatchObject({ destination: "YUL", priceAmount: 1208, priceCurrency: "CAD", deeplink: "https://www.aircanada.com/en-ca/flights-from-tel-aviv" });
+    expect(await source.quote({ ...q, destination: "ORD", departDate: chicago.departureDate, returnDate: chicago.returnDate })).toMatchObject([{ destination: "ORD", priceAmount: 1670 }]);
+    expect(source.callCount()).toBe(1);
+    expect(await source.quote({ ...q, destination: "YUL", departDate: chicago.departureDate, returnDate: chicago.returnDate })).toEqual([]);
+  });
 });

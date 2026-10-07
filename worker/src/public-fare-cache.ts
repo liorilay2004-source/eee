@@ -11,6 +11,8 @@ function cacheRequest(key: string): Request {
   if (url.protocol !== "https:" || !hosts.has(url.hostname) || url.username || url.password || url.port || url.hash) throw new Error("Unsupported public fare source");
   if (url.hostname === "services-api.ryanair.com") {
     if (!/^\/farfnd\/v4\/oneWayFares\/[A-Z]{3}\/[A-Z]{3}\/cheapestPerDay$/.test(url.pathname) || [...url.searchParams.keys()].some((name) => name !== "outboundMonthOfDate" && name !== "currency") || url.searchParams.get("currency") !== "EUR" || !/^\d{4}-(0[1-9]|1[0-2])-01$/.test(url.searchParams.get("outboundMonthOfDate") ?? "")) throw new Error("Unsupported public calendar");
+  } else if (url.hostname === "www.aircanada.com" && url.pathname === "/en-ca/flights-from-tel-aviv") {
+    if (url.search) throw new Error("Unsupported public Air Canada origin page");
   } else if (url.hostname === "flights.virginatlantic.com") {
     if (url.search || url.pathname !== "/en-il/flights-from-tel-aviv") throw new Error("Unsupported public Virgin page");
   } else if (url.hostname === "flights.philippineairlines.com") {

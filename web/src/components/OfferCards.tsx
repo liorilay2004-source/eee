@@ -61,7 +61,7 @@ function publishedPriceLink(source: string, link: string | null): string | null 
   if (!host || !link) return null;
   try {
     const url = new URL(link);
-    const pathAllowed = source === "virgin_atlantic" ? url.pathname === "/en-il/flights-from-tel-aviv" : source === "philippine" ? url.pathname === "/en-ph/flights-from-manila-to-bangkok" : source === "air_europa" ? url.pathname === "/en-il/flight-deals-from-tel-aviv-to-spain" : source === "ethiopian" ? url.pathname === "/en-il/" : /^\/(en-ca|he|en_pt)\/flights-from-[a-z-]+-to-[a-z-]+$/.test(url.pathname);
+    const pathAllowed = source === "air_canada" && url.pathname === "/en-ca/flights-from-tel-aviv" ? true : source === "virgin_atlantic" ? url.pathname === "/en-il/flights-from-tel-aviv" : source === "philippine" ? url.pathname === "/en-ph/flights-from-manila-to-bangkok" : source === "air_europa" ? url.pathname === "/en-il/flight-deals-from-tel-aviv-to-spain" : source === "ethiopian" ? url.pathname === "/en-il/" : /^\/(en-ca|he|en_pt)\/flights-from-[a-z-]+-to-[a-z-]+$/.test(url.pathname);
     if (url.protocol !== "https:" || url.hostname !== host || url.username || url.password || url.port || url.search || url.hash || !pathAllowed) return null;
     return url.href;
   } catch { return null; }
