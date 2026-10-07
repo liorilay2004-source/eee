@@ -16,6 +16,7 @@
 import { hasTimePrefs, matchesTimes } from "./scoring";
 import { aviasalesSearchLink, type Party } from "./travelpayouts";
 import type { Leg, Offer, Repo, SearchRequest, SourceName, SourceStatus } from "./types";
+import type { PricedDirection } from "./direct-combinations";
 
 // --- limits ---------------------------------------------------------------------------------------------
 
@@ -48,9 +49,9 @@ const MAX_BODY_CHARS = 500_000;
 
 // --- contracts ------------------------------------------------------------------------------------------
 
-export type QuoteSourceName = Extract<SourceName, "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "ryanair" | "aegean" | "air_canada" | "tap" | "ethiopian" | "air_europa" | "philippine" | "virgin_atlantic">;
-export const QUOTE_SOURCE_NAMES: readonly QuoteSourceName[] = ["ignav", "wego", "searchapi", "serpapi", "duffel", "hasdata", "ryanair", "aegean", "air_canada", "tap", "ethiopian", "air_europa", "philippine", "virgin_atlantic"];
-export const isPublishedSource = (source: SourceName): boolean => source === "ryanair" || source === "aegean" || source === "air_canada" || source === "tap" || source === "ethiopian" || source === "air_europa" || source === "philippine" || source === "virgin_atlantic";
+export type QuoteSourceName = Extract<SourceName, "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "ryanair" | "aegean" | "air_canada" | "tap" | "ethiopian" | "air_europa" | "philippine" | "virgin_atlantic" | "direct_combination">;
+export const QUOTE_SOURCE_NAMES: readonly QuoteSourceName[] = ["ignav", "wego", "searchapi", "serpapi", "duffel", "hasdata", "ryanair", "aegean", "air_canada", "tap", "ethiopian", "air_europa", "philippine", "virgin_atlantic", "direct_combination"];
+export const isPublishedSource = (source: SourceName): boolean => source === "ryanair" || source === "aegean" || source === "air_canada" || source === "tap" || source === "ethiopian" || source === "air_europa" || source === "philippine" || source === "virgin_atlantic" || source === "direct_combination";
 export const isQuoteSource = (name: SourceName): name is QuoteSourceName => (QUOTE_SOURCE_NAMES as readonly string[]).includes(name);
 
 export type QuotaPeriod = "monthly" | "lifetime";
@@ -114,7 +115,9 @@ export interface FareQuoteSource {
    * quote (Wego: token, search, polls) says so, and says 0 once it will answer without a request: runQuotes takes that many
    * of its MAX_QUOTE_CALLS slots, so the limit counts requests on the wire, not calls of quote().
    */
-  nextQuoteRequests?(): number;
+  nextQuoteRequests?(q?: QuoteQuery): number;
+  /** Official one-way advertisements, never inferred from a round-trip total. */
+  oneWays?(q: QuoteQuery): Promise<readonly PricedDirection[]>;
   /**
    * Live round-trip offers for exactly this date pair, per ADULT in the vendor's original currency (like
    * TravelpayoutsClient.roundTrips). Rejects with QuoteError; never retries; costs one reserved unit per request.
@@ -542,17 +545,17 @@ export interface QuoteStat {
 }
 
 /** Slots the next quote() of a source may use: what it says, or 1 when it says nothing sensible (never less than it might spend). */
-function requestsOf(source: FareQuoteSource): number {
+function requestsOf(source: FareQuoteSource, q: QuoteQuery): number {
   let n: unknown;
   try {
-    n = source.nextQuoteRequests?.();
+    n = source.nextQuoteRequests?.(q);
   } catch {
     n = undefined;
   }
   return typeof n === "number" && Number.isFinite(n) && n >= 0 ? Math.ceil(n) : 1;
 }
 
-const LABEL: Record<QuoteSourceName, string> = { ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi", duffel: "Duffel", hasdata: "HasData", ryanair: "Ryanair", aegean: "Aegean", air_canada: "Air Canada", tap: "TAP", ethiopian: "Ethiopian", air_europa: "Air Europa", philippine: "Philippine Airlines", virgin_atlantic: "Virgin Atlantic" };
+const LABEL: Record<QuoteSourceName, string> = { ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi", duffel: "Duffel", hasdata: "HasData", ryanair: "Ryanair", aegean: "Aegean", air_canada: "Air Canada", tap: "TAP", ethiopian: "Ethiopian", air_europa: "Air Europa", philippine: "Philippine Airlines", virgin_atlantic: "Virgin Atlantic", direct_combination: "Official airline combination" };
 
 /** Fixed texts only: nothing of a vendor response, URL or key can get into meta.sources. */
 export function describeQuoteError(source: FareQuoteSource, e: unknown): string {
@@ -617,7 +620,7 @@ export async function runQuotes(
       const { source, q } = item;
       const stat = stats.get(source.name);
       if (!stat || stopped.has(source.name)) continue;
-      const cost = requestsOf(source);
+      const cost = requestsOf(source, q);
       if (cost > 0 && slots + cost > MAX_QUOTE_CALLS) {
         skipped.set(source.name, (skipped.get(source.name) ?? 0) + 1);
         continue;

@@ -21,7 +21,7 @@ function cacheRequest(key: string): Request {
     if (url.search || url.pathname !== "/en-il/flight-deals-from-tel-aviv-to-spain") throw new Error("Unsupported public country page");
   } else if (url.hostname === "www.ethiopianairlines.com") {
     if (url.search || url.pathname !== "/en-il/") throw new Error("Unsupported public origin page");
-  } else if (url.search || !new RegExp(`^/${url.hostname === "www.aircanada.com" ? "en-ca" : url.hostname === "www.flytap.com" ? "en_pt" : "he"}/flights-from-[a-z-]+-to-[a-z-]+$`).test(url.pathname)) throw new Error("Unsupported public route page");
+  } else if (url.search || !new RegExp(`^/${url.hostname === "www.aircanada.com" ? "en-ca" : url.hostname === "www.flytap.com" ? "en_pt" : "(he|en)"}/flights-from-[a-z-]+-to-[a-z-]+$`).test(url.pathname)) throw new Error("Unsupported public route page");
   // Synthetic internal key is never fetched. The API does not serve this path.
   return new Request(`https://eee-api.liorilay2004.workers.dev/__public_fares/v1/${encodeURIComponent(key)}`);
 }

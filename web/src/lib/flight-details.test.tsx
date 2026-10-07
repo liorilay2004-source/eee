@@ -72,4 +72,22 @@ describe("flight details and official airline handoff", () => {
     card.offer.deeplink += "?token=untrusted";
     expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("untrusted");
   });
+  it("keeps separate official booking links for both mixed-airline directions", () => {
+    const { card, request } = fixture();
+    card.offer.source = "direct_combination";
+    card.offer.ticketStructure = "split";
+    card.offer.outbound.airlines = ["A3"];
+    card.offer.inbound.airlines = ["FR"];
+    card.offer.deeplink = "https://flights.aegeanair.com/en/flights-from-rome-to-athens";
+    card.offer.returnDeeplink = "https://www.ryanair.com/";
+    const html = renderToStaticMarkup(<BookingActions card={card} />);
+    expect(html).toContain("לאתר החברה · הלוך");
+    expect(html).toContain("לאתר החברה · חזור");
+    expect(html).toContain(card.offer.deeplink);
+    expect(html).toContain(card.offer.returnDeeplink);
+    expect(html).toContain("שני כרטיסים נפרדים");
+    expect(renderToStaticMarkup(<FlightDetailsCard card={card} request={request} originLabel="רומא" destinationLabel="אתונה" />)).toContain("שילוב שני מחירי כיוון אחד");
+    card.offer.returnDeeplink = "https://www.ryanair.com.evil.test/";
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("evil.test");
+  });
 });

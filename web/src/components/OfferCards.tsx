@@ -61,7 +61,7 @@ function publishedPriceLink(source: string, link: string | null): string | null 
   if (!host || !link) return null;
   try {
     const url = new URL(link);
-    const pathAllowed = source === "air_canada" && url.pathname === "/en-ca/flights-from-tel-aviv" ? true : source === "virgin_atlantic" ? url.pathname === "/en-il/flights-from-tel-aviv" : source === "philippine" ? url.pathname === "/en-ph/flights-from-manila-to-bangkok" : source === "air_europa" ? url.pathname === "/en-il/flight-deals-from-tel-aviv-to-spain" : source === "ethiopian" ? url.pathname === "/en-il/" : /^\/(en-ca|he|en_pt)\/flights-from-[a-z-]+-to-[a-z-]+$/.test(url.pathname);
+    const pathAllowed = source === "air_canada" && url.pathname === "/en-ca/flights-from-tel-aviv" ? true : source === "virgin_atlantic" ? url.pathname === "/en-il/flights-from-tel-aviv" : source === "philippine" ? url.pathname === "/en-ph/flights-from-manila-to-bangkok" : source === "air_europa" ? url.pathname === "/en-il/flight-deals-from-tel-aviv-to-spain" : source === "ethiopian" ? url.pathname === "/en-il/" : /^\/(en-ca|he|en|en_pt)\/flights-from-[a-z-]+-to-[a-z-]+$/.test(url.pathname);
     if (url.protocol !== "https:" || url.hostname !== host || url.username || url.password || url.port || url.search || url.hash || !pathAllowed) return null;
     return url.href;
   } catch { return null; }
@@ -70,6 +70,16 @@ export function BookingActions({ card, demo, compact }: { card: CardView; demo?:
   const offer = card.offer;
   if (demo) return <p className="booking-demo"><Info size={16} aria-hidden="true" />בדוגמה אין קישור הזמנה. חפשו מסלול אמיתי כדי לקבל מחיר.</p>;
   const published = publishedPriceLink(offer.source, offer.deeplink);
+  if (offer.source === "direct_combination") {
+    const directions = [
+      { title: "הלוך", code: offer.outbound.airlines[0], link: offer.deeplink },
+      { title: "חזור", code: offer.inbound.airlines[0], link: offer.returnDeeplink },
+    ].map(d => ({ ...d, url: d.code === "A3" ? publishedPriceLink("aegean", d.link ?? null) : d.code === "FR" && d.link === "https://www.ryanair.com/" ? d.link : null }));
+    return <div className="booking official-booking">
+      {directions.filter(d => d.url).map(d => <a key={d.title} className="btn btn-book btn-wide" href={d.url!} target="_blank" rel="noopener noreferrer">לאתר החברה · {d.title}<ExternalLink size={16} aria-hidden="true" /><NewTab /></a>)}
+      <small>שני כרטיסים נפרדים מחברות שונות. יש לבחור בכל אתר את הכיוון והתאריך המוצגים ולאמת זמינות ומחיר סופי; הקישורים אינם הזמנה שמורה.</small>
+    </div>;
+  }
   const publishedReturn = publishedPriceLink(offer.source, offer.returnDeeplink ?? null);
   if (published) return <div className="booking official-booking">
     <a className={compact ? "btn btn-secondary" : "btn btn-book btn-wide"} href={published} target="_blank" rel="noopener noreferrer">למחיר שפורסם באתר החברה{offer.ticketStructure === "split" && " · הלוך"}<ExternalLink size={16} aria-hidden="true" /><NewTab /></a>
@@ -100,6 +110,7 @@ export function FlightDetailsCard({ card, request, originLabel, destinationLabel
     {offer.ticketStructure === "split" && <p className="note note-warn">שני כרטיסים נפרדים. שינוי בכיוון אחד אינו מבטיח הגנה לכיוון השני.</p>}
     {offer.source === "ryanair" && <p className="note note-warn">מחיר מלוח המחירים הרשמי של Ryanair למבוגר אחד. יש לבדוק זמינות ומחיר סופי באתר החברה.</p>}
     {offer.source === "aegean" && <p className="note note-warn">מחיר שפורסם באתר Aegean למבוגר אחד בתאריכים המוצגים. זמינות ומחיר סופי נבדקים באתר החברה.</p>}
+    {offer.source === "direct_combination" && <p className="note note-warn">שילוב שני מחירי כיוון אחד שפורסמו באתרים הרשמיים, למבוגר אחד בלבד. יש לאמת כל כרטיס בנפרד; שינוי בכיוון אחד אינו מבטיח הגנה לכיוון השני.</p>}
     {offer.source === "air_canada" && <p className="note note-warn">מחיר שפורסם באתר Air Canada למבוגר אחד בתאריכים המוצגים. זמינות ומחיר סופי נבדקים באתר החברה.</p>}
     {offer.source === "tap" && <p className="note note-warn">מחיר שפורסם באתר TAP למבוגר אחד בתאריכים המוצגים. זמינות ומחיר סופי נבדקים באתר החברה.</p>}
     {offer.source === "virgin_atlantic" && <p className="note note-warn">מחיר תיירים שפורסם באתר Virgin Atlantic למבוגר אחד בתאריכים המוצגים. ייתכנו טיסות שותפים; זמינות, המפעיל והמחיר הסופי נבדקים באתר החברה.</p>}

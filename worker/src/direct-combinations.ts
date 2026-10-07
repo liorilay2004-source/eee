@@ -1,4 +1,5 @@
 /** Compose separately priced official one-way fares. No requests and no inferred return prices. */
+import type { Leg } from "./types";
 export interface PricedDirection {
   source: string;
   airline: string;
@@ -9,6 +10,7 @@ export interface PricedDirection {
   currency: string;
   checkedAt: string;
   bookingUrl: string;
+  leg?: Leg;
 }
 export interface DirectCombination {
   outbound: PricedDirection;

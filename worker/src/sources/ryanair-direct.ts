@@ -59,6 +59,14 @@ export function createRyanairDirectSource(now: Date, fetchFn: typeof fetch = fet
     // Zero means not a paid vendor allowance; this source does not use quota reservation.
     quota: { period: "monthly", cap: 0, allowance: 0 },
     callCount: () => calls, nextQuoteRequests: () => 2,
+    async oneWays(q) {
+      if (q.party.adults !== 1 || q.party.children || q.party.infants) return [];
+      const rows = (await Promise.all([load(q.origin, q.destination, q.departDate), load(q.destination, q.origin, q.returnDate)])).flat();
+      return rows.filter(f => f.origin === q.origin && f.destination === q.destination && f.date === q.departDate || f.origin === q.destination && f.destination === q.origin && f.date === q.returnDate).map(f => ({
+        source: "ryanair", airline: "FR", origin: f.origin, destination: f.destination, date: f.date,
+        amount: f.amount, currency: f.currency, checkedAt: f.checkedAt, bookingUrl: "https://www.ryanair.com/", leg: leg(f),
+      }));
+    },
     async quote(q) {
       // The calendar cannot substantiate a whole-party fare. Do not scale it.
       if (q.party.adults !== 1 || q.party.children !== 0 || q.party.infants !== 0) return [];

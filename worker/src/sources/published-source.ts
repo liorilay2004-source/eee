@@ -64,7 +64,17 @@ export function createPublishedSource(config: PublishedSourceConfig, now: Date, 
   return {
     name: config.source, configured: true, quota: { period: "monthly", cap: 0, allowance: 0 },
     callCount: () => calls,
-    nextQuoteRequests: () => Math.max(1, config.originPages?.length ?? 0, ...Object.values(config.routes).map((pages) => pages.length)),
+    nextQuoteRequests: (q) => q ? (config.routes[`${q.origin}:${q.destination}`] ?? config.originPages?.filter(page => page.origin === q.origin) ?? []).length : Math.max(1, config.originPages?.length ?? 0, ...Object.values(config.routes).map((pages) => pages.length)),
+    async oneWays(q) {
+      const pages = config.routes[`${q.origin}:${q.destination}`] ?? config.originPages?.filter(page => page.origin === q.origin);
+      if (!pages?.length || q.party.adults !== 1 || q.party.children || q.party.infants) return [];
+      const fares = (await Promise.all(pages.map(load))).flat();
+      return fares.filter(f => f.structure === "oneway" && (f.origin === q.origin && f.destination === q.destination && f.departDate === q.departDate || f.origin === q.destination && f.destination === q.origin && f.departDate === q.returnDate)).map(f => ({
+        source: config.source, airline: f.airline, origin: f.origin, destination: f.destination, date: f.departDate,
+        amount: f.amount, currency: f.currency, checkedAt: f.checkedAt, bookingUrl: f.sourceUrl,
+        leg: { departTime: null, arriveTime: null, durationMin: null, stops: null, airlines: [f.airline] },
+      }));
+    },
     async quote(q) {
       const pages = config.routes[`${q.origin}:${q.destination}`] ?? config.originPages?.filter((page) => page.origin === q.origin);
       if (!pages?.length || q.party.adults !== 1 || q.party.children || q.party.infants) return [];

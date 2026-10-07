@@ -61,6 +61,7 @@ import { createEthiopianPublishedSource } from "./sources/ethiopian-published";
 import { createAirEuropaPublishedSource } from "./sources/aireuropa-published";
 import { createPhilippinePublishedSource } from "./sources/philippine-published";
 import { createVirginPublishedSource } from "./sources/virgin-published";
+import { createDirectCombinationSource } from "./sources/direct-combination";
 import { createPublicFareCache } from "./public-fare-cache";
 import { createWegoSource } from "./sources/wego";
 import { pickSnapshotRoute, runSnapshot } from "./snapshots";
@@ -239,7 +240,7 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
   const serpApi = secret(env.SERPAPI_KEY);
   const duffel = secret(env.DUFFEL_API_TOKEN);
   const hasData = secret(env.HASDATA_API_KEY);
-  return [
+  const providers = [
     env.RYANAIR_DIRECT_ENABLED === "true" ? createRyanairDirectSource(now, fetchFn, publicCache) : null,
     env.AEGEAN_PUBLISHED_ENABLED === "true" ? createAegeanPublishedSource(now, fetchFn, publicCache) : null,
     env.AIRCANADA_PUBLISHED_ENABLED === "true" ? createAirCanadaPublishedSource(now, fetchFn, publicCache) : null,
@@ -255,6 +256,8 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
     hasData ? createHasDataSource({ ...shared, apiKey: hasData, marker }) : null,
     duffel ? createDuffelSource({ ...shared, apiToken: duffel, allowLive: env.DUFFEL_ALLOW_LIVE === "true", marker }) : null,
   ].filter((s): s is FareQuoteSource => s !== null && s.configured);
+  const combination = createDirectCombinationSource(providers);
+  return combination.configured ? [...providers, combination] : providers;
 }
 
 async function handleSearch(request: Request, env: Env, ctx: ExecutionContext): Promise<ApiResult> {
