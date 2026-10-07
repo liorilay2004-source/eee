@@ -48,8 +48,9 @@ const MAX_BODY_CHARS = 500_000;
 
 // --- contracts ------------------------------------------------------------------------------------------
 
-export type QuoteSourceName = Extract<SourceName, "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "ryanair">;
-export const QUOTE_SOURCE_NAMES: readonly QuoteSourceName[] = ["ignav", "wego", "searchapi", "serpapi", "duffel", "hasdata", "ryanair"];
+export type QuoteSourceName = Extract<SourceName, "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "ryanair" | "aegean">;
+export const QUOTE_SOURCE_NAMES: readonly QuoteSourceName[] = ["ignav", "wego", "searchapi", "serpapi", "duffel", "hasdata", "ryanair", "aegean"];
+export const isPublishedSource = (source: SourceName): boolean => source === "ryanair" || source === "aegean";
 export const isQuoteSource = (name: SourceName): name is QuoteSourceName => (QUOTE_SOURCE_NAMES as readonly string[]).includes(name);
 
 export type QuotaPeriod = "monthly" | "lifetime";
@@ -551,7 +552,7 @@ function requestsOf(source: FareQuoteSource): number {
   return typeof n === "number" && Number.isFinite(n) && n >= 0 ? Math.ceil(n) : 1;
 }
 
-const LABEL: Record<QuoteSourceName, string> = { ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi", duffel: "Duffel", hasdata: "HasData", ryanair: "Ryanair" };
+const LABEL: Record<QuoteSourceName, string> = { ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi", duffel: "Duffel", hasdata: "HasData", ryanair: "Ryanair", aegean: "Aegean" };
 
 /** Fixed texts only: nothing of a vendor response, URL or key can get into meta.sources. */
 export function describeQuoteError(source: FareQuoteSource, e: unknown): string {
@@ -684,7 +685,7 @@ export function quoteStatus(source: FareQuoteSource, stat: QuoteStat | undefined
   return {
     name: source.name,
     enabled: true,
-    ok: source.name === "ryanair" && stat.succeeded > 0 && stat.failures.length === 0 || quoteOk(stat), // direct calendar cache hits succeed without a network call
+    ok: isPublishedSource(source.name) && stat.succeeded > 0 && stat.failures.length === 0 || quoteOk(stat), // published fare cache hits succeed without a network call
     calls: stat.calls,
     offers: stat.offers,
     error: notes.length > 0 ? notes.join("; ") : null,

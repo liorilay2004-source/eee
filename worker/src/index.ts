@@ -54,6 +54,7 @@ import { createHasDataSource } from "./sources/hasdata";
 import { createSearchApiSource } from "./sources/searchapi";
 import { createSerpApiSource } from "./sources/serpapi";
 import { createRyanairDirectSource } from "./sources/ryanair-direct";
+import { createAegeanPublishedSource } from "./sources/aegean-published";
 import { createWegoSource } from "./sources/wego";
 import { pickSnapshotRoute, runSnapshot } from "./snapshots";
 import { secretMatches, telegramConfig } from "./telegram";
@@ -232,6 +233,7 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
   const hasData = secret(env.HASDATA_API_KEY);
   return [
     env.RYANAIR_DIRECT_ENABLED === "true" ? createRyanairDirectSource(now, fetchFn) : null,
+    env.AEGEAN_PUBLISHED_ENABLED === "true" ? createAegeanPublishedSource(now, fetchFn) : null,
     ignav ? createIgnavSource({ ...shared, apiKey: ignav, marker }) : null,
     wego ? createWegoSource({ ...shared, apiKey: wego }) : null,
     searchApi ? createSearchApiSource({ ...shared, apiKey: searchApi, marker }) : null,

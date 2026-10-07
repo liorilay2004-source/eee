@@ -81,6 +81,7 @@ export function FlightDetailsCard({ card, request, originLabel, destinationLabel
     <p className="flight-details-bag"><BaggageClaim size={18} aria-hidden="true" />{bag.text}</p>
     {offer.ticketStructure === "split" && <p className="note note-warn">שני כרטיסים נפרדים. שינוי בכיוון אחד אינו מבטיח הגנה לכיוון השני.</p>}
     {offer.source === "ryanair" && <p className="note note-warn">מחיר מלוח המחירים הרשמי של Ryanair למבוגר אחד. יש לבדוק זמינות ומחיר סופי באתר החברה.</p>}
+    {offer.source === "aegean" && <p className="note note-warn">מחיר שפורסם באתר Aegean למבוגר אחד בתאריכים המוצגים. זמינות ומחיר סופי נבדקים באתר החברה.</p>}
     {isSuspicious(card) && <p className="note note-warn">{SUSPICIOUS_TEXT}</p>}
     <p className="flight-details-freshness">{freshnessLine(card)}</p>
     <BookingActions card={card} />

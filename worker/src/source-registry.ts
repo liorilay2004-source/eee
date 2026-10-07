@@ -327,7 +327,7 @@ export const SOURCE_REGISTRY: readonly SourceRegistryEntry[] = Object.freeze([
   entry("israir", "Israir", "manual-link", 77, ["IL", "EU"], "קישור חיפוש ישיר מתוכנן, בלי קריאת מחיר חיה כרגע."),
   entry("turkish", "Turkish Airlines", "manual-link", 76, ["IL", "EU", "Asia", "US"], "מקור עדיפות גבוהה לקונקשנים מישראל."),
   entry("pegasus", "Pegasus Airlines", "manual-link", 75, ["IL", "EU", "Asia"], "מקור עדיפות גבוהה לטיסות זולות דרך טורקיה."),
-  entry("aegean", "Aegean Airlines", "manual-link", 74, ["IL", "EU"], "מקור עדיפות גבוהה לקונקשנים דרך אתונה."),
+  { ...entry("aegean", "Aegean Airlines", "manual-link", 74, ["IL", "EU"], "קריאת מחירים שפורסמו בעמודי תל אביב–אתונה בלבד, בהתאמה לשני התאריכים. אין עדיין כיסוי מלא של זמינות חיה."), capabilities: { ...manual, cachedPrice: true, combinations: true } },
   entry("wizz", "Wizz Air", "manual-link", 73, ["IL", "EU"], "מקור לואו קוסט חשוב ליציאה מאזור ישראל."),
   entry("ryanair", "Ryanair", "active", 72, ["EU"], "מחירי לוח רשמי למבוגר אחד, שילוב הלוך וחזור בתאריכים שנבחרו; זמינות ומחיר סופי נבדקים באתר החברה."),
   entry("easyjet", "easyJet", "manual-link", 71, ["EU"], "מקור לואו קוסט לשילובים באירופה."),
