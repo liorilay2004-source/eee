@@ -55,6 +55,7 @@ import { createSearchApiSource } from "./sources/searchapi";
 import { createSerpApiSource } from "./sources/serpapi";
 import { createRyanairDirectSource } from "./sources/ryanair-direct";
 import { createAegeanPublishedSource } from "./sources/aegean-published";
+import { createPublicFareCache } from "./public-fare-cache";
 import { createWegoSource } from "./sources/wego";
 import { pickSnapshotRoute, runSnapshot } from "./snapshots";
 import { secretMatches, telegramConfig } from "./telegram";
@@ -221,6 +222,7 @@ const secret = (value: unknown): string | undefined => (typeof value === "string
  * the daily shares (rate_limits) come on top.
  */
 function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: typeof fetch, now: Date): FareQuoteSource[] {
+  const publicCache = typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined;
   const marker = env.TRAVELPAYOUTS_MARKER;
   // Every vendor request also takes one unit of that vendor's daily share first (see withDailyShare): a client that dodges the
   // search cache cannot use up a whole allowance in minutes. Fails closed like the caps.
@@ -232,8 +234,8 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
   const duffel = secret(env.DUFFEL_API_TOKEN);
   const hasData = secret(env.HASDATA_API_KEY);
   return [
-    env.RYANAIR_DIRECT_ENABLED === "true" ? createRyanairDirectSource(now, fetchFn) : null,
-    env.AEGEAN_PUBLISHED_ENABLED === "true" ? createAegeanPublishedSource(now, fetchFn) : null,
+    env.RYANAIR_DIRECT_ENABLED === "true" ? createRyanairDirectSource(now, fetchFn, publicCache) : null,
+    env.AEGEAN_PUBLISHED_ENABLED === "true" ? createAegeanPublishedSource(now, fetchFn, publicCache) : null,
     ignav ? createIgnavSource({ ...shared, apiKey: ignav, marker }) : null,
     wego ? createWegoSource({ ...shared, apiKey: wego }) : null,
     searchApi ? createSearchApiSource({ ...shared, apiKey: searchApi, marker }) : null,

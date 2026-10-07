@@ -28,8 +28,11 @@ calendar with zero Ryanair upstream calls; complete requests took 1.45–1.82 se
 
 `worker/scripts/collect-ryanair.mjs` additionally collects an exact pair outside
 Workers and persists its real advertised price to D1 using authenticated Wrangler.
-Pending: full booking handoff, whole-party pricing, shared edge calendar storage,
-and cross-carrier one-way combinations. Ten-minute in-memory cache is not global.
+Public calendar data now also uses the Cloudflare Cache API, shared between Worker
+isolates in a data center. Records and empty calendars expire after ten minutes.
+The original collection timestamp and expiry are preserved on reuse. Cache errors
+fall back to source collection. This is not a globally synchronized cache.
+Pending: full booking handoff, whole-party pricing and cross-carrier combinations.
 
 ## Coverage remains incomplete
 
@@ -48,8 +51,19 @@ Implemented `worker/src/sources/published-fares.ts`, verified against the actual
 downloaded official page as well as unit tests. Parsing never evaluates scripts or
 copies configuration/credentials. It bounds response size and traversal, checks the
 official hostname, validates real dates, rejects expired prices and deduplicates.
-This is sparse published advertising, not full inventory. Pending integration into
-one-way collection and exact-date combination; not yet a production quote adapter.
+This is sparse published advertising, not full inventory. The production adapter
+matches an exact round-trip record or two one-way records on precisely the selected
+dates, only for one adult. Its registry deliberately does not claim live inventory.
+Production TLV–ATH June 1–5 2027 on October 7 returned zero offers from Aegean,
+Ryanair and Travelpayouts. SerpApi's daily quota refused the live request.
+
+## Other official website access checks (2026-10-07)
+
+The official Lufthansa TLV–ATH route page and Scoot SIN–BKK route page returned
+HTTP 403 to direct collection. Aegean's normal browser search accepted TLV–ATH
+June 1–5 but the subsequent search submission was blocked by the browser.
+Air France's route-page request failed and Etihad's timed out. None of these
+checks yielded a verified date-specific price or a completed new price adapter.
 
 ## Israeli airline investigation
 

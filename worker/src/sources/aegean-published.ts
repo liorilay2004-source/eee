@@ -1,6 +1,7 @@
 import { QuoteError, type FareQuoteSource, type QuoteQuery } from "../quotes";
 import type { Leg, Offer } from "../types";
 import { fetchPublishedFares, type PublishedFare } from "./published-fares";
+import type { PublicFareCache } from "../public-fare-cache";
 
 // Only routes whose official page paths have been inspected so far.
 const places: Readonly<Record<string, string>> = { TLV: "tel-aviv", ATH: "athens" };
@@ -29,7 +30,7 @@ export function matchPublishedTrip(fares: readonly PublishedFare[], q: QuoteQuer
   return offers.sort((a, b) => a.priceAmount - b.priceAmount).slice(0, 20);
 }
 
-export function createAegeanPublishedSource(now: Date, fetchFn: typeof fetch): FareQuoteSource {
+export function createAegeanPublishedSource(now: Date, fetchFn: typeof fetch, sharedCache?: PublicFareCache): FareQuoteSource {
   let calls = 0;
   const pending = new Map<string, Promise<PublishedFare[]>>();
   async function load(origin: string, destination: string): Promise<PublishedFare[]> {
@@ -37,10 +38,17 @@ export function createAegeanPublishedSource(now: Date, fetchFn: typeof fetch): F
     const stored = cache.get(sourceUrl);
     if (stored && stored.expires > now.getTime()) return stored.fares;
     if (pending.has(sourceUrl)) return pending.get(sourceUrl)!;
-    calls++;
-    const work = fetchPublishedFares({ airline: "A3", origin, destination, sourceUrl, now }, fetchFn).then((fares) => {
+    let expires = now.getTime() + 10 * 60_000;
+    const work = (async () => {
+      const shared = await sharedCache?.get<PublishedFare>(sourceUrl);
+      if (shared) { expires = shared.expires; return shared.fares; }
+      calls++;
+      const fares = await fetchPublishedFares({ airline: "A3", origin, destination, sourceUrl, now }, fetchFn);
+      await sharedCache?.put(sourceUrl, fares);
+      return fares;
+    })().then((fares) => {
       if (cache.size >= 64) cache.delete(cache.keys().next().value!);
-      cache.set(sourceUrl, { expires: now.getTime() + 10 * 60_000, fares });
+      cache.set(sourceUrl, { expires, fares });
       return fares;
     }).catch(() => { throw new QuoteError("response"); }).finally(() => pending.delete(sourceUrl));
     pending.set(sourceUrl, work);

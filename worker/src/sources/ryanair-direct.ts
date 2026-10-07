@@ -4,6 +4,7 @@
  */
 import { QuoteError, type FareQuoteSource } from "../quotes";
 import type { Leg } from "../types";
+import type { PublicFareCache } from "../public-fare-cache";
 
 export interface DirectFare {
   airline: "FR";
@@ -24,7 +25,7 @@ const calendars = new Map<string, { expires: number; value: DirectFare[] }>();
 /** Website calendars shared across searches in this isolate, including empty days.
  * No paid quota or D1 dependency. At most two bounded requests for a date pair.
  */
-export function createRyanairDirectSource(now: Date, fetchFn: typeof fetch = fetch): FareQuoteSource {
+export function createRyanairDirectSource(now: Date, fetchFn: typeof fetch = fetch, sharedCache?: PublicFareCache): FareQuoteSource {
   let calls = 0;
   const inFlight = new Map<string, Promise<DirectFare[]>>();
   const load = (origin: string, destination: string, date: string) => {
@@ -35,9 +36,16 @@ export function createRyanairDirectSource(now: Date, fetchFn: typeof fetch = fet
     const pending = inFlight.get(key);
     if (pending) return pending;
     if (calendars.size >= 128) calendars.delete(calendars.keys().next().value!);
-    calls++;
-    const value = fetchRyanairCalendar(origin, destination, month, now, fetchFn).then((fares) => {
-      calendars.set(key, { expires: now.getTime() + 10 * 60_000, value: fares });
+    let expires = now.getTime() + 10 * 60_000;
+    const value = (async () => {
+      const shared = await sharedCache?.get<DirectFare>(key);
+      if (shared) { expires = shared.expires; return shared.fares; }
+      calls++;
+      const fares = await fetchRyanairCalendar(origin, destination, month, now, fetchFn);
+      await sharedCache?.put(key, fares);
+      return fares;
+    })().then((fares) => {
+      calendars.set(key, { expires, value: fares });
       return fares;
     }).catch((error) => {
       throw error instanceof QuoteError ? error : new QuoteError("network");
