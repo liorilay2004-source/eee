@@ -116,7 +116,8 @@ export function airlinePriceLinks(offers: Offer[], limit = 30): AirlinePriceLink
   const best = new Map<string, AirlinePriceLink>();
   for (const offer of offers) {
     if (offer.totalIls === null || !Number.isFinite(offer.totalIls) || offer.totalIls <= 0) continue;
-    for (const code of offerAirlineCodes(offer)) {
+    const carriers = offerAirlineCodes(offer);
+    for (const code of carriers) {
       const url = airlineOfficialUrl(code);
       if (!url) continue;
       const info = airlineInfo(code);
@@ -132,6 +133,7 @@ export function airlinePriceLinks(offers: Offer[], limit = 30): AirlinePriceLink
         departDate: offer.departDate,
         returnDate: offer.returnDate,
         source: offer.source,
+        ...(carriers.length > 1 ? { participatingAirlines: carriers } : {}),
       });
     }
   }

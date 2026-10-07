@@ -645,7 +645,7 @@ function AirlinePriceLinksPanel({ response }: { response: SearchResponse }) {
     <div className="airline-price-head">
       <div>
         <h3 id="airline-price-links-title"><Link2 size={18} aria-hidden="true" />אתרי חברות התעופה לפי המחיר שמצאנו</h3>
-        <p>מסודר מהזול ליקר לפי המחיר הזול ביותר שנמצא לכל חברת תעופה בחיפוש הזה. הקישור נפתח באתר הרשמי של החברה.</p>
+        <p>מסודר מהזול ליקר לפי המחיר הכולל של הטיול שבו החברה משתתפת. בקומבינציה המחיר כולל את כל החברות, ולא רק את הכרטיס של החברה שבקישור. הקישור נפתח באתר הרשמי.</p>
       </div>
     </div>
     <ol>
@@ -654,6 +654,7 @@ function AirlinePriceLinksPanel({ response }: { response: SearchResponse }) {
           <span>
             <strong>{item.nameHe ?? item.nameEn ?? item.code}</strong>
             <small><span dir="ltr">{item.code}</span> · <span className="num" dir="ltr">{formatShortDate(item.departDate)} – {formatShortDate(item.returnDate)}</span></small>
+            {item.participatingAirlines && <small>מחיר הטיול כולו · חברות משתתפות: <span dir="ltr">{item.participatingAirlines.join(" + ")}</span></small>}
           </span>
           <span className="airline-price-amount num" dir="ltr">{priceText(item.priceIls, false)}</span>
           <ExternalLink size={16} aria-hidden="true" />

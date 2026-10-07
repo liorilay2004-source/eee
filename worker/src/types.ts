@@ -392,6 +392,8 @@ export interface AirlinePriceLink {
   departDate: string;
   returnDate: string;
   source: SourceName;
+  /** Total belongs to the complete itinerary, including these other carriers. */
+  participatingAirlines?: string[];
 }
 
 export interface SearchResponse {
