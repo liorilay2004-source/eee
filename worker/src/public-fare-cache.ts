@@ -23,7 +23,9 @@ function cacheRequest(key: string): Request {
     if (url.search || url.pathname !== "/en-il/") throw new Error("Unsupported public origin page");
   } else if (url.search || !new RegExp(`^/${url.hostname === "www.aircanada.com" ? "en-ca" : url.hostname === "www.flytap.com" ? "en_pt" : "(he|en)"}/flights-from-[a-z-]+-to-[a-z-]+$`).test(url.pathname)) throw new Error("Unsupported public route page");
   // Synthetic internal key is never fetched. The API does not serve this path.
-  return new Request(`https://eee-api.liorilay2004.workers.dev/__public_fares/v1/${encodeURIComponent(key)}`);
+  // Daily Aegean fares were absent from the old parsed cache payload.
+  const version = url.hostname === "flights.aegeanair.com" ? "v2" : "v1";
+  return new Request(`https://eee-api.liorilay2004.workers.dev/__public_fares/${version}/${encodeURIComponent(key)}`);
 }
 export function createPublicFareCache(storage: Pick<Cache, "match" | "put">, now: Date): PublicFareCache {
   return {
