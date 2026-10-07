@@ -355,6 +355,10 @@ export function describeFailure(failure: Failure): FailureView {
           ? Math.ceil(failure.retryAfterSec) : null;
         return { ...base, kind: "rate_limited", title: "ביצעתם הרבה חיפושים בזמן קצר", body: waitText(seconds), retryAfterSec: seconds };
       }
+      if (failure.code === "storage_daily_limit") {
+        const seconds = typeof failure.retryAfterSec === "number" && Number.isFinite(failure.retryAfterSec) && failure.retryAfterSec > 0 ? Math.ceil(failure.retryAfterSec) : null;
+        return { ...base, kind: "source_unavailable", title: "בדיקת המחירים נעצרה זמנית", body: `מכסת בדיקת המחירים היומית מוצתה. ${waitText(seconds)} החיפוש והתאריכים שבחרתם שמורים.`, retryAfterSec: seconds };
+      }
       if (failure.code === "source_unavailable") {
         return { ...base, kind: "source_unavailable", title: "מקור המחירים לא זמין כרגע", body: "נסו שוב בקרוב. החיפוש שלכם שמור." };
       }

@@ -112,13 +112,13 @@ export const REFRESH_LOCK_SECONDS = 600;
 
 /** Failures the caller can act on; index.ts maps both to HTTP 503. */
 export class PipelineError extends Error {
-  readonly code: "source_unavailable" | "fx_unavailable";
+  readonly code: "source_unavailable" | "fx_unavailable" | "storage_daily_limit";
   /** ADDITIVE: why the fare source is unavailable (source_unavailable only). */
   readonly reason?: SourceUnavailableReason;
   /** ADDITIVE: seconds until a retry can succeed, only when that is actually known (the global scan budget's window). */
   readonly retryAfterSec?: number;
   constructor(
-    code: "source_unavailable" | "fx_unavailable",
+    code: "source_unavailable" | "fx_unavailable" | "storage_daily_limit",
     message: string,
     extra: { reason?: SourceUnavailableReason; retryAfterSec?: number } = {},
   ) {
@@ -621,12 +621,22 @@ async function loadRecent(
   sources: SourceName[] | undefined,
   maxAgeHours: number,
   now: Date,
-  onFailure?: () => void,
+  onFailure?: (dailyLimit: boolean) => void,
 ): Promise<Offer[]> {
   const rows = await Promise.all(
     pairs.map(async (p) => {
       try { return await repo.loadRecentOffers(p.origin, p.dest, req.windowStart, req.windowEnd, maxAgeHours, now, sources); }
-      catch { onFailure?.(); return []; }
+      catch (error) {
+        // Log only a category: database messages can contain bound values or SQL.
+        const message = error instanceof Error ? error.message : "";
+        const reason = /daily row read limit|exceeded.*free tier/i.test(message) ? "daily_read_limit"
+          : /no such index/i.test(message) ? "missing_index"
+          : /no such column|no such table/i.test(message) ? "missing_schema"
+          : "database_error";
+        console.error("stored fare read failed:", reason);
+        onFailure?.(reason === "daily_read_limit");
+        return [];
+      }
     }),
   );
   return rows.flat().filter((o) => pairOk(req, o.departDate, o.returnDate));
@@ -829,6 +839,7 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   // Travelpayouts is unavailable every recent stored fare is a fallback.
   const tpUnavailable = !fromCache && (scan === null || (scan.failures.length > 0 && live.length === 0));
   let storedReadFailed = false;
+  let storedDailyLimit = false;
   const stored = await loadRecent(
     repo,
     pairs,
@@ -836,7 +847,7 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
     tpUnavailable ? undefined : ["google_flights", ...QUOTE_SOURCE_NAMES],
     tpUnavailable ? FALLBACK_MAX_AGE_HOURS : RECENT_ENRICHMENT_MAX_AGE_HOURS,
     now,
-    () => { storedReadFailed = true; },
+    (dailyLimit) => { storedReadFailed = true; storedDailyLimit ||= dailyLimit; },
   );
   // A scan that succeeded completely: its result is cached below, and the live quotes are asked only in this case, so within
   // the cache TTL every repeat of the search is a cache hit that costs the vendors' free allowances nothing.
@@ -961,6 +972,12 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   const guarded = applyPriceGuard(ranking, timeCandidates(working, ranking, req), guard);
   const cards = recommend(guarded.pool, req, SCORING, guarded.timeOnly);
   if (cards.length === 0 && storedReadFailed) {
+    if (storedDailyLimit) {
+      const midnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+      throw new PipelineError("storage_daily_limit", "Daily price storage read allowance exhausted", {
+        retryAfterSec: Math.max(1, Math.ceil((midnight - now.getTime()) / 1000)),
+      });
+    }
     throw new PipelineError("source_unavailable", "Stored fare data is temporarily unavailable");
   }
 

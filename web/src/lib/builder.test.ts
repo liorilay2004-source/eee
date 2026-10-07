@@ -225,6 +225,14 @@ describe("results helpers", () => {
     expect(scanGaps([source(null), { ...source("not configured", false), name: "ignav", enabled: false }])).toEqual({ truncated: false, failed: false });
   });
 
+  it("shows the server's storage allowance retry without suggesting different dates", () => {
+    const view = describeFailure({ type: "http", status: 503, code: "storage_daily_limit", retryAfterSec: 120 });
+    expect(view.kind).toBe("source_unavailable");
+    expect(view.retryAfterSec).toBe(120);
+    expect(view.body).toContain("2 דקות");
+    expect(view.body).toContain("התאריכים שבחרתם שמורים");
+  });
+
   it("explains exhausted daily live search instead of promising a retry in minutes", () => {
     const sources = [source(null), { ...source("SerpApi: today's share of the free quota used up", false), name: "serpapi" }];
     const copy = emptySearchCopy(sources);

@@ -184,6 +184,12 @@ describe("computeSearchKey", () => {
 });
 
 describe("recommendations (SPEC §8)", () => {
+  it("reports the daily storage allowance with a retry at UTC midnight", async () => {
+    const { repo, deps } = setup();
+    vi.spyOn(repo, "loadRecentOffers").mockRejectedValue(new Error("Your account has exceeded D1's free tier daily row read limit"));
+    const now = new Date("2026-10-07T23:58:00Z");
+    await expect(runSearch({ ...deps, now }, req())).rejects.toMatchObject({ code: "storage_daily_limit", retryAfterSec: 120 });
+  });
   it("reports a failed stored fare read instead of claiming no prices exist", async () => {
     const { repo, deps } = setup();
     vi.spyOn(repo, "loadRecentOffers").mockRejectedValue(new Error("database unavailable"));
