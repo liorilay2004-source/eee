@@ -48,9 +48,9 @@ const MAX_BODY_CHARS = 500_000;
 
 // --- contracts ------------------------------------------------------------------------------------------
 
-export type QuoteSourceName = Extract<SourceName, "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "ryanair" | "aegean" | "air_canada" | "tap">;
-export const QUOTE_SOURCE_NAMES: readonly QuoteSourceName[] = ["ignav", "wego", "searchapi", "serpapi", "duffel", "hasdata", "ryanair", "aegean", "air_canada", "tap"];
-export const isPublishedSource = (source: SourceName): boolean => source === "ryanair" || source === "aegean" || source === "air_canada" || source === "tap";
+export type QuoteSourceName = Extract<SourceName, "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "ryanair" | "aegean" | "air_canada" | "tap" | "ethiopian">;
+export const QUOTE_SOURCE_NAMES: readonly QuoteSourceName[] = ["ignav", "wego", "searchapi", "serpapi", "duffel", "hasdata", "ryanair", "aegean", "air_canada", "tap", "ethiopian"];
+export const isPublishedSource = (source: SourceName): boolean => source === "ryanair" || source === "aegean" || source === "air_canada" || source === "tap" || source === "ethiopian";
 export const isQuoteSource = (name: SourceName): name is QuoteSourceName => (QUOTE_SOURCE_NAMES as readonly string[]).includes(name);
 
 export type QuotaPeriod = "monthly" | "lifetime";
@@ -552,7 +552,7 @@ function requestsOf(source: FareQuoteSource): number {
   return typeof n === "number" && Number.isFinite(n) && n >= 0 ? Math.ceil(n) : 1;
 }
 
-const LABEL: Record<QuoteSourceName, string> = { ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi", duffel: "Duffel", hasdata: "HasData", ryanair: "Ryanair", aegean: "Aegean", air_canada: "Air Canada", tap: "TAP" };
+const LABEL: Record<QuoteSourceName, string> = { ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi", duffel: "Duffel", hasdata: "HasData", ryanair: "Ryanair", aegean: "Aegean", air_canada: "Air Canada", tap: "TAP", ethiopian: "Ethiopian" };
 
 /** Fixed texts only: nothing of a vendor response, URL or key can get into meta.sources. */
 export function describeQuoteError(source: FareQuoteSource, e: unknown): string {

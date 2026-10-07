@@ -113,3 +113,19 @@ Production verified October 7 at 22:01 UTC: June 16–20 returned EUR 434.69
 (ILS 1,493.64), one official page call. A later August 1–14 request returned
 EUR 396.45 with zero TAP page calls and preserved the original checkedAt.
 The live browser displayed exact June dates, original EUR and the official URL.
+
+## Ethiopian multi-destination public page
+
+Verified October 7 from https://www.ethiopianairlines.com/en-il/.
+The Israeli page embeds 29 distinct future cash economy fares from TLV across
+18 published destination codes. Business fares and invalid same-day round trips
+are excluded. July 12–August 2 2027 TLV–BKK is USD 950.38; July 1–13 TLV–ICN
+is USD 732.58. Tokyo is published as city code TYO, which must not be silently
+converted to NRT or HND. Exact airport quotes exclude that city-code record.
+
+The source parses the entire origin page once, then selects exact route/date
+matches across destinations. The same parsed page is reused across searches;
+deduplication includes the destination, so equal prices for two routes survive.
+Whole-party pricing, checkout handoff and full live inventory remain unverified.
+Air India's tested page timed out. Aer Lingus' page was accessible but labels
+its deals as each-way fares; their full round-trip amount is not yet established.

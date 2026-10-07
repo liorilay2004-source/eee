@@ -8,7 +8,7 @@ const cache = new Map<string, { expires: number; fares: PublishedFare[] }>();
 /** Published fares are sparse advertisements. Match both exact dates, never substitute
  * a headline price or infer missing return legs. Not usable for party repricing.
  */
-export function matchPublishedTrip(fares: readonly PublishedFare[], q: QuoteQuery, config: { airline: string; source: "aegean" | "air_canada" | "tap" } = { airline: "A3", source: "aegean" }): Offer[] {
+export function matchPublishedTrip(fares: readonly PublishedFare[], q: QuoteQuery, config: { airline: string; source: "aegean" | "air_canada" | "tap" | "ethiopian" } = { airline: "A3", source: "aegean" }): Offer[] {
   if (q.party.adults !== 1 || q.party.children || q.party.infants) return [];
   const leg = (): Leg => ({ departTime: null, arriveTime: null, durationMin: null, stops: null, airlines: [config.airline] });
   const base = (fare: PublishedFare, amount: number, split: boolean, back?: PublishedFare): Offer => ({
@@ -29,10 +29,13 @@ export function matchPublishedTrip(fares: readonly PublishedFare[], q: QuoteQuer
 }
 
 export interface PublishedSourceConfig {
-  source: "aegean" | "air_canada" | "tap";
+  source: "aegean" | "air_canada" | "tap" | "ethiopian";
   airline: string;
-  routes: Readonly<Record<string, readonly { origin: string; destination: string; sourceUrl: string }[]>>;
+  routes: Readonly<Record<string, readonly PublishedPage[]>>;
+  /** Origin-specific official page lists multiple destinations; parsed once for all. */
+  originPages?: readonly PublishedPage[];
 }
+interface PublishedPage { origin: string; destination: string; sourceUrl: string; allDestinations?: boolean }
 /** All routes and page URLs come from verified official pages, never user URLs. */
 export function createPublishedSource(config: PublishedSourceConfig, now: Date, fetchFn: typeof fetch, sharedCache?: PublicFareCache): FareQuoteSource {
   let calls = 0;
@@ -61,9 +64,9 @@ export function createPublishedSource(config: PublishedSourceConfig, now: Date, 
   return {
     name: config.source, configured: true, quota: { period: "monthly", cap: 0, allowance: 0 },
     callCount: () => calls,
-    nextQuoteRequests: () => Math.max(1, ...Object.values(config.routes).map((pages) => pages.length)),
+    nextQuoteRequests: () => Math.max(1, config.originPages?.length ?? 0, ...Object.values(config.routes).map((pages) => pages.length)),
     async quote(q) {
-      const pages = config.routes[`${q.origin}:${q.destination}`];
+      const pages = config.routes[`${q.origin}:${q.destination}`] ?? config.originPages?.filter((page) => page.origin === q.origin);
       if (!pages?.length || q.party.adults !== 1 || q.party.children || q.party.infants) return [];
       return matchPublishedTrip((await Promise.all(pages.map(load))).flat(), q, config);
     },

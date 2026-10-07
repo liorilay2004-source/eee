@@ -57,11 +57,12 @@ function NewTab() {
 
 /** Official airline links; a homepage is explicitly distinguished from a prefilled offer. */
 function publishedPriceLink(source: string, link: string | null): string | null {
-  const host = source === "air_canada" ? "www.aircanada.com" : source === "aegean" ? "flights.aegeanair.com" : source === "tap" ? "www.flytap.com" : null;
+  const host = source === "air_canada" ? "www.aircanada.com" : source === "aegean" ? "flights.aegeanair.com" : source === "tap" ? "www.flytap.com" : source === "ethiopian" ? "www.ethiopianairlines.com" : null;
   if (!host || !link) return null;
   try {
     const url = new URL(link);
-    if (url.protocol !== "https:" || url.hostname !== host || url.username || url.password || url.port || url.search || url.hash || !/^\/(en-ca|he|en_pt)\/flights-from-[a-z-]+-to-[a-z-]+$/.test(url.pathname)) return null;
+    const pathAllowed = source === "ethiopian" ? url.pathname === "/en-il/" : /^\/(en-ca|he|en_pt)\/flights-from-[a-z-]+-to-[a-z-]+$/.test(url.pathname);
+    if (url.protocol !== "https:" || url.hostname !== host || url.username || url.password || url.port || url.search || url.hash || !pathAllowed) return null;
     return url.href;
   } catch { return null; }
 }
@@ -73,7 +74,7 @@ export function BookingActions({ card, demo, compact }: { card: CardView; demo?:
   if (published) return <div className="booking official-booking">
     <a className={compact ? "btn btn-secondary" : "btn btn-book btn-wide"} href={published} target="_blank" rel="noopener noreferrer">למחיר שפורסם באתר החברה{offer.ticketStructure === "split" && " · הלוך"}<ExternalLink size={16} aria-hidden="true" /><NewTab /></a>
     {offer.ticketStructure === "split" && publishedReturn && <a className="btn btn-secondary" href={publishedReturn} target="_blank" rel="noopener noreferrer">למחיר שפורסם · חזור<ExternalLink size={16} aria-hidden="true" /><NewTab /></a>}
-    <small>עמוד המחירים הרשמי של המסלול. יש לבחור את התאריכים ולאמת זמינות ומחיר סופי; הקישור אינו הזמנה שמורה.</small>
+    <small>עמוד מחירים רשמי. יש לבחור את המסלול והתאריכים ולאמת זמינות ומחיר סופי; הקישור אינו הזמנה שמורה.</small>
   </div>;
   const airlines = cardAirlines(card).map(a => ({ ...a, url: airlineOfficialUrl(a.code) })).filter(a => a.url);
   if (!airlines.length) return <p className="booking-missing">המקור לא מסר חברת תעופה עם קישור רשמי להצעה הזו.</p>;
@@ -101,6 +102,7 @@ export function FlightDetailsCard({ card, request, originLabel, destinationLabel
     {offer.source === "aegean" && <p className="note note-warn">מחיר שפורסם באתר Aegean למבוגר אחד בתאריכים המוצגים. זמינות ומחיר סופי נבדקים באתר החברה.</p>}
     {offer.source === "air_canada" && <p className="note note-warn">מחיר שפורסם באתר Air Canada למבוגר אחד בתאריכים המוצגים. זמינות ומחיר סופי נבדקים באתר החברה.</p>}
     {offer.source === "tap" && <p className="note note-warn">מחיר שפורסם באתר TAP למבוגר אחד בתאריכים המוצגים. זמינות ומחיר סופי נבדקים באתר החברה.</p>}
+    {offer.source === "ethiopian" && <p className="note note-warn">מחיר שפורסם באתר Ethiopian למבוגר אחד בתאריכים המוצגים. זמינות ומחיר סופי נבדקים באתר החברה.</p>}
     {isSuspicious(card) && <p className="note note-warn">{SUSPICIOUS_TEXT}</p>}
     <p className="flight-details-freshness">{freshnessLine(card)}</p>
     <BookingActions card={card} />
