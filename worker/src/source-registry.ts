@@ -352,7 +352,7 @@ export const SOURCE_REGISTRY: readonly SourceRegistryEntry[] = Object.freeze([
   entry("aer_lingus", "Aer Lingus", "planned", 52, ["EU", "US"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("brussels", "Brussels Airlines", "planned", 52, ["EU", "Africa"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("eurowings", "Eurowings", "planned", 51, ["EU"], "מתוכנן כקישור/אדפטר עתידי."),
-  entry("air_europa", "Air Europa", "planned", 51, ["EU", "LATAM"], "מתוכנן כקישור/אדפטר עתידי."),
+  { ...entry("air_europa", "Air Europa", "manual-link", 51, ["IL", "EU", "LATAM"], "מחירים מתוארכים שפורסמו למסלולים מתל אביב לספרד. נדרש אימות זמינות ומחיר סופי באתר החברה."), capabilities: { ...manual, cachedPrice: true, combinations: true } },
   entry("transavia", "Transavia", "planned", 51, ["EU"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("sunexpress", "SunExpress", "planned", 51, ["EU", "TR"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("jet2", "Jet2", "planned", 50, ["EU"], "מתוכנן כקישור/אדפטר עתידי."),
