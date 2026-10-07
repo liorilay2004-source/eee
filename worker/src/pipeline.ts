@@ -621,9 +621,13 @@ async function loadRecent(
   sources: SourceName[] | undefined,
   maxAgeHours: number,
   now: Date,
+  onFailure?: () => void,
 ): Promise<Offer[]> {
   const rows = await Promise.all(
-    pairs.map(async (p) => (await attempt(() => repo.loadRecentOffers(p.origin, p.dest, req.windowStart, req.windowEnd, maxAgeHours, now, sources))) ?? []),
+    pairs.map(async (p) => {
+      try { return await repo.loadRecentOffers(p.origin, p.dest, req.windowStart, req.windowEnd, maxAgeHours, now, sources); }
+      catch { onFailure?.(); return []; }
+    }),
   );
   return rows.flat().filter((o) => pairOk(req, o.departDate, o.returnDate));
 }
@@ -824,6 +828,7 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   // background monitor's google_flights rows are added (our own saved fares would just duplicate `live`); when
   // Travelpayouts is unavailable every recent stored fare is a fallback.
   const tpUnavailable = !fromCache && (scan === null || (scan.failures.length > 0 && live.length === 0));
+  let storedReadFailed = false;
   const stored = await loadRecent(
     repo,
     pairs,
@@ -831,6 +836,7 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
     tpUnavailable ? undefined : ["google_flights", ...QUOTE_SOURCE_NAMES],
     tpUnavailable ? FALLBACK_MAX_AGE_HOURS : RECENT_ENRICHMENT_MAX_AGE_HOURS,
     now,
+    () => { storedReadFailed = true; },
   );
   // A scan that succeeded completely: its result is cached below, and the live quotes are asked only in this case, so within
   // the cache TTL every repeat of the search is a cache hit that costs the vendors' free allowances nothing.
@@ -954,6 +960,9 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   // ...but a quote that does not state its return flight cannot pass the user's return-hour window or max stops: the cached fare it replaced stays a 🎯 candidate.
   const guarded = applyPriceGuard(ranking, timeCandidates(working, ranking, req), guard);
   const cards = recommend(guarded.pool, req, SCORING, guarded.timeOnly);
+  if (cards.length === 0 && storedReadFailed) {
+    throw new PipelineError("source_unavailable", "Stored fare data is temporarily unavailable");
+  }
 
   // Step 4 bookkeeping: how many date pairs are candidates for the deep search (top N cheapest pairs).
   const pairsWithPrice = new Set<string>();

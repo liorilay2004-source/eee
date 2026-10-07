@@ -184,6 +184,17 @@ describe("computeSearchKey", () => {
 });
 
 describe("recommendations (SPEC §8)", () => {
+  it("reports a failed stored fare read instead of claiming no prices exist", async () => {
+    const { repo, deps } = setup();
+    vi.spyOn(repo, "loadRecentOffers").mockRejectedValue(new Error("database unavailable"));
+    await expect(runSearch(deps, req())).rejects.toMatchObject({ code: "source_unavailable" });
+  });
+  it("keeps independently returned prices when the stored fare read fails", async () => {
+    const { repo, deps } = setup({ tp: mockTp({ rt: () => [offer(150)] }) });
+    vi.spyOn(repo, "loadRecentOffers").mockRejectedValue(new Error("database unavailable"));
+    const result = await runSearch(deps, req());
+    expect(result.cards.length).toBeGreaterThan(0);
+  });
   it("ranks a freshly imported official EL AL advertisement from D1", async () => {
     const { repo, deps } = setup();
     const fare = offer(128, { source: "elal", destination: "PFO", departDate: "2026-11-03", returnDate: "2026-11-06", outbound: leg({ departTime: null, stops: null, durationMin: null }), inbound: leg({ departTime: null, stops: null, durationMin: null }), deeplink: "https://www.elal.com/flight-deals/en-il/" });
