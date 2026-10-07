@@ -54,6 +54,20 @@ describe("flight details and official airline handoff", () => {
     card.offer.deeplink = "https://www.aircanada.com.evil.test/en-ca/flights-from-tel-aviv-to-toronto";
     expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("evil.test");
   });
+  it("shows the Air NZ dated original fare and only the verified official page", () => {
+    const { card, request } = fixture();
+    card.offer.source = "air_new_zealand";
+    card.offer.deeplink = "https://www.airnewzealand.com/flights/en-us/flights-from-los-angeles";
+    card.offer.priceAmount = 911.53;
+    card.offer.priceCurrency = "USD";
+    card.offer.outbound.airlines = card.offer.inbound.airlines = ["NZ"];
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).toContain('href="https://www.airnewzealand.com/flights/en-us/flights-from-los-angeles"');
+    const details = renderToStaticMarkup(<FlightDetailsCard card={card} request={request} originLabel="לוס אנג׳לס" destinationLabel="אוקלנד" />);
+    expect(details).toContain("911.53 USD");
+    expect(details).toContain("מחיר הלוך ושוב שפורסם באתר Air New Zealand למבוגר אחד");
+    card.offer.deeplink = "https://www.airnewzealand.com.evil.test/flights/en-us/flights-from-los-angeles";
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("evil.test");
+  });
   it("discloses excluded Philippine travel tax beside the advertised fare", () => {
     const { card, request } = fixture();
     card.offer.source = "philippine";
