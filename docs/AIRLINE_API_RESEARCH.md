@@ -2,6 +2,20 @@
 
 Updated: 2026-09-30
 
+## Runtime investigation: Air Serbia, 2026-10-08
+
+The production page https://www.airserbia.com/en-bg/flights-to-athens exposes a dated cash calendar. A normal browser initially displayed its security verification page, then loaded successfully without interacting with the verification. The selected trip type was `oneWay`, with one adult and EUR currency.
+
+Advancing the visible calendar generated this observed GET request:
+
+`https://www.airserbia.com/api/destination/flight-prices/BEG/ATH?year=2027&month=1&pos=GLOBAL`
+
+The browser received HTTP 200. The response contains `origin`, `destination`, `year`, `month`, `source: "db"`, and `prices`, keyed by exact ISO dates. Each day contains `price`, `currency`, `direct` (nullable), and `soldOut`. Observed examples: January 4 and 8, 2027, EUR 60.36; January 5 and 7, EUR 73.36. These are cached calendar advertisements, not reserved tickets or a current checkout price. Null `direct` must remain unknown, not become a nonstop flight.
+
+The identical unauthenticated server request returned HTTP 403. Therefore this source is **not connected to production price search**. Do not mark it active, inject static observed prices, replay browser security cookies, or treat indexed prices as runtime search results. Next integration gate: demonstrate regular supported server or browser-rendering access, validate route/month/currency and sold-out handling, then obtain the reverse direction independently before composing a return trip. The source still requires evidence for TLV routes and the user's June 1–5 search.
+
+SAS investigation on the same date: `https://www.flysas.com/se-en/flight-routes/copenhagen/athens` loaded normally in a browser, but a direct server fetch returned 403. The page displays monthly minima and a trip-length calendar. Monthly minima alone do not establish prices for an exact selected date pair. A dated calendar response still needs investigation before enabling a SAS price adapter.
+
 ## What we can ship now
 
 The production site now includes an overlay/bookmarklet flow:
