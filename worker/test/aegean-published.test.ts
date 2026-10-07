@@ -22,9 +22,20 @@ describe("exact Aegean published fares", () => {
     const now = new Date("2026-10-09T00:00:00Z");
     const source = createAegeanPublishedSource(now, fetchFn);
     expect(await source.quote(q)).toEqual([]);
-    expect(source.callCount()).toBe(2);
+    expect(source.callCount()).toBe(4);
     const next = createAegeanPublishedSource(now, fetchFn);
     expect(await next.quote(q)).toEqual([]);
     expect(next.callCount()).toBe(0);
+  });
+  it("uses exact fares present only on the English official pages", async () => {
+    const fetchFn = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      const fares = url.includes("/en/") ? [{ __typename: "Fare", originAirportCode: url.includes("from-athens") ? "ATH" : "TLV", destinationAirportCode: url.includes("from-athens") ? "TLV" : "ATH", departureDate: url.includes("from-athens") ? q.returnDate : q.departDate, returnDate: "", totalPrice: url.includes("from-athens") ? 70 : 50, currencyCode: "EUR", flightType: "ONE_WAY" }] : [];
+      return new Response(`<script id="__NEXT_DATA__">${JSON.stringify({ props: { fares } })}</script>`);
+    }) as typeof fetch;
+    const source = createAegeanPublishedSource(new Date("2026-10-10T00:00:00Z"), fetchFn);
+    expect(await source.quote(q)).toMatchObject([{ priceAmount: 120, departDate: q.departDate, returnDate: q.returnDate }]);
+    expect(source.callCount()).toBe(4);
+    expect(source.nextQuoteRequests?.(q)).toBe(0);
   });
 });
