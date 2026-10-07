@@ -33,6 +33,34 @@ and cross-carrier one-way combinations. Ten-minute in-memory cache is not global
 
 ## Coverage remains incomplete
 
+## Aegean published page reader
+
+Verified 2026-10-07 from the official route page:
+https://flights.aegeanair.com/he/flights-from-tel-aviv-to-athens
+The page embeds JSON in `__NEXT_DATA__`. `Fare` records carry airport codes,
+departure/return dates, original currency and total price. The same page also
+contains a cheaper headline fare for AXD–ATH: filtering airport codes is essential.
+The matched TLV–ATH record was a one-way EUR 58.63 fare for 2027-08-29.
+The reverse official page published EUR 102.74 for 2027-05-15; those dates cannot
+form the requested June round trip and were not displayed as a June result.
+
+Implemented `worker/src/sources/published-fares.ts`, verified against the actual
+downloaded official page as well as unit tests. Parsing never evaluates scripts or
+copies configuration/credentials. It bounds response size and traversal, checks the
+official hostname, validates real dates, rejects expired prices and deduplicates.
+This is sparse published advertising, not full inventory. Pending integration into
+one-way collection and exact-date combination; not yet a production quote adapter.
+
+## Israeli airline investigation
+
+Israir's official client bundle exposes a search-only POST `/api/search/FLIGHTS`,
+with route/date parameters and siteId `isra2023`. Two requests using the observed
+contract returned HTTP 500. No prices or completed adapter have been obtained.
+Arkia's official homepage returned a browser access challenge. No challenge was
+solved or bypassed, and no direct fare access was verified.
+
+## Remaining coverage
+
 Every other airline still needs independently verified collection and deployed
 integration. Official links and source-registry entries alone are not price coverage.
 The goal of all-airline collection and fast cheapest-price comparisons is not complete.
