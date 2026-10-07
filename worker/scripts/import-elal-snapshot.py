@@ -14,6 +14,7 @@ def build_sql(snapshot, now):
     if checked.tzinfo is None or not 0 <= (now - checked).total_seconds() <= 3600:
         raise ValueError('Snapshot must have an explicit UTC offset and be less than one hour old')
     fares = snapshot['fares']
+    canonical_checked = checked.astimezone(dt.timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
     if not isinstance(fares, list) or not 1 <= len(fares) <= 100:
         raise ValueError('Expected 1–100 observed fares')
     def sql(value):
@@ -29,7 +30,7 @@ def build_sql(snapshot, now):
         depart, back = dt.date.fromisoformat(f['departDate']), dt.date.fromisoformat(f['returnDate'])
         if depart < now.date() or back <= depart or f['currency'] != 'USD' or type(f['amount']) not in (int, float) or not 0 < f['amount'] < 100000:
             raise ValueError('Invalid exact dates or cash price')
-        values = [f['origin'], f['destination'], f['departDate'], f['returnDate'], f['amount'], f['currency'], 'elal', 'roundtrip', '["LY"]', legs, '{}', f['sourceUrl'], f['sourceUrl'], checked.isoformat()]
+        values = [f['origin'], f['destination'], f['departDate'], f['returnDate'], f['amount'], f['currency'], 'elal', 'roundtrip', '["LY"]', legs, '{}', f['sourceUrl'], f['sourceUrl'], canonical_checked]
         statements.append('INSERT INTO prices (origin,destination,depart_date,return_date,price_amount,price_currency,source,ticket_structure,airlines_json,legs_json,includes_json,deeplink,verify_link,checked_at) VALUES (' + ','.join(sql(v) for v in values) + ');')
     return '\n'.join(statements) + '\n'
 

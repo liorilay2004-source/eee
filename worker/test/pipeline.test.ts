@@ -184,6 +184,15 @@ describe("computeSearchKey", () => {
 });
 
 describe("recommendations (SPEC §8)", () => {
+  it("ranks a freshly imported official EL AL advertisement from D1", async () => {
+    const { repo, deps } = setup();
+    const fare = offer(128, { source: "elal", destination: "PFO", departDate: "2026-11-03", returnDate: "2026-11-06", outbound: leg({ departTime: null, stops: null, durationMin: null }), inbound: leg({ departTime: null, stops: null, durationMin: null }), deeplink: "https://www.elal.com/flight-deals/en-il/" });
+    await repo.savePrices([fare]);
+    const request = req({ destination: "PFO", windowStart: fare.departDate, windowEnd: fare.returnDate, stayMin: 3, stayMax: 3 });
+    const result = await runSearch(deps, request);
+    expect(result.cards).toHaveLength(1);
+    expect(result.cards[0]?.offer).toMatchObject({ source: "elal", priceAmount: 128 });
+  });
   const cheapBad = () =>
     offer(100, {
       outbound: leg({ departTime: "03:00", stops: 2, durationMin: 900, airlines: ["X"] }),
