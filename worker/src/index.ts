@@ -53,6 +53,7 @@ import { sourceSetup } from "./source-setup";
 import { createHasDataSource } from "./sources/hasdata";
 import { createSearchApiSource } from "./sources/searchapi";
 import { createSerpApiSource } from "./sources/serpapi";
+import { createRyanairDirectSource } from "./sources/ryanair-direct";
 import { createWegoSource } from "./sources/wego";
 import { pickSnapshotRoute, runSnapshot } from "./snapshots";
 import { secretMatches, telegramConfig } from "./telegram";
@@ -230,6 +231,7 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
   const duffel = secret(env.DUFFEL_API_TOKEN);
   const hasData = secret(env.HASDATA_API_KEY);
   return [
+    env.RYANAIR_DIRECT_ENABLED === "true" ? createRyanairDirectSource(now, fetchFn) : null,
     ignav ? createIgnavSource({ ...shared, apiKey: ignav, marker }) : null,
     wego ? createWegoSource({ ...shared, apiKey: wego }) : null,
     searchApi ? createSearchApiSource({ ...shared, apiKey: searchApi, marker }) : null,

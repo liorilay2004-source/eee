@@ -758,7 +758,7 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
     tpStatus.error = hit.notes && hit.notes.length > 0 ? hit.notes.join("; ") : null;
     tpStatus.coverage = coverageFromNotes(hit.notes);
     tpStatus.truncated = (tpStatus.coverage?.skippedRequests ?? 0) > 0;
-    carriedQuotes = sanitizeOffers(hit.quotes, QUOTE_SOURCE_NAMES).filter((o) => o.ticketStructure === "roundtrip" && ageHours(o.checkedAt, now) <= QUOTE_MAX_AGE_HOURS);
+    carriedQuotes = sanitizeOffers(hit.quotes, QUOTE_SOURCE_NAMES).filter((o) => (o.ticketStructure === "roundtrip" || o.source === "ryanair") && (o.source !== "ryanair" || pax === 1 && req.adults === 1) && ageHours(o.checkedAt, now) <= QUOTE_MAX_AGE_HOURS);
     // Started now, awaited at the end: the lock and budget reads run while this request ranks the stale fares.
     if (isStale) revalidation = startRevalidation(deps, req, searchKey, pairs, fx, carriedQuotes);
   } else {
@@ -833,6 +833,7 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   // the cache TTL every repeat of the search is a cache hit that costs the vendors' free allowances nothing.
   const scanComplete = !fromCache && scan !== null && scan.failures.length === 0 && scan.successes > 0;
   const fromDb = latestPerFlight(stored)
+    .filter((o) => o.source !== "ryanair" || pax === 1 && req.adults === 1)
     .filter((o) => !isQuoteSource(o.source) || ageHours(o.checkedAt, now) <= QUOTE_MAX_AGE_HOURS) // a stored quote is "live" for a few hours only
     .map((o) => scaledCopy(o, pax)); // stored fares are per passenger
   const gfOffers = fromDb.filter((o) => o.source === "google_flights").length;
@@ -861,7 +862,7 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
     return work;
   };
 
-  if (live.length + fromDb.length === 0 && tpUnavailable) {
+  if (live.length + fromDb.length === 0 && tpUnavailable && !(deps.quoteSources ?? []).some((s) => s.configured)) {
     await write(persist(wholeJob()));
     throw new PipelineError("source_unavailable", "No fare source is available right now", {
       reason: tpStatus.reason ?? "upstream_down",
@@ -898,7 +899,7 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   const quoters = (deps.quoteSources ?? []).filter((s) => s.configured);
   const primary = pairs[0];
   const emptyCachedAnswer = fromCache && working.length === 0 && carriedQuotes.length === 0;
-  const canAskQuotes = quoters.length > 0 && primary && (scanComplete || emptyCachedAnswer);
+  const canAskQuotes = quoters.length > 0 && primary && (scanComplete || emptyCachedAnswer || tpUnavailable);
   const cachedDates = scanComplete && canAskQuotes && primary ? pickQuotePairs(working, primary) : [];
   const dates = canAskQuotes ? (cachedDates.length > 0 ? cachedDates : fallbackQuotePairs(req)) : [];
   let scanStored: Promise<void> | null = null; // the scan's own write, when it was made before the quote phase

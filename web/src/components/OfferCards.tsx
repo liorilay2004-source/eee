@@ -80,6 +80,7 @@ export function FlightDetailsCard({ card, request, originLabel, destinationLabel
     {totalPassengers(request) > 1 && <p className="flight-details-freshness">המחיר לכמה נוסעים הוא הערכה לפי המחיר למבוגר.</p>}
     <p className="flight-details-bag"><BaggageClaim size={18} aria-hidden="true" />{bag.text}</p>
     {offer.ticketStructure === "split" && <p className="note note-warn">שני כרטיסים נפרדים. שינוי בכיוון אחד אינו מבטיח הגנה לכיוון השני.</p>}
+    {offer.source === "ryanair" && <p className="note note-warn">מחיר מלוח המחירים הרשמי של Ryanair למבוגר אחד. יש לבדוק זמינות ומחיר סופי באתר החברה.</p>}
     {isSuspicious(card) && <p className="note note-warn">{SUSPICIOUS_TEXT}</p>}
     <p className="flight-details-freshness">{freshnessLine(card)}</p>
     <BookingActions card={card} />

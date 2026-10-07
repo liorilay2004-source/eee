@@ -329,7 +329,7 @@ export const SOURCE_REGISTRY: readonly SourceRegistryEntry[] = Object.freeze([
   entry("pegasus", "Pegasus Airlines", "manual-link", 75, ["IL", "EU", "Asia"], "מקור עדיפות גבוהה לטיסות זולות דרך טורקיה."),
   entry("aegean", "Aegean Airlines", "manual-link", 74, ["IL", "EU"], "מקור עדיפות גבוהה לקונקשנים דרך אתונה."),
   entry("wizz", "Wizz Air", "manual-link", 73, ["IL", "EU"], "מקור לואו קוסט חשוב ליציאה מאזור ישראל."),
-  entry("ryanair", "Ryanair", "manual-link", 72, ["EU"], "מקור לואו קוסט לשילובים באירופה."),
+  entry("ryanair", "Ryanair", "active", 72, ["EU"], "מחירי לוח רשמי למבוגר אחד, שילוב הלוך וחזור בתאריכים שנבחרו; זמינות ומחיר סופי נבדקים באתר החברה."),
   entry("easyjet", "easyJet", "manual-link", 71, ["EU"], "מקור לואו קוסט לשילובים באירופה."),
   entry("lufthansa", "Lufthansa", "manual-link", 70, ["IL", "EU", "US", "Asia"], "קישור חיפוש ישיר מתוכנן."),
   entry("swiss", "SWISS", "manual-link", 69, ["IL", "EU", "US", "Asia"], "קישור חיפוש ישיר מתוכנן."),
