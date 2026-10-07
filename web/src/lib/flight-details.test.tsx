@@ -60,7 +60,7 @@ describe("flight details and official airline handoff", () => {
     card.offer.deeplink = "https://www.airnewzealand.com/flights/en-us/flights-from-los-angeles";
     card.offer.priceAmount = 911.53;
     card.offer.priceCurrency = "USD";
-    card.offer.tags = ["published_advertisement"];
+    card.offer.tags = []; // API normalization may remove adapter-only tags.
     card.offer.outbound.airlines = card.offer.inbound.airlines = ["NZ"];
     expect(renderToStaticMarkup(<BookingActions card={card} />)).toContain('href="https://www.airnewzealand.com/flights/en-us/flights-from-los-angeles"');
     const details = renderToStaticMarkup(<FlightDetailsCard card={card} request={request} originLabel="לוס אנג׳לס" destinationLabel="אוקלנד" />);
