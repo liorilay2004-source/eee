@@ -322,7 +322,7 @@ export const SOURCE_REGISTRY: readonly SourceRegistryEntry[] = Object.freeze([
     noteHe: "משמש כיעד אימות עתידי, לא כמקור הזמנה ישיר כרגע.",
   },
 
-  entry("elal", "El Al", "manual-link", 79, ["IL", "EU", "US", "Asia"], "קישור חיפוש ישיר מתוכנן, בלי קריאת מחיר חיה כרגע."),
+  { ...entry("elal", "El Al", "manual-link", 79, ["IL", "EU", "US", "Asia"], "מחירי מבצעים מתוארכים שנקראו מהאתר הרשמי ונטענו למאגר לזמן מוגבל. אין כרגע רענון אוטומטי רציף; נדרש אימות מחיר וזמינות באתר החברה."), capabilities: { ...manual, cachedPrice: true } },
   entry("arkia", "Arkia", "manual-link", 78, ["IL", "EU"], "קישור חיפוש ישיר מתוכנן, בלי קריאת מחיר חיה כרגע."),
   entry("israir", "Israir", "manual-link", 77, ["IL", "EU"], "קישור חיפוש ישיר מתוכנן, בלי קריאת מחיר חיה כרגע."),
   entry("turkish", "Turkish Airlines", "manual-link", 76, ["IL", "EU", "Asia", "US"], "מקור עדיפות גבוהה לקונקשנים מישראל."),

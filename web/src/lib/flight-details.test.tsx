@@ -21,6 +21,21 @@ describe("flight details and official airline handoff", () => {
     expect(html.match(/href=/g)).toHaveLength(1);
     expect(html).toContain("יש לבחור שם את המסלול והתאריכים");
   });
+  it("labels imported EL AL advertisements and validates the official page", () => {
+    const { card, request } = fixture();
+    card.offer.source = "elal";
+    card.offer.deeplink = "https://www.elal.com/flight-deals/en-il/";
+    card.offer.priceAmount = 159;
+    card.offer.priceCurrency = "USD";
+    card.offer.tags = [];
+    const details = renderToStaticMarkup(<FlightDetailsCard card={card} request={request} originLabel="תל אביב" destinationLabel="אתונה" />);
+    expect(details).toContain("159 USD");
+    expect(details).toContain("בבדיקה נקודתית");
+    expect(details).toContain("תנאי המזוודה לא נמסרו במקור");
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).toContain(card.offer.deeplink);
+    card.offer.deeplink += "?api_key=secret";
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("api_key");
+  });
   it("shows the returned fare and marks missing flight times instead of inventing them", () => {
     const { card, request } = fixture();
     const html = renderToStaticMarkup(<FlightDetailsCard card={card} request={request} originLabel="תל אביב" destinationLabel="אתונה" />);
