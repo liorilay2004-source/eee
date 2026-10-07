@@ -14,7 +14,7 @@ export interface PublishedFare {
   checkedAt: string;
   pricing: "published_advertisement";
 }
-const officialHosts: Readonly<Record<string, string>> = { A3: "flights.aegeanair.com", AC: "www.aircanada.com", TP: "www.flytap.com", ET: "www.ethiopianairlines.com", UX: "www.aireuropa.com" };
+const officialHosts: Readonly<Record<string, string>> = { A3: "flights.aegeanair.com", AC: "www.aircanada.com", TP: "www.flytap.com", ET: "www.ethiopianairlines.com", UX: "www.aireuropa.com", PR: "flights.philippineairlines.com" };
 const record = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v);
 const date = (v: unknown): v is string => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && Number.isFinite(Date.parse(v)) && new Date(v).toISOString().slice(0, 10) === v;
 
@@ -46,7 +46,7 @@ export function parsePublishedFares(html: string, query: { airline: string; orig
     if (++visited > 100_000) throw new Error("Published data too complex");
     const node = queue.pop();
     if (!record(node) && !Array.isArray(node)) continue;
-    if (record(node) && node.__typename === "Fare" && (node.redemption == null || node.redemption === false) && (node.travelClass == null || typeof node.travelClass === "string" && node.travelClass.toUpperCase() === "ECONOMY") && node.originAirportCode === query.origin && typeof node.destinationAirportCode === "string" && /^[A-Z]{3}$/.test(node.destinationAirportCode) && (query.allDestinations || node.destinationAirportCode === query.destination) && date(node.departureDate) && node.departureDate >= today && typeof node.totalPrice === "number" && Number.isFinite(node.totalPrice) && node.totalPrice > 0 && typeof node.currencyCode === "string" && /^[A-Z]{3}$/.test(node.currencyCode)) {
+    if (record(node) && node.__typename === "Fare" && (node.redemption == null || node.redemption === false) && (node.travelClass == null || typeof node.travelClass === "string" && (node.travelClass.toUpperCase() === "ECONOMY" || query.airline === "PR" && node.travelClass === "eco")) && node.originAirportCode === query.origin && typeof node.destinationAirportCode === "string" && /^[A-Z]{3}$/.test(node.destinationAirportCode) && (query.allDestinations || node.destinationAirportCode === query.destination) && date(node.departureDate) && node.departureDate >= today && typeof node.totalPrice === "number" && Number.isFinite(node.totalPrice) && node.totalPrice > 0 && typeof node.currencyCode === "string" && /^[A-Z]{3}$/.test(node.currencyCode)) {
       const isOneWay = node.flightType === "ONE_WAY" && (node.returnDate === "" || node.returnDate == null);
       const isRoundTrip = node.flightType === "ROUND_TRIP" && date(node.returnDate) && node.returnDate > node.departureDate;
       if (isOneWay || isRoundTrip) {

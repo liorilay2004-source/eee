@@ -54,4 +54,13 @@ describe("flight details and official airline handoff", () => {
     card.offer.deeplink = "https://www.aircanada.com.evil.test/en-ca/flights-from-tel-aviv-to-toronto";
     expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("evil.test");
   });
+  it("discloses excluded Philippine travel tax beside the advertised fare", () => {
+    const { card, request } = fixture();
+    card.offer.source = "philippine";
+    card.offer.deeplink = "https://flights.philippineairlines.com/en-ph/flights-from-manila-to-bangkok";
+    card.offer.outbound.airlines = card.offer.inbound.airlines = ["PR"];
+    const details = renderToStaticMarkup(<FlightDetailsCard card={card} request={request} originLabel="מנילה" destinationLabel="בנגקוק" />);
+    expect(details).toContain("אינו כולל מס נסיעות פיליפיני למי שחייב בו");
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).toContain('href="https://flights.philippineairlines.com/en-ph/flights-from-manila-to-bangkok"');
+  });
 });

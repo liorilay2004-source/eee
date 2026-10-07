@@ -133,7 +133,7 @@ describe("source registry", () => {
       }
       expect(source.status === "active" || source.status === "api", source.id).toBe(false);
       expect(source.capabilities.livePrice, source.id).toBe(false);
-      expect(source.capabilities.cachedPrice, source.id).toBe(source.id === "aegean" || source.id === "air_canada" || source.id === "tap" || source.id === "ethiopian" || source.id === "air_europa");
+      expect(source.capabilities.cachedPrice, source.id).toBe(source.id === "aegean" || source.id === "air_canada" || source.id === "tap" || source.id === "ethiopian" || source.id === "air_europa" || source.id === "philippine");
     }
   });
 
