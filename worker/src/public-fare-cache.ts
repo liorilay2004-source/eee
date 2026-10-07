@@ -13,6 +13,8 @@ function cacheRequest(key: string): Request {
     if (!/^\/farfnd\/v4\/oneWayFares\/[A-Z]{3}\/[A-Z]{3}\/cheapestPerDay$/.test(url.pathname) || [...url.searchParams.keys()].some((name) => name !== "outboundMonthOfDate" && name !== "currency") || url.searchParams.get("currency") !== "EUR" || !/^\d{4}-(0[1-9]|1[0-2])-01$/.test(url.searchParams.get("outboundMonthOfDate") ?? "")) throw new Error("Unsupported public calendar");
   } else if (url.hostname === "www.aircanada.com" && url.pathname === "/en-ca/flights-from-tel-aviv") {
     if (url.search) throw new Error("Unsupported public Air Canada origin page");
+  } else if (url.hostname === "www.flytap.com" && url.pathname === "/en_il/flights-from-tel-aviv") {
+    if (url.search) throw new Error("Unsupported public TAP origin page");
   } else if (url.hostname === "www.airnewzealand.com") {
     if (url.search || url.pathname !== "/flights/en-us/flights-from-los-angeles") throw new Error("Unsupported public Air NZ page");
   } else if (url.hostname === "flights.virginatlantic.com") {

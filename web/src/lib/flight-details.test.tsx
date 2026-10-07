@@ -71,6 +71,14 @@ describe("flight details and official airline handoff", () => {
     card.offer.deeplink = "https://www.airnewzealand.com.evil.test/flights/en-us/flights-from-los-angeles";
     expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("evil.test");
   });
+  it("hands off a TAP origin-page fare only to the verified public page", () => {
+    const { card } = fixture();
+    card.offer.source = "tap";
+    card.offer.deeplink = "https://www.flytap.com/en_il/flights-from-tel-aviv";
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).toContain('href="https://www.flytap.com/en_il/flights-from-tel-aviv"');
+    card.offer.deeplink += "?api_key=untrusted";
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("untrusted");
+  });
   it("discloses excluded Philippine travel tax beside the advertised fare", () => {
     const { card, request } = fixture();
     card.offer.source = "philippine";
