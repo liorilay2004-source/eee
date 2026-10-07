@@ -86,6 +86,10 @@ records are excluded. A source timestamp and exact original currency are retaine
 The Air Canada adapter reads only this verified route page, returns exact date
 matches for one adult, and shares parsed records in the public fare cache.
 Its UI link opens the verified official route price page, not a reserved checkout.
+Production verified October 7 at 21:54 UTC: one official-page call returned
+CAD 1,009 (ILS 2,177.62), exactly March 1–31. Browser rendering displayed the
+Air Canada card and correct official route URL. Unknown times and stops stayed
+unknown, rather than being inferred from the route's usual schedule.
 
 Every other airline still needs independently verified collection and deployed
 integration. Official links and source-registry entries alone are not price coverage.
