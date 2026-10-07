@@ -3,6 +3,7 @@ import { ExternalLink, Link2, RefreshCw, Sparkles, X } from "lucide-react";
 import { RequestError, saveFlightLink } from "../api/client";
 import type { FlightLinkMemory } from "../api/contract";
 import { PRODUCT_NAME } from "../config";
+import { SiteHeader } from "../components/Chrome";
 import { emptyForm, searchParamsFor, type SearchForm } from "../lib/search";
 
 const IATA = /^[A-Z]{3}$/;
@@ -87,7 +88,7 @@ export function OverlayPage() {
   const comboHref = hrefForCombo(saved, guessed);
   const bookmarklet = "javascript:(()=>{const s=document.createElement('script');s.src='https://eee-web-bly.pages.dev/eee-overlay.js?v=1';s.async=true;document.documentElement.appendChild(s);})();";
 
-  return <main className="overlay-page" dir="rtl">
+  return <>{window.self === window.top && <SiteHeader />}<main id="main" className="overlay-page" dir="rtl">
     <div className="overlay-top">
       <div>
         <p className="kicker">קומבינציות על האתר הנוכחי</p>
@@ -118,6 +119,6 @@ export function OverlayPage() {
       <p>שמרו את הכפתור הזה במועדפים. בכל אתר חברת תעופה לוחצים עליו והוא פותח את החלונית הזו מעל האתר.</p>
       <a className="btn btn-ghost" href={bookmarklet}>EEE Overlay</a>
     </section>
-  </main>;
+  </main></>;
 }
 

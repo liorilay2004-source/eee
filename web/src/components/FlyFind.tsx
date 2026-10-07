@@ -1,14 +1,15 @@
-import { ArrowUpDown, BedDouble, CalendarDays, CarFront, Check, ChevronDown, ChevronLeft, ChevronRight, Compass, FileText, Globe2, Headphones, Heart, Luggage, MapPin, Palmtree, Plane, ShieldCheck, Tag, UserCircle } from "lucide-react";
+import { ArrowUpDown, BedDouble, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Compass, FileText, Globe2, Headphones, Heart, Luggage, MapPin, Palmtree, Plane, ShieldCheck, Tag, UserCircle } from "lucide-react";
 import type { SearchForm } from "../lib/search";
-import type { Question } from "../lib/builder";
-import type { RefObject } from "react";
+import type { FieldErrors, Question } from "../lib/builder";
+import type { ReactNode, RefObject } from "react";
 
-export function FlyFindHeader() {
+export function FlyFindHeader({ children }: { children?: ReactNode }) {
+  const active = typeof location === "undefined" ? "/" : location.pathname;
   return <header className="fly-header">
     <a className="skip-link" href="#main">דילוג לתוכן</a>
     <a href="/" className="fly-logo" dir="ltr"><Plane fill="currentColor" strokeWidth={1.4} /><span><strong>FlyFind</strong><small>More Travel. For Less.</small></span></a>
-    <nav aria-label="ניווט ראשי"><a href="/explore">מידע לנוסע</a><a href="/explore">השראה</a><a href="/deals">מבצעים</a><a href="/overlay">השוואת מקורות</a><a href="/alerts">התראות</a><a href="/" aria-current="page">טיסות</a></nav>
-    <div className="fly-header-actions"><span><Globe2 size={19} />עברית<ChevronDown size={14} /></span><a href="/alerts" aria-label="התראות וטיסות שמורות"><Heart size={23} /></a><a className="fly-login" href="/alerts"><UserCircle size={19} />ההתראות שלי</a></div>
+    <nav aria-label="ניווט ראשי">{[["/privacy", "מידע לנוסע"], ["/explore", "השראה"], ["/deals", "מבצעים"], ["/overlay", "השוואת מקורות"], ["/alerts", "התראות"], ["/", "טיסות"]].map(([href, label]) => <a key={href} href={href} aria-current={active === href ? "page" : undefined}>{label}</a>)}</nav>
+    <div className="fly-header-actions"><span><Globe2 size={19} aria-hidden="true" />עברית</span><a href="/alerts" aria-label="התראות וטיסות שמורות"><Heart size={23} aria-hidden="true" /></a><a className="fly-login" href="/alerts"><UserCircle size={19} aria-hidden="true" />ההתראות שלי</a></div>{children && <div className="fly-header-extra">{children}</div>}
   </header>;
 }
 
@@ -17,17 +18,18 @@ export function FlyFindHero() {
 }
 
 export function FlyFindTabs() {
-  return <div className="fly-tabs" aria-label="סוג השירות"><span className="selected"><Plane />טיסות</span><a href="https://www.booking.com/" target="_blank" rel="noopener noreferrer"><BedDouble />מלונות</a><a href="https://www.rentalcars.com/" target="_blank" rel="noopener noreferrer"><CarFront />השכרת רכב</a><a href="/deals"><Palmtree />חבילות נופש</a></div>;
+  return <div className="fly-tabs" aria-label="סוג השירות"><span className="selected"><Plane />טיסות</span><a href="https://www.booking.com/" target="_blank" rel="noopener noreferrer"><BedDouble />מלונות</a><a href="/deals"><Palmtree />מבצעים</a></div>;
 }
 
-export function FlyFindFields({ form, open, swap, refs }: { form: SearchForm; open: (q: Question) => void; swap: () => void; refs: Record<Question, RefObject<HTMLButtonElement | null>> }) {
+export function FlyFindFields({ form, open, swap, refs, openQuestion, errors }: { form: SearchForm; open: (q: Question) => void; swap: () => void; refs: Record<Question, RefObject<HTMLButtonElement | null>>; openQuestion: Question | null; errors: FieldErrors }) {
   const date = (value: string) => value ? new Date(`${value}T12:00:00`).toLocaleDateString("he-IL") : "בחר תאריך";
+  const dialogProps = (q: Question) => ({ "aria-haspopup": "dialog" as const, "aria-expanded": openQuestion === q, "aria-controls": `sheet-${q}`, "aria-invalid": Boolean(errors.byQuestion[q]), "aria-describedby": errors.byQuestion[q] ? `error-${q}` : undefined });
   return <>
-    <div className="fly-trip-type"><span><i />הלוך ושוב</span><button ref={refs.stay} type="button" onClick={() => open("stay")}><i />משך השהייה</button><a href="/explore"><i />יעדים מרובים</a></div>
+    <div className="fly-trip-type"><span><i />הלוך ושוב</span><button ref={refs.stay} {...dialogProps("stay")} type="button" onClick={() => open("stay")}><i />משך השהייה · {form.stayMin}–{form.stayMax} לילות</button><a href="/explore"><i />גילוי יעדים</a></div>
     <div className="fly-fields">
-      <div className="fly-route"><button ref={refs.from} type="button" onClick={() => open("from")}><MapPin /><span><small>מוצא</small><strong>{form.originLabel || form.origin} ({form.origin})</strong></span></button><button className="fly-swap" type="button" onClick={swap} aria-label="החלפת מוצא ויעד"><ArrowUpDown size={20} /></button><button ref={refs.to} type="button" onClick={() => open("to")}><span><small>יעד</small><strong>{form.destinationLabel || form.destination || "לאן טסים?"}</strong></span></button></div>
-      <div className="fly-dates"><button ref={refs.when} type="button" onClick={() => open("when")}><CalendarDays /><span><small>תאריך יציאה</small><strong>{date(form.windowStart)}</strong></span></button><button type="button" onClick={() => open("when")}><CalendarDays /><span><small>תאריך חזרה</small><strong>{date(form.windowEnd)}</strong></span></button></div>
-      <button ref={refs.who} className="fly-passengers" type="button" onClick={() => open("who")}><UserCircle /><span><small>נוסעים ומחלקה</small><strong>{form.adults + form.children + form.infants === 1 ? "1 נוסע" : `${form.adults + form.children + form.infants} נוסעים`}, מחלקת תיירים</strong></span><ChevronDown size={18} /></button>
+      <div className="fly-route"><button ref={refs.from} {...dialogProps("from")} type="button" onClick={() => open("from")}><MapPin aria-hidden="true" /><span><small>מוצא</small><strong>{form.originLabel || form.origin} ({form.origin})</strong></span></button><button className="fly-swap" type="button" disabled={!form.destination} onClick={swap} aria-label="החלפת מוצא ויעד"><ArrowUpDown size={20} aria-hidden="true" /></button><button ref={refs.to} {...dialogProps("to")} type="button" onClick={() => open("to")}><span><small>יעד</small><strong>{form.destinationLabel || form.destination || "לאן טסים?"}</strong></span></button></div>
+      <div className="fly-dates"><button ref={refs.when} {...dialogProps("when")} type="button" onClick={() => open("when")}><CalendarDays aria-hidden="true" /><span><small>תאריך יציאה</small><strong>{date(form.windowStart)}</strong></span></button><button {...dialogProps("when")} type="button" onClick={(event) => { refs.when.current = event.currentTarget; open("when"); }}><CalendarDays aria-hidden="true" /><span><small>תאריך חזרה</small><strong>{date(form.windowEnd)}</strong></span></button></div>
+      <button ref={refs.who} {...dialogProps("who")} className="fly-passengers" type="button" onClick={() => open("who")}><UserCircle aria-hidden="true" /><span><small>נוסעים ומחלקה</small><strong>{form.adults + form.children + form.infants === 1 ? "1 נוסע" : `${form.adults + form.children + form.infants} נוסעים`}, מחלקת תיירים</strong></span><ChevronDown size={18} aria-hidden="true" /></button>
     </div>
   </>;
 }

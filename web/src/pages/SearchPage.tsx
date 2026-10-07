@@ -7,10 +7,9 @@ import { Builder } from "../components/Builder";
 import { FlyFindDiscover, FlyFindHeader, FlyFindHero } from "../components/FlyFind";
 import "../flyfind.css";
 import { SiteFooter, SiteHeader } from "../components/Chrome";
-import { BoardingPass, CompactCard, PassSkeleton } from "../components/OfferCards";
+import { BoardingPass, CompactCard, FlightDetailsCard, PassSkeleton } from "../components/OfferCards";
 import { WatchPanel } from "../components/WatchPanel";
 import { metaNotes, staleBadge } from "../lib/cards";
-import { autoCheckAvailable } from "../lib/partycheck";
 import { clearPrefillNotice, peekPrefillNotice } from "../lib/prefill";
 import { fetchFlightLinks, fetchSources, RequestError, saveFlightLink, searchFlights } from "../api/client";
 import type { CardView, FlightLinkMemory, SearchRequest, SearchResponse, SourceRegistryEntry, SourceRegistryStatus, SourceStatus } from "../api/contract";
@@ -23,7 +22,7 @@ import {
 } from "../lib/builder";
 import { demoResult } from "../lib/demo";
 import {
-  clearStoredForm, emptyForm, formatShortDate, isFillOnly, loadStoredForm, readSearchUrl, sameRequest, storeForm,
+  emptyForm, formatShortDate, isFillOnly, loadStoredForm, readSearchUrl, sameRequest, storeForm,
   toRequest, todayISO, updateSearchUrl, validateForm, type SearchForm,
 } from "../lib/search";
 
@@ -41,9 +40,10 @@ const SEARCH_TIMEOUT_MS = 25_000;
 
 function initialForm(): { form: SearchForm; fromUrl: boolean; fillOnly: boolean } {
   const fromUrl = readSearchUrl();
+  const visibleForm = (value: SearchForm): SearchForm => ({ ...value, outHoursPreset: "none", retHoursPreset: "none", useCustomOut: false, useCustomRet: false, maxStops: null });
   // A fill-only link (from the explore screen) fills the form but does not run it.
-  if (fromUrl) return { form: fromUrl, fromUrl: true, fillOnly: isFillOnly(location.search) };
-  return { form: loadStoredForm() ?? emptyForm(), fromUrl: false, fillOnly: false };
+  if (fromUrl) return { form: visibleForm(fromUrl), fromUrl: true, fillOnly: isFillOnly(location.search) };
+  return { form: visibleForm(loadStoredForm() ?? emptyForm()), fromUrl: false, fillOnly: false };
 }
 
 const FILLED_FALLBACK = "מילאנו את החיפוש ממצב הגילוי. בדקו מי טס ולחצו על החיפוש כדי לבדוק מחיר לכל הנוסעים.";
@@ -298,20 +298,6 @@ export function SearchPage() {
     } catch { announce("לא הצלחנו להעתיק. אפשר להעתיק את הכתובת משורת הדפדפן."); }
   }
 
-  function clearSaved() {
-    clearStoredForm();
-    history.replaceState(null, "", location.pathname);
-    controller.current?.abort();
-    searchSeq.current += 1;
-    setForm(emptyForm());
-    setRun({ status: "idle" });
-    setEditing(false);
-    setDemo(false);
-    setFieldErrors(NO_FIELD_ERRORS);
-    setRawErrors({});
-    announce("החיפוש השמור נמחק מהמכשיר הזה.");
-  }
-
   function closeDemo() {
     setDemo(false);
     announce("הדוגמה נסגרה.");
@@ -363,9 +349,7 @@ export function SearchPage() {
             : <EmptyState submitted={run.submitted} response={run.response} knownSources={knownSources} onTry={trySearch} onEdit={editSearch} />)}
         </section>
       </main>
-      <SiteFooter>
-        <button type="button" className="link-button" onClick={clearSaved}>מחקו חיפוש שמור במכשיר הזה</button>
-      </SiteFooter>
+      <SiteFooter />
     </div>
     <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</div>
   </>;
@@ -705,7 +689,6 @@ function Results({ submitted, response, dimmed, announce, knownSources }: { subm
   const scanAge = Math.floor(hero.ageHours);
   const cachedAnswer = staleBadge(response.meta);
   const extraNotes = metaNotes(response.meta);
-  const autoCheck = autoCheckAvailable(response.meta);
   const registry = response.meta.sourceRegistry ?? knownSources;
   const known = sourceRegistrySummary(registry);
   const sourceById = new Map(registry.map((s) => [s.id, s]));
@@ -718,11 +701,11 @@ function Results({ submitted, response, dimmed, announce, knownSources }: { subm
       {cachedAnswer.detail && <p>{cachedAnswer.detail}</p>}
     </div>}
     {truncated && <p className="calm-note"><Info size={18} aria-hidden="true" /><span>{he.truncated}</span></p>}
-    <BoardingPass card={hero} request={request} originLabel={originLabel} destinationLabel={destinationLabel} autoCheck={autoCheck} />
+    <FlightDetailsCard card={hero} request={request} originLabel={originLabel} destinationLabel={destinationLabel} />
     <AirlinePriceLinksPanel response={response} />
     {others.length > 0 && <>
       <h3 className="minis-title">עוד אפשרויות ששווה להכיר</h3>
-      <div className="minis">{others.map((card) => <CompactCard key={`${card.offer.departDate}-${card.offer.returnDate}-${card.kinds.join("-")}`} card={card} request={request} originLabel={originLabel} destinationLabel={destinationLabel} autoCheck={autoCheck} />)}</div>
+      <div className="flight-details-list">{others.map((card) => <FlightDetailsCard key={`${card.offer.departDate}-${card.offer.returnDate}-${card.kinds.join("-")}`} card={card} request={request} originLabel={originLabel} destinationLabel={destinationLabel} />)}</div>
     </>}
     {/* Keyed by the search: a new search starts a fresh alert form. */}
     <WatchPanel key={JSON.stringify(request)} request={request} originLabel={originLabel} destinationLabel={destinationLabel} announce={announce} />

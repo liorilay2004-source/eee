@@ -1,10 +1,11 @@
+import { airlineOfficialUrl } from "../../../worker/src/airlines/official-links";
 import { useId } from "react";
 import { ArrowLeft, BaggageClaim, Clock3, ExternalLink, Info, Plane, Split, TriangleAlert } from "lucide-react";
 import type { CardView, Leg, RecKind, SearchRequest } from "../api/contract";
 import {
   KIND_REASONS, KIND_TITLES, bagView, isMinimumPrice, nightsBetween, originalPriceLabel, partyPriceLine, totalPassengers,
 } from "../lib/builder";
-import { formatDuration, formatILS, formatShortDate, trustedBookingUrl } from "../lib/search";
+import { formatDuration, formatILS, formatShortDate } from "../lib/search";
 import { SUSPICIOUS_BADGE, SUSPICIOUS_TEXT, airlineLabels, cardAirlines, freshnessLine, freshnessTone, isSuspicious, type AirlineLabel } from "../lib/cards";
 import { PartyCheckBox } from "./PartyCheck";
 
@@ -40,7 +41,7 @@ function LegRow({ title, date, leg, names }: { title: string; date: string; leg:
   const airlines = airlineLabels(leg.airlines, names);
   const times = leg.departTime && leg.arriveTime ? `${leg.departTime} – ${leg.arriveTime}` : leg.departTime ? `המראה ${leg.departTime}` : null;
   return <div className="leg">
-    <div className="leg-head"><span className="leg-title">{title}</span><span className="leg-date num" dir="ltr">{formatShortDate(date)}</span></div>
+    <div className="leg-head"><span className="leg-title">{title}</span><span className="leg-date num" dir="ltr">{formatShortDate(date)}/{date.slice(0, 4)}</span></div>
     <div className="leg-time">{times ? <span className="num">{times}</span> : <span className="leg-unknown"><Clock3 size={15} aria-hidden="true" />השעה תופיע באתר ההזמנה</span>}</div>
     <div className="leg-meta">
       <span>{stopsText(leg.stops)}</span>
@@ -54,28 +55,35 @@ function NewTab() {
   return <span className="sr-only"> (נפתח בחלון חדש)</span>;
 }
 
-/** Booking buttons. A split ticket always explains both halves; a missing return link is said out loud. */
+/** Official airline links; a homepage is explicitly distinguished from a prefilled offer. */
 export function BookingActions({ card, demo, compact }: { card: CardView; demo?: boolean; compact?: boolean }) {
   const offer = card.offer;
   if (demo) return <p className="booking-demo"><Info size={16} aria-hidden="true" />בדוגמה אין קישור הזמנה. חפשו מסלול אמיתי כדי לקבל מחיר.</p>;
-  const out = trustedBookingUrl(offer.deeplink);
-  const back = trustedBookingUrl(offer.returnDeeplink);
-  const verify = trustedBookingUrl(offer.verifyLink);
-  const btn = compact ? "btn btn-secondary" : "btn btn-book btn-wide";
-  if (offer.ticketStructure === "split") {
-    return <div className="booking split">
-      {out ? <a className={btn} href={out} target="_blank" rel="sponsored noopener noreferrer">כרטיס הלוך<ExternalLink size={16} aria-hidden="true" /><NewTab /></a>
-        : <p className="booking-missing">קישור לכרטיס ההלוך לא זמין כרגע.</p>}
-      {back ? <a className={btn} href={back} target="_blank" rel="sponsored noopener noreferrer">כרטיס חזור<ExternalLink size={16} aria-hidden="true" /><NewTab /></a>
-        : <div className="booking-missing">
-          <p>קישור לכרטיס החזור לא זמין כרגע. צריך להזמין אותו בנפרד.</p>
-          {verify && <a className="btn btn-ghost" href={verify} target="_blank" rel="sponsored noopener noreferrer">חיפוש החזור באתר <span className="brand-word">Aviasales</span><ExternalLink size={16} aria-hidden="true" /><NewTab /></a>}
-        </div>}
-    </div>;
-  }
-  if (out) return <div className="booking"><a className={btn} href={out} target="_blank" rel="sponsored noopener noreferrer">להזמנה באתר <span className="brand-word">Aviasales</span><ExternalLink size={16} aria-hidden="true" /><NewTab /></a></div>;
-  if (verify) return <div className="booking"><a className={compact ? "btn btn-ghost" : "btn btn-secondary btn-wide"} href={verify} target="_blank" rel="sponsored noopener noreferrer">לבדיקת המחיר באתר <span className="brand-word">Aviasales</span><ExternalLink size={16} aria-hidden="true" /><NewTab /></a></div>;
-  return <p className="booking-missing">קישור הזמנה לא זמין כרגע להצעה הזו.</p>;
+  const airlines = cardAirlines(card).map(a => ({ ...a, url: airlineOfficialUrl(a.code) })).filter(a => a.url);
+  if (!airlines.length) return <p className="booking-missing">המקור לא מסר חברת תעופה עם קישור רשמי להצעה הזו.</p>;
+  const button = compact ? "btn btn-secondary" : "btn btn-book btn-wide";
+  return <div className="booking official-booking">
+    {airlines.map(a => <a key={a.code} className={button} href={a.url!} target="_blank" rel="noopener noreferrer">לפרטים ולהזמנה באתר {a.name || a.code}<ExternalLink size={16} aria-hidden="true" /><NewTab /></a>)}
+    <small>הקישור פותח את אתר החברה. יש לבחור שם את המסלול והתאריכים המוצגים ולאמת את המחיר.</small>
+    {offer.ticketStructure === "split" && <small>ההלוך והחזור הם כרטיסים נפרדים.</small>}
+  </div>;
+}
+/** Actual returned details, followed by the airline's official website. */
+export function FlightDetailsCard({ card, request, originLabel, destinationLabel }: CardProps) {
+  const offer = card.offer;
+  const minimum = isMinimumPrice(offer, request);
+  const airlines = cardAirlines(card);
+  const bag = bagView(offer, request);
+  return <article className="flight-details-card">
+    <header><div><h3><Airlines items={airlines} />{!airlines.length && "פרטי הטיסה"}</h3><p>{originLabel || offer.origin} <ArrowLeft size={17} aria-hidden="true" /> {destinationLabel || offer.destination}</p></div><div className="flight-details-price"><strong dir="ltr">{minimum ? "החל מ־ " : ""}{formatILS(offer.totalIls)}</strong><small>{partyPriceLine(offer.totalIls, totalPassengers(request), minimum)}</small></div></header>
+    <div className="flight-details-legs"><LegRow title="הלוך" date={offer.departDate} leg={offer.outbound} names={card.airlineNames} /><LegRow title="חזור" date={offer.returnDate} leg={offer.inbound} names={card.airlineNames} /></div>
+    {totalPassengers(request) > 1 && <p className="flight-details-freshness">המחיר לכמה נוסעים הוא הערכה לפי המחיר למבוגר.</p>}
+    <p className="flight-details-bag"><BaggageClaim size={18} aria-hidden="true" />{bag.text}</p>
+    {offer.ticketStructure === "split" && <p className="note note-warn">שני כרטיסים נפרדים. שינוי בכיוון אחד אינו מבטיח הגנה לכיוון השני.</p>}
+    {isSuspicious(card) && <p className="note note-warn">{SUSPICIOUS_TEXT}</p>}
+    <p className="flight-details-freshness">{freshnessLine(card)}</p>
+    <BookingActions card={card} />
+  </article>;
 }
 
 /** The hero: the cheapest offer as a boarding pass. */

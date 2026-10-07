@@ -1,8 +1,9 @@
 import { useSyncExternalStore, type ReactNode } from "react";
 import { LogOut } from "lucide-react";
-import { PRODUCT_NAME } from "../config";
+
 import { logout } from "../lib/access";
 import { hasAccessKey, subscribeAccessKey } from "../lib/access-key";
+import { FlyFindHeader } from "./FlyFind";
 
 export function PlaneMark() {
   return <svg className="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
@@ -32,14 +33,9 @@ export function SiteNav({ current }: { current: NavPath }) {
   </nav>;
 }
 
-export function SiteHeader({ children, current }: { children?: ReactNode; current?: NavPath }) {
+export function SiteHeader({ children }: { children?: ReactNode; current?: NavPath }) {
   return <>
-    <header className="site-header">
-      <a className="skip-link" href="#main">דילוג לתוכן</a>
-      <a className="brand" href="/"><PlaneMark /><span className="brand-name">{PRODUCT_NAME}</span></a>
-      {children}
-    </header>
-    {current && <SiteNav current={current} />}
+    <FlyFindHeader>{children}</FlyFindHeader>
   </>;
 }
 
@@ -62,6 +58,5 @@ export function SiteFooter({ children }: { children?: ReactNode }) {
     </nav>
     {children}
     <AccessLogout />
-    <p className="footer-note">{PRODUCT_NAME} מחפש ומשווה מחירים ומפנה לאתרי הזמנה. אנחנו לא מוכרים כרטיסים. גרסת תצוגה מקדימה.</p>
   </footer>;
 }
