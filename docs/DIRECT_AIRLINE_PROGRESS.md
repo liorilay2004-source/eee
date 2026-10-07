@@ -109,3 +109,7 @@ pending work, ten-minute parsed-data caching and exact-date matching for Aegean,
 Air Canada and TAP. Each wrapper contains only independently verified page URLs.
 El Al's New York route-page request returned a browser access challenge rather
 than flight data; no challenge was bypassed and no El Al prices were claimed.
+Production verified October 7 at 22:01 UTC: June 16–20 returned EUR 434.69
+(ILS 1,493.64), one official page call. A later August 1–14 request returned
+EUR 396.45 with zero TAP page calls and preserved the original checkedAt.
+The live browser displayed exact June dates, original EUR and the official URL.
