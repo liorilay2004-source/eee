@@ -129,3 +129,8 @@ deduplication includes the destination, so equal prices for two routes survive.
 Whole-party pricing, checkout handoff and full live inventory remain unverified.
 Air India's tested page timed out. Aer Lingus' page was accessible but labels
 its deals as each-way fares; their full round-trip amount is not yet established.
+Production verified October 7 at 22:09 UTC: TLV–BKK July 12–August 2 returned
+USD 950.38 (ILS 2,921.47), one Ethiopian page call. TLV–ICN July 1–13 then
+returned USD 732.58 (ILS 2,251.95) with zero Ethiopian calls, the same checkedAt,
+and a complete API response in 1.174 seconds. Browser rendering confirmed the
+ICN dates, original USD price and official Israeli price-page URL.
