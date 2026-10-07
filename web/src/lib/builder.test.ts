@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  bagView, clearQuestionErrors, describeFailure, firstErrorQuestion, firstMonthOffset, hasTruncation, inferWhen, isMinimumPrice, mapFieldErrors, monthOptions,
+  bagView, clearQuestionErrors, describeFailure, emptySearchCopy, firstErrorQuestion, firstMonthOffset, hasTruncation, inferWhen, isMinimumPrice, mapFieldErrors, monthOptions,
   nextMonthWindow, originalPriceLabel, otherDuration, pairCheck, partyPriceLine, passengersLabel, placeLabel,
   pricePerPerson, priceText, questionForField, questionsTouchedBy, scanGaps, shorterWindow, sourceNote, stayLabel, stayPresetFor,
   STAY_PRESETS, toggleMonth, waitText, whenLabel, widenWindow, windowForMonths, withNearby,
@@ -223,6 +223,22 @@ describe("results helpers", () => {
     expect(scanGaps([source("truncated: 4 of 30 planned requests skipped")])).toEqual({ truncated: true, failed: false });
     expect(scanGaps([source("upstream 502", false)])).toEqual({ truncated: false, failed: true });
     expect(scanGaps([source(null), { ...source("not configured", false), name: "ignav", enabled: false }])).toEqual({ truncated: false, failed: false });
+  });
+
+  it("explains exhausted daily live search instead of promising a retry in minutes", () => {
+    const sources = [source(null), { ...source("SerpApi: today's share of the free quota used up", false), name: "serpapi" }];
+    const copy = emptySearchCopy(sources);
+    expect(copy.body).toContain("מכסה מתחדשת בחצות UTC");
+    expect(copy.body).toContain("התאריכים שבחרתם נשמרו ללא שינוי");
+    expect(copy.body).not.toContain("כמה דקות");
+    expect(sourceNote(sources[1].error!).text).toContain("מכסת");
+  });
+
+  it("does not claim absent flights or blame unavailable sources for an empty result", () => {
+    const copy = emptySearchCopy([source(null), { ...source("not configured", false), enabled: false }]);
+    expect(copy.title).toBe("לא נמצא מחיר לתאריכים שבחרתם");
+    expect(copy.body).toContain("זה לא אומר שאין טיסות");
+    expect(emptySearchCopy([source("upstream 502", false)]).title).toBe("בדיקת המחירים לא הושלמה");
   });
 
   it("computes an average per-person price", () => {

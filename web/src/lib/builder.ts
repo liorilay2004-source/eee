@@ -399,6 +399,8 @@ export function hasTruncation(sources: readonly SourceStatus[]): boolean {
  * unrecognised note becomes a generic Hebrew line instead of being shown raw.
  */
 export function sourceNote(error: string): { text: string; codes?: string } {
+  if (/today's share of the free quota used up/i.test(error)) return { text: "מכסת בדיקת המחירים להיום נגמרה. היא מתחדשת בחצות לפי שעון UTC (03:00 בישראל בשעון קיץ, 02:00 בשעון חורף)" };
+  if (/free quota used up/i.test(error)) return { text: "מכסת בדיקת המחירים של המקור נגמרה לתקופה הנוכחית" };
   const truncated = /truncated:\s*(\d+)\s+of\s+(\d+)/i.exec(error);
   if (truncated) return { text: `${truncated[1]} מתוך ${truncated[2]} בדיקות מתוכננות לא בוצעו הפעם` };
   const notSearchable = /not searchable at Travelpayouts:\s*([A-Z0-9, -]+)/i.exec(error);
@@ -406,6 +408,20 @@ export function sourceNote(error: string): { text: string; codes?: string } {
   if (/not configured/i.test(error)) return { text: "המקור לא זמין כרגע" };
   if (/too many searches/i.test(error)) return { text: "המקור עמוס כרגע, נסו שוב מאוחר יותר" };
   return { text: "המקור דיווח על בעיה בבדיקה הזו" };
+}
+
+export function emptySearchCopy(sources: readonly SourceStatus[]): { title: string; body: string } {
+  const dailyQuota = sources.some((s) => s.enabled && /today's share of the free quota used up/i.test(s.error ?? ""));
+  if (dailyQuota) return {
+    title: "אין כרגע מחיר מאומת לתאריכים שבחרתם",
+    body: "לא נמצא מחיר שמור לתאריכים האלה, ומכסת בדיקת המחירים החיים להיום נגמרה. המכסה מתחדשת בחצות UTC (03:00 בישראל בשעון קיץ, 02:00 בשעון חורף). זה לא אומר שאין טיסות. התאריכים שבחרתם נשמרו ללא שינוי.",
+  };
+  const gaps = scanGaps(sources);
+  if (gaps.failed || gaps.truncated) return {
+    title: "בדיקת המחירים לא הושלמה",
+    body: "לא הצלחנו לקבל מחיר מכל המקורות לתאריכים שבחרתם. זה לא אומר שאין טיסות. אפשר לנסות שוב מאוחר יותר; התאריכים נשמרו ללא שינוי.",
+  };
+  return { title: "לא נמצא מחיר לתאריכים שבחרתם", body: "מקורות המחירים לא החזירו הצעה לתאריכים האלה. זה לא אומר שאין טיסות. אפשר לשנות את החיפוש או לבדוק באתר חברת התעופה." };
 }
 
 /** Whether a scan did not check everything: a truncation note, or an enabled source that failed. */

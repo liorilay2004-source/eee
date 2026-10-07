@@ -18,7 +18,7 @@ import { PRODUCT_NAME } from "../config";
 import {
   NO_FIELD_ERRORS, describeFailure, firstErrorQuestion, isMinimumPrice, mapFieldErrors, nightsText,
   passengersLabel, placeLabel, priceText, questionsTouchedBy, clearQuestionErrors, rangeLabel, scanGaps, sourceNote,
-  withNearby, type Failure, type FailureView, type FieldErrors, type Question,
+  withNearby, emptySearchCopy, type Failure, type FailureView, type FieldErrors, type Question,
 } from "../lib/builder";
 import { demoResult } from "../lib/demo";
 import { exactVacationForm } from "../lib/date-selection";
@@ -200,7 +200,7 @@ export function SearchPage() {
       const cheapest = response.cards.find((c) => c.kinds.includes("cheapest")) ?? response.cards[0];
       announce(response.cards.length
         ? `נמצאו ${response.cards.length === 1 ? "הצעה אחת" : `${response.cards.length} הצעות`}. הזולה ביותר: ${priceText(cheapest.offer.totalIls, isMinimumPrice(cheapest.offer, submitted.request))}.`
-        : "לא נמצאו מחירים בטווח הזה.");
+        : emptySearchCopy(response.meta.sources).body);
       requestResultsFocus();
     } catch (error) {
       if (seq !== searchSeq.current) return;
@@ -531,14 +531,8 @@ function FailureCard({ failure, retryAt, onRetry, onEdit, showEdit }: { failure:
 }
 
 function EmptyState({ submitted, response, knownSources, onTry, onEdit }: { submitted: Submitted; response: SearchResponse; knownSources: SourceRegistryEntry[]; onTry: (form: SearchForm) => void; onEdit: () => void }) {
-  const gaps = scanGaps(response.meta.sources);
   const nearby = withNearby(submitted.form);
-  const title = gaps.truncated || gaps.failed ? "לא הצלחנו לבדוק את כל התאריכים הפעם" : "לא מצאנו מחירים בטווח הזה";
-  const body = gaps.truncated
-    ? `${he.truncated} אפשר לנסות אחת מההצעות האלה בלחיצה אחת:`
-    : gaps.failed
-      ? "חלק מהבדיקות לא הושלמו, ולכן אין לנו מחיר להציג. אפשר לנסות שוב בעוד כמה דקות, או אחת מההצעות האלה:"
-      : "במטמון של Aviasales אין כרגע מחיר לצירוף הזה. אפשר לנסות אחת מההצעות האלה בלחיצה אחת:";
+  const { title, body } = emptySearchCopy(response.meta.sources);
   const registry = response.meta.sourceRegistry ?? knownSources;
   return <StateCard icon={<Compass size={24} aria-hidden="true" />} title={title} body={body}>
     <div className="suggestions">
