@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
-  ArrowLeft, CalendarRange, CheckCircle2, CircleAlert, Compass, ExternalLink, Eye, History, Hourglass, Info, Link2, MapPinned, Moon, PencilLine, RefreshCw,
+  ArrowLeft, CheckCircle2, CircleAlert, Compass, ExternalLink, Eye, History, Hourglass, Info, Link2, MapPinned, Moon, PencilLine, RefreshCw,
   Share2, WifiOff, X,
 } from "lucide-react";
 import { Builder } from "../components/Builder";
@@ -16,11 +16,12 @@ import type { CardView, FlightLinkMemory, SearchRequest, SearchResponse, SourceR
 import { he } from "../copy/he";
 import { PRODUCT_NAME } from "../config";
 import {
-  NO_FIELD_ERRORS, describeFailure, firstErrorQuestion, isMinimumPrice, mapFieldErrors, nightsText, otherDuration,
-  passengersLabel, placeLabel, priceText, questionsTouchedBy, clearQuestionErrors, rangeLabel, scanGaps, shorterWindow, sourceNote, widenWindow,
+  NO_FIELD_ERRORS, describeFailure, firstErrorQuestion, isMinimumPrice, mapFieldErrors, nightsText,
+  passengersLabel, placeLabel, priceText, questionsTouchedBy, clearQuestionErrors, rangeLabel, scanGaps, sourceNote,
   withNearby, type Failure, type FailureView, type FieldErrors, type Question,
 } from "../lib/builder";
 import { demoResult } from "../lib/demo";
+import { exactVacationForm } from "../lib/date-selection";
 import {
   emptyForm, formatShortDate, isFillOnly, loadStoredForm, readSearchUrl, sameRequest, storeForm,
   toRequest, todayISO, updateSearchUrl, validateForm, type SearchForm,
@@ -40,7 +41,7 @@ const SEARCH_TIMEOUT_MS = 25_000;
 
 function initialForm(): { form: SearchForm; fromUrl: boolean; fillOnly: boolean } {
   const fromUrl = readSearchUrl();
-  const visibleForm = (value: SearchForm): SearchForm => ({ ...value, outHoursPreset: "none", retHoursPreset: "none", useCustomOut: false, useCustomRet: false, maxStops: null });
+  const visibleForm = (value: SearchForm): SearchForm => exactVacationForm({ ...value, outHoursPreset: "none", retHoursPreset: "none", useCustomOut: false, useCustomRet: false, maxStops: null });
   // A fill-only link (from the explore screen) fills the form but does not run it.
   if (fromUrl) return { form: visibleForm(fromUrl), fromUrl: true, fillOnly: isFillOnly(location.search) };
   return { form: visibleForm(loadStoredForm() ?? emptyForm()), fromUrl: false, fillOnly: false };
@@ -149,7 +150,7 @@ export function SearchPage() {
   };
 
   const patch = useCallback((changes: Partial<SearchForm>) => {
-    setForm((current) => ({ ...current, ...changes }));
+    setForm((current) => exactVacationForm({ ...current, ...changes }));
     setPrefilled(null);
     setDemo(false);
     // Clear the errors this change resolves (see questionsTouchedBy): never leave a stale message on another chip.
@@ -161,6 +162,7 @@ export function SearchPage() {
   }, [openQuestion]);
 
   const runSearch = useCallback(async (nextForm: SearchForm) => {
+    nextForm = exactVacationForm(nextForm);
     controller.current?.abort();
     const seq = ++searchSeq.current;
     const submitted: Submitted = { form: nextForm, request: toRequest(nextForm) };
@@ -234,7 +236,7 @@ export function SearchPage() {
     announce(count === 1 ? "צריך להשלים פרט אחד לפני החיפוש." : `צריך להשלים ${count} פרטים לפני החיפוש.`);
     // Keep the messages clear of the sticky CTA bar (html scroll-padding-bottom reserves its height).
     window.requestAnimationFrame(() => document.querySelector(".chip-errors")?.scrollIntoView({ block: "nearest", behavior: scrollBehavior() }));
-    if (first) setOpenQuestion(first);
+    if (first) setOpenQuestion(first === "stay" ? "when" : first);
   }, []);
 
   /** Validates against a fresh "today" and either searches or sends the user to the chip that needs fixing. */
@@ -530,11 +532,7 @@ function FailureCard({ failure, retryAt, onRetry, onEdit, showEdit }: { failure:
 
 function EmptyState({ submitted, response, knownSources, onTry, onEdit }: { submitted: Submitted; response: SearchResponse; knownSources: SourceRegistryEntry[]; onTry: (form: SearchForm) => void; onEdit: () => void }) {
   const gaps = scanGaps(response.meta.sources);
-  // A truncated scan did not check every pair: a shorter window checks them all, a wider one would skip more.
-  const shorter = gaps.truncated ? shorterWindow(submitted.form) : null;
-  const widened = gaps.truncated ? null : widenWindow(submitted.form);
   const nearby = withNearby(submitted.form);
-  const longer = otherDuration(submitted.form);
   const title = gaps.truncated || gaps.failed ? "לא הצלחנו לבדוק את כל התאריכים הפעם" : "לא מצאנו מחירים בטווח הזה";
   const body = gaps.truncated
     ? `${he.truncated} אפשר לנסות אחת מההצעות האלה בלחיצה אחת:`
@@ -544,14 +542,8 @@ function EmptyState({ submitted, response, knownSources, onTry, onEdit }: { subm
   const registry = response.meta.sourceRegistry ?? knownSources;
   return <StateCard icon={<Compass size={24} aria-hidden="true" />} title={title} body={body}>
     <div className="suggestions">
-      {shorter && <button type="button" className="suggestion" onClick={() => onTry(shorter)}>
-        <CalendarRange size={20} aria-hidden="true" /><span><strong>טווח תאריכים קצר יותר</strong><small className="num">{rangeLabel(shorter.windowStart, shorter.windowEnd)}</small></span></button>}
-      {widened && <button type="button" className="suggestion" onClick={() => onTry(widened)}>
-        <CalendarRange size={20} aria-hidden="true" /><span><strong>טווח תאריכים רחב יותר</strong><small>עד <span className="num" dir="ltr">{formatShortDate(widened.windowEnd)}</span></small></span></button>}
       {nearby && <button type="button" className="suggestion" onClick={() => onTry(nearby)}>
         <MapPinned size={20} aria-hidden="true" /><span><strong>גם שדות תעופה קרובים</strong><small>במוצא וביעד</small></span></button>}
-      {longer && <button type="button" className="suggestion" onClick={() => onTry(longer)}>
-        <Moon size={20} aria-hidden="true" /><span><strong>משך טיול אחר</strong><small>{nightsText(longer.stayMin, longer.stayMax)}</small></span></button>}
     </div>
     <OfficialAirlineLinks sources={registry} />
     <button type="button" className="btn btn-ghost" onClick={onEdit}><PencilLine size={18} aria-hidden="true" />שינוי חיפוש</button>

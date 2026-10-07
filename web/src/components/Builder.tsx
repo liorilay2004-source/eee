@@ -2,7 +2,7 @@ import { useRef, useState, type FormEvent, type ReactNode, type RefObject } from
 import { ChevronDown, CircleAlert, Compass, Search } from "lucide-react";
 import { Sheet } from "./Sheet";
 import { FlyFindFields, FlyFindTabs } from "./FlyFind";
-import { FromQuestion, PairHint, ToQuestion, WhenQuestion, StayQuestion, WhoQuestion, type Patch } from "./Questions";
+import { FromQuestion, ToQuestion, WhenQuestion, WhoQuestion, type Patch } from "./Questions";
 import {
   QUESTIONS, QUESTION_TITLES, placeLabel, rangeLabel, stayLabel, whenLabel, whoLabel,
   type FieldErrors, type Question,
@@ -73,16 +73,16 @@ export function Builder({ form, patch, today, errors, openQuestion, setOpenQuest
   const submit = (event: FormEvent) => { event.preventDefault(); onSubmit(); };
   const chip = (q: Question) => <Chip q={q} {...values[q]} open={openQuestion === q} error={errors.byQuestion[q]} chipRef={flyFind ? { current: null } : refs[q]} onOpen={() => setOpenQuestion(q)} />;
 
-  const open = openQuestion;
-  const nextQ = open ? QUESTIONS[QUESTIONS.indexOf(open) + 1] : undefined;
+  const open = openQuestion === "stay" ? "when" : openQuestion;
+  const steps: Question[] = ["from", "to", "when", "who"];
+  const nextQ = open ? steps[steps.indexOf(open) + 1] : undefined;
   const questionProps = open ? { form, patch, today, error: errors.byQuestion[open], errorId: `${sheetId(open)}-error` } : null;
   let body: ReactNode = null;
   if (open && questionProps) {
     body = open === "from" ? <FromQuestion {...questionProps} />
       : open === "to" ? <ToQuestion {...questionProps} />
         : open === "when" ? <WhenQuestion {...questionProps} dateTarget={dateTarget} />
-          : open === "stay" ? <StayQuestion {...questionProps} />
-            : <WhoQuestion {...questionProps} />;
+          : <WhoQuestion {...questionProps} />;
   }
 
   const errorEntries = QUESTIONS.filter((q) => errors.byQuestion[q]);
@@ -100,7 +100,7 @@ export function Builder({ form, patch, today, errors, openQuestion, setOpenQuest
       <span className="unit"><span className="w" aria-hidden="true">מ־</span>{chip("from")}</span>
       <span className="unit"><span className="w" aria-hidden="true">ל־</span>{chip("to")}</span>
       <span className="unit">{chip("when")}</span>
-      <span className="unit">{chip("stay")}</span>
+      {form.windowStart && form.windowEnd && <span className="unit">{stayLabel(form.stayMin, form.stayMax)}</span>}
       <span className="unit">{chip("who")}</span>
     </div>
 
@@ -110,8 +110,7 @@ export function Builder({ form, patch, today, errors, openQuestion, setOpenQuest
     </div>}
 
     {form.windowStart && form.windowEnd && <div className="builder-range">
-      <span>טווח: <strong className="num">{rangeLabel(form.windowStart, form.windowEnd)}</strong></span>
-      <PairHint form={form} />
+      <span>התאריכים שנבחרו: <strong className="num">{rangeLabel(form.windowStart, form.windowEnd)}</strong> · {stayLabel(form.stayMin, form.stayMax)}</span>
     </div>}
 
     <div className="cta-bar">
