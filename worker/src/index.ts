@@ -60,6 +60,7 @@ import { createTapPublishedSource } from "./sources/tap-published";
 import { createEthiopianPublishedSource } from "./sources/ethiopian-published";
 import { createAirEuropaPublishedSource } from "./sources/aireuropa-published";
 import { createPhilippinePublishedSource } from "./sources/philippine-published";
+import { createVirginPublishedSource } from "./sources/virgin-published";
 import { createPublicFareCache } from "./public-fare-cache";
 import { createWegoSource } from "./sources/wego";
 import { pickSnapshotRoute, runSnapshot } from "./snapshots";
@@ -246,6 +247,7 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
     env.ETHIOPIAN_PUBLISHED_ENABLED === "true" ? createEthiopianPublishedSource(now, fetchFn, publicCache) : null,
     env.AIREUROPA_PUBLISHED_ENABLED === "true" ? createAirEuropaPublishedSource(now, fetchFn, publicCache) : null,
     env.PHILIPPINE_PUBLISHED_ENABLED === "true" ? createPhilippinePublishedSource(now, fetchFn, publicCache) : null,
+    env.VIRGIN_PUBLISHED_ENABLED === "true" ? createVirginPublishedSource(now, fetchFn, publicCache) : null,
     ignav ? createIgnavSource({ ...shared, apiKey: ignav, marker }) : null,
     wego ? createWegoSource({ ...shared, apiKey: wego }) : null,
     searchApi ? createSearchApiSource({ ...shared, apiKey: searchApi, marker }) : null,

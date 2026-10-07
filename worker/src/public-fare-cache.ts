@@ -5,12 +5,14 @@ export interface PublicFareCache {
 }
 const TTL_MS = 10 * 60_000;
 const MAX_BYTES = 500_000;
-const hosts = new Set(["services-api.ryanair.com", "flights.aegeanair.com", "www.aircanada.com", "www.flytap.com", "www.ethiopianairlines.com", "www.aireuropa.com", "flights.philippineairlines.com"]);
+const hosts = new Set(["services-api.ryanair.com", "flights.aegeanair.com", "www.aircanada.com", "www.flytap.com", "www.ethiopianairlines.com", "www.aireuropa.com", "flights.philippineairlines.com", "flights.virginatlantic.com"]);
 function cacheRequest(key: string): Request {
   const url = new URL(key);
   if (url.protocol !== "https:" || !hosts.has(url.hostname) || url.username || url.password || url.port || url.hash) throw new Error("Unsupported public fare source");
   if (url.hostname === "services-api.ryanair.com") {
     if (!/^\/farfnd\/v4\/oneWayFares\/[A-Z]{3}\/[A-Z]{3}\/cheapestPerDay$/.test(url.pathname) || [...url.searchParams.keys()].some((name) => name !== "outboundMonthOfDate" && name !== "currency") || url.searchParams.get("currency") !== "EUR" || !/^\d{4}-(0[1-9]|1[0-2])-01$/.test(url.searchParams.get("outboundMonthOfDate") ?? "")) throw new Error("Unsupported public calendar");
+  } else if (url.hostname === "flights.virginatlantic.com") {
+    if (url.search || url.pathname !== "/en-il/flights-from-tel-aviv") throw new Error("Unsupported public Virgin page");
   } else if (url.hostname === "flights.philippineairlines.com") {
     if (url.search || url.pathname !== "/en-ph/flights-from-manila-to-bangkok") throw new Error("Unsupported public PAL page");
   } else if (url.hostname === "www.aireuropa.com") {

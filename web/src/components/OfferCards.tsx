@@ -57,11 +57,11 @@ function NewTab() {
 
 /** Official airline links; a homepage is explicitly distinguished from a prefilled offer. */
 function publishedPriceLink(source: string, link: string | null): string | null {
-  const host = source === "air_canada" ? "www.aircanada.com" : source === "aegean" ? "flights.aegeanair.com" : source === "tap" ? "www.flytap.com" : source === "ethiopian" ? "www.ethiopianairlines.com" : source === "air_europa" ? "www.aireuropa.com" : source === "philippine" ? "flights.philippineairlines.com" : null;
+  const host = source === "air_canada" ? "www.aircanada.com" : source === "aegean" ? "flights.aegeanair.com" : source === "tap" ? "www.flytap.com" : source === "ethiopian" ? "www.ethiopianairlines.com" : source === "air_europa" ? "www.aireuropa.com" : source === "philippine" ? "flights.philippineairlines.com" : source === "virgin_atlantic" ? "flights.virginatlantic.com" : null;
   if (!host || !link) return null;
   try {
     const url = new URL(link);
-    const pathAllowed = source === "philippine" ? url.pathname === "/en-ph/flights-from-manila-to-bangkok" : source === "air_europa" ? url.pathname === "/en-il/flight-deals-from-tel-aviv-to-spain" : source === "ethiopian" ? url.pathname === "/en-il/" : /^\/(en-ca|he|en_pt)\/flights-from-[a-z-]+-to-[a-z-]+$/.test(url.pathname);
+    const pathAllowed = source === "virgin_atlantic" ? url.pathname === "/en-il/flights-from-tel-aviv" : source === "philippine" ? url.pathname === "/en-ph/flights-from-manila-to-bangkok" : source === "air_europa" ? url.pathname === "/en-il/flight-deals-from-tel-aviv-to-spain" : source === "ethiopian" ? url.pathname === "/en-il/" : /^\/(en-ca|he|en_pt)\/flights-from-[a-z-]+-to-[a-z-]+$/.test(url.pathname);
     if (url.protocol !== "https:" || url.hostname !== host || url.username || url.password || url.port || url.search || url.hash || !pathAllowed) return null;
     return url.href;
   } catch { return null; }
@@ -102,6 +102,7 @@ export function FlightDetailsCard({ card, request, originLabel, destinationLabel
     {offer.source === "aegean" && <p className="note note-warn">מחיר שפורסם באתר Aegean למבוגר אחד בתאריכים המוצגים. זמינות ומחיר סופי נבדקים באתר החברה.</p>}
     {offer.source === "air_canada" && <p className="note note-warn">מחיר שפורסם באתר Air Canada למבוגר אחד בתאריכים המוצגים. זמינות ומחיר סופי נבדקים באתר החברה.</p>}
     {offer.source === "tap" && <p className="note note-warn">מחיר שפורסם באתר TAP למבוגר אחד בתאריכים המוצגים. זמינות ומחיר סופי נבדקים באתר החברה.</p>}
+    {offer.source === "virgin_atlantic" && <p className="note note-warn">מחיר תיירים שפורסם באתר Virgin Atlantic למבוגר אחד בתאריכים המוצגים. ייתכנו טיסות שותפים; זמינות, המפעיל והמחיר הסופי נבדקים באתר החברה.</p>}
     {offer.source === "philippine" && <p className="note note-warn">מחיר שפורסם באתר Philippine Airlines למבוגר אחד. אינו כולל מס נסיעות פיליפיני למי שחייב בו. זמינות, חיובים והמחיר הסופי נבדקים באתר החברה.</p>}
     {offer.source === "air_europa" && <p className="note note-warn">מחיר שפורסם באתר Air Europa למבוגר אחד בתאריכים המוצגים. זמינות ומחיר סופי נבדקים באתר החברה.</p>}
     {offer.source === "ethiopian" && <p className="note note-warn">מחיר שפורסם באתר Ethiopian למבוגר אחד בתאריכים המוצגים. זמינות ומחיר סופי נבדקים באתר החברה.</p>}

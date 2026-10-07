@@ -409,7 +409,7 @@ export const SOURCE_REGISTRY: readonly SourceRegistryEntry[] = Object.freeze([
   entry("qantas", "Qantas", "planned", 34, ["Oceania", "Asia", "US"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("virgin_australia", "Virgin Australia", "planned", 34, ["Oceania"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("air_new_zealand", "Air New Zealand", "planned", 34, ["Oceania", "US"], "מתוכנן כקישור/אדפטר עתידי."),
-  entry("virgin_atlantic", "Virgin Atlantic", "planned", 34, ["EU", "US"], "מתוכנן כקישור/אדפטר עתידי."),
+  { ...entry("virgin_atlantic", "Virgin Atlantic", "manual-link", 34, ["IL", "EU", "US"], "מחירי תיירים מתוארכים שפורסמו ליעדים מתל אביב. ייתכנו טיסות שותפים; נדרש אימות זמינות ומחיר סופי."), capabilities: { ...manual, cachedPrice: true, combinations: true } },
   entry("air_serbia", "Air Serbia", "planned", 33, ["EU"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("croatia", "Croatia Airlines", "planned", 33, ["EU"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("tarom", "TAROM", "planned", 33, ["EU"], "מתוכנן כקישור/אדפטר עתידי."),

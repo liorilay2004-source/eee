@@ -23,6 +23,7 @@ TAP_PUBLISHED_ENABLED = "true"
 ETHIOPIAN_PUBLISHED_ENABLED = "true"
 AIREUROPA_PUBLISHED_ENABLED = "true"
 PHILIPPINE_PUBLISHED_ENABLED = "true"
+VIRGIN_PUBLISHED_ENABLED = "true"
 
 # Created in the owner's Cloudflare account on 2026-09-29 (not a secret: it only identifies the database).
 [[d1_databases]]
