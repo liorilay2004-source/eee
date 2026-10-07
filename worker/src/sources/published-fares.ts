@@ -44,8 +44,19 @@ export function parsePublishedFares(html: string, query: { airline: string; orig
   const today = query.now.toISOString().slice(0, 10);
   while (queue.length) {
     if (++visited > 100_000) throw new Error("Published data too complex");
-    const node = queue.pop();
+    let node = queue.pop();
     if (!record(node) && !Array.isArray(node)) continue;
+    // The official daily histogram carries explicit one-way cash economy fares.
+    // Normalize only fully identified flight records; month-level minima cannot match this shape.
+    if (record(node) && query.airline === "A3" && node.journeyType === "ONE_WAY" && record(node.outboundFlight)
+      && node.outboundFlight.fareClass === "ECONOMY" && record(node.priceSpecification)
+      && record(node.airline) && node.airline.iataCode === query.airline && node.isPastDay !== true
+      && (node.redemption == null || node.redemption === false)) {
+      node = { __typename: "Fare", originAirportCode: node.outboundFlight.departureAirportIataCode,
+        destinationAirportCode: node.outboundFlight.arrivalAirportIataCode, departureDate: node.departureDate,
+        returnDate: null, totalPrice: node.priceSpecification.totalPrice, currencyCode: node.priceSpecification.currencyCode,
+        travelClass: "ECONOMY", flightType: "ONE_WAY", redemption: null };
+    }
     if (record(node) && node.__typename === "Fare" && (node.redemption == null || node.redemption === false) && (node.travelClass == null || typeof node.travelClass === "string" && (node.travelClass.toUpperCase() === "ECONOMY" || query.airline === "PR" && node.travelClass === "eco" || query.airline === "VS" && ["Economy Classic", "Economy Classic Flex"].includes(node.travelClass))) && node.originAirportCode === query.origin && typeof node.destinationAirportCode === "string" && /^[A-Z]{3}$/.test(node.destinationAirportCode) && (query.allDestinations || node.destinationAirportCode === query.destination) && date(node.departureDate) && node.departureDate >= today && typeof node.totalPrice === "number" && Number.isFinite(node.totalPrice) && node.totalPrice > 0 && typeof node.currencyCode === "string" && /^[A-Z]{3}$/.test(node.currencyCode)) {
       const isOneWay = node.flightType === "ONE_WAY" && (node.returnDate === "" || node.returnDate == null);
       const isRoundTrip = node.flightType === "ROUND_TRIP" && date(node.returnDate) && node.returnDate > node.departureDate;
@@ -58,7 +69,7 @@ export function parsePublishedFares(html: string, query: { airline: string; orig
         if (!seen.has(key)) { seen.add(key); fares.push(fare); }
       }
     }
-    queue.push(...Object.values(node));
+    if (record(node) || Array.isArray(node)) queue.push(...Object.values(node));
   }
   return fares;
 }

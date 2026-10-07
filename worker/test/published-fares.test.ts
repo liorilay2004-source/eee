@@ -18,4 +18,13 @@ describe("published official airline page data", () => {
     expect(() => publishedFareUrl("https://user:password@flights.aegeanair.com/", "A3")).toThrow();
     expect(() => parsePublishedFares('<script id="__NEXT_DATA__">not json</script>', query)).toThrow();
   });
+  const day = { departureDate: "2026-11-06", journeyType: "ONE_WAY", outboundFlight: { fareClass: "ECONOMY", departureAirportIataCode: "TLV", arrivalAirportIataCode: "ATH" }, priceSpecification: { totalPrice: 119.44, currencyCode: "EUR" }, airline: { iataCode: "A3" }, isPastDay: false };
+  it("reads a fully specified daily calendar cash fare with exact airports", () => {
+    expect(parsePublishedFares(html([day, day]), query)).toMatchObject([{ amount: 119.44, currency: "EUR", departDate: day.departureDate, structure: "oneway", returnDate: null }]);
+    expect(parsePublishedFares(html([{ ...day, outboundFlight: { ...day.outboundFlight, arrivalAirportIataCode: "FCO" } }]), query)).toEqual([]);
+  });
+  it("rejects month minima, missing dates, other carriers, premium cabins and redemptions", () => {
+    const invalid = [ { ...day, journeyType: "ROUND_TRIP" }, { ...day, departureDate: null }, { ...day, airline: { iataCode: "FR" } }, { ...day, outboundFlight: { ...day.outboundFlight, fareClass: "BUSINESS" } }, { ...day, redemption: { unit: "MILES" } }, { ...day, isPastDay: true }, { ...day, priceSpecification: { totalPrice: null, currencyCode: "EUR" } } ];
+    expect(parsePublishedFares(html(invalid), query)).toEqual([]);
+  });
 });
