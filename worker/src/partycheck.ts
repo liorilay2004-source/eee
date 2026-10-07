@@ -65,7 +65,7 @@ export const PARTY_MIN_DIFF_SHARE = 0.03;
 /** A card's token is accepted this long after the search answer that carried it. */
 export const PARTY_TOKEN_TTL_SECONDS = 86_400;
 
-const SOURCE_LABEL: Record<QuoteSourceName, string> = { ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi", duffel: "Duffel", hasdata: "HasData", ryanair: "Ryanair", aegean: "Aegean" };
+const SOURCE_LABEL: Record<QuoteSourceName, string> = { ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi", duffel: "Duffel", hasdata: "HasData", ryanair: "Ryanair", aegean: "Aegean", air_canada: "Air Canada" };
 
 // --- A) the free part: links on the cards ---------------------------------------------------------------
 

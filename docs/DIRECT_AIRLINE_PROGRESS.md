@@ -75,6 +75,18 @@ solved or bypassed, and no direct fare access was verified.
 
 ## Remaining coverage
 
+## Air Canada published page data
+
+Verified on 2026-10-07 from
+https://www.aircanada.com/en-ca/flights-from-tel-aviv-to-toronto.
+The HTML has a dated cash economy round trip TLV–YYZ, March 1–31 2027,
+CAD 1,009. Toronto's heading uses city code YTO, but this fare explicitly uses YYZ;
+the adapter does not silently substitute airport codes. Points and business-class
+records are excluded. A source timestamp and exact original currency are retained.
+The Air Canada adapter reads only this verified route page, returns exact date
+matches for one adult, and shares parsed records in the public fare cache.
+Its UI link opens the verified official route price page, not a reserved checkout.
+
 Every other airline still needs independently verified collection and deployed
 integration. Official links and source-registry entries alone are not price coverage.
 The goal of all-airline collection and fast cheapest-price comparisons is not complete.

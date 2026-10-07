@@ -370,7 +370,7 @@ export const SOURCE_REGISTRY: readonly SourceRegistryEntry[] = Object.freeze([
   entry("kenya", "Kenya Airways", "planned", 46, ["Africa"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("south_african", "South African Airways", "planned", 46, ["Africa"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("royal_air_maroc", "Royal Air Maroc", "planned", 46, ["Africa", "EU", "US"], "מתוכנן כקישור/אדפטר עתידי."),
-  entry("air_canada", "Air Canada", "planned", 45, ["US", "CA"], "מתוכנן כקישור/אדפטר עתידי."),
+  { ...entry("air_canada", "Air Canada", "manual-link", 45, ["IL", "US", "CA"], "קריאת מחירים שפורסמו בעמוד תל אביב–טורונטו בלבד, בהתאמה לשני התאריכים. אין עדיין כיסוי מלא של זמינות חיה."), capabilities: { ...manual, cachedPrice: true, combinations: true } },
   entry("american", "American Airlines", "planned", 45, ["US"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("delta", "Delta Air Lines", "planned", 45, ["US"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("united", "United Airlines", "planned", 45, ["US"], "מתוכנן כקישור/אדפטר עתידי."),

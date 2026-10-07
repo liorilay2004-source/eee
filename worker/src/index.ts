@@ -55,6 +55,7 @@ import { createSearchApiSource } from "./sources/searchapi";
 import { createSerpApiSource } from "./sources/serpapi";
 import { createRyanairDirectSource } from "./sources/ryanair-direct";
 import { createAegeanPublishedSource } from "./sources/aegean-published";
+import { createAirCanadaPublishedSource } from "./sources/aircanada-published";
 import { createPublicFareCache } from "./public-fare-cache";
 import { createWegoSource } from "./sources/wego";
 import { pickSnapshotRoute, runSnapshot } from "./snapshots";
@@ -236,6 +237,7 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
   return [
     env.RYANAIR_DIRECT_ENABLED === "true" ? createRyanairDirectSource(now, fetchFn, publicCache) : null,
     env.AEGEAN_PUBLISHED_ENABLED === "true" ? createAegeanPublishedSource(now, fetchFn, publicCache) : null,
+    env.AIRCANADA_PUBLISHED_ENABLED === "true" ? createAirCanadaPublishedSource(now, fetchFn, publicCache) : null,
     ignav ? createIgnavSource({ ...shared, apiKey: ignav, marker }) : null,
     wego ? createWegoSource({ ...shared, apiKey: wego }) : null,
     searchApi ? createSearchApiSource({ ...shared, apiKey: searchApi, marker }) : null,

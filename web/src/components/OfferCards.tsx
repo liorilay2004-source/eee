@@ -56,9 +56,25 @@ function NewTab() {
 }
 
 /** Official airline links; a homepage is explicitly distinguished from a prefilled offer. */
+function publishedPriceLink(source: string, link: string | null): string | null {
+  const host = source === "air_canada" ? "www.aircanada.com" : source === "aegean" ? "flights.aegeanair.com" : null;
+  if (!host || !link) return null;
+  try {
+    const url = new URL(link);
+    if (url.protocol !== "https:" || url.hostname !== host || url.username || url.password || url.port || url.search || url.hash || !/^\/(en-ca|he)\/flights-from-[a-z-]+-to-[a-z-]+$/.test(url.pathname)) return null;
+    return url.href;
+  } catch { return null; }
+}
 export function BookingActions({ card, demo, compact }: { card: CardView; demo?: boolean; compact?: boolean }) {
   const offer = card.offer;
   if (demo) return <p className="booking-demo"><Info size={16} aria-hidden="true" />בדוגמה אין קישור הזמנה. חפשו מסלול אמיתי כדי לקבל מחיר.</p>;
+  const published = publishedPriceLink(offer.source, offer.deeplink);
+  const publishedReturn = publishedPriceLink(offer.source, offer.returnDeeplink ?? null);
+  if (published) return <div className="booking official-booking">
+    <a className={compact ? "btn btn-secondary" : "btn btn-book btn-wide"} href={published} target="_blank" rel="noopener noreferrer">למחיר שפורסם באתר החברה{offer.ticketStructure === "split" && " · הלוך"}<ExternalLink size={16} aria-hidden="true" /><NewTab /></a>
+    {offer.ticketStructure === "split" && publishedReturn && <a className="btn btn-secondary" href={publishedReturn} target="_blank" rel="noopener noreferrer">למחיר שפורסם · חזור<ExternalLink size={16} aria-hidden="true" /><NewTab /></a>}
+    <small>עמוד המחירים הרשמי של המסלול. יש לבחור את התאריכים ולאמת זמינות ומחיר סופי; הקישור אינו הזמנה שמורה.</small>
+  </div>;
   const airlines = cardAirlines(card).map(a => ({ ...a, url: airlineOfficialUrl(a.code) })).filter(a => a.url);
   if (!airlines.length) return <p className="booking-missing">המקור לא מסר חברת תעופה עם קישור רשמי להצעה הזו.</p>;
   const button = compact ? "btn btn-secondary" : "btn btn-book btn-wide";
@@ -82,6 +98,7 @@ export function FlightDetailsCard({ card, request, originLabel, destinationLabel
     {offer.ticketStructure === "split" && <p className="note note-warn">שני כרטיסים נפרדים. שינוי בכיוון אחד אינו מבטיח הגנה לכיוון השני.</p>}
     {offer.source === "ryanair" && <p className="note note-warn">מחיר מלוח המחירים הרשמי של Ryanair למבוגר אחד. יש לבדוק זמינות ומחיר סופי באתר החברה.</p>}
     {offer.source === "aegean" && <p className="note note-warn">מחיר שפורסם באתר Aegean למבוגר אחד בתאריכים המוצגים. זמינות ומחיר סופי נבדקים באתר החברה.</p>}
+    {offer.source === "air_canada" && <p className="note note-warn">מחיר שפורסם באתר Air Canada למבוגר אחד בתאריכים המוצגים. זמינות ומחיר סופי נבדקים באתר החברה.</p>}
     {isSuspicious(card) && <p className="note note-warn">{SUSPICIOUS_TEXT}</p>}
     <p className="flight-details-freshness">{freshnessLine(card)}</p>
     <BookingActions card={card} />

@@ -39,4 +39,15 @@ describe("flight details and official airline handoff", () => {
     expect(html).not.toContain("href=");
     expect(html).toContain("המקור לא מסר");
   });
+  it("links a published price to the validated official route page", () => {
+    const { card } = fixture();
+    card.offer.source = "air_canada";
+    card.offer.deeplink = "https://www.aircanada.com/en-ca/flights-from-tel-aviv-to-toronto";
+    card.offer.outbound.airlines = card.offer.inbound.airlines = ["AC"];
+    const html = renderToStaticMarkup(<BookingActions card={card} />);
+    expect(html).toContain('href="https://www.aircanada.com/en-ca/flights-from-tel-aviv-to-toronto"');
+    expect(html).toContain("הקישור אינו הזמנה שמורה");
+    card.offer.deeplink = "https://www.aircanada.com.evil.test/en-ca/flights-from-tel-aviv-to-toronto";
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("evil.test");
+  });
 });
