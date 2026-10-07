@@ -1,7 +1,7 @@
 import { airlineOfficialUrl } from "../../../worker/src/airlines/official-links";
 import { useId } from "react";
 import { ArrowLeft, BaggageClaim, Clock3, ExternalLink, Info, Plane, Split, TriangleAlert } from "lucide-react";
-import type { CardView, Leg, RecKind, SearchRequest } from "../api/contract";
+import type { CardView, Leg, Offer, RecKind, SearchRequest } from "../api/contract";
 import {
   KIND_REASONS, KIND_TITLES, bagView, isMinimumPrice, nightsBetween, originalPriceLabel, partyPriceLine, totalPassengers,
 } from "../lib/builder";
@@ -74,7 +74,11 @@ export function BookingActions({ card, demo, compact }: { card: CardView; demo?:
     const directions = [
       { title: "הלוך", code: offer.outbound.airlines[0], link: offer.deeplink },
       { title: "חזור", code: offer.inbound.airlines[0], link: offer.returnDeeplink },
-    ].map(d => ({ ...d, url: d.code === "A3" ? publishedPriceLink("aegean", d.link ?? null) : d.code === "FR" && d.link === "https://www.ryanair.com/" ? d.link : null }));
+    ].map(d => {
+      const sourceByCarrier: Record<string, Offer["source"]> = { A3: "aegean", AC: "air_canada", TP: "tap", ET: "ethiopian", UX: "air_europa", PR: "philippine", VS: "virgin_atlantic", NZ: "air_new_zealand" };
+      const source = sourceByCarrier[d.code ?? ""];
+      return { ...d, url: source ? publishedPriceLink(source, d.link ?? null) : d.code === "FR" && d.link === "https://www.ryanair.com/" ? d.link : null };
+    });
     return <div className="booking official-booking">
       {directions.filter(d => d.url).map(d => <a key={d.title} className="btn btn-book btn-wide" href={d.url!} target="_blank" rel="noopener noreferrer">לאתר החברה · {d.title}<ExternalLink size={16} aria-hidden="true" /><NewTab /></a>)}
       <small>שני כרטיסים נפרדים מחברות שונות. יש לבחור בכל אתר את הכיוון והתאריך המוצגים ולאמת זמינות ומחיר סופי; הקישורים אינם הזמנה שמורה.</small>

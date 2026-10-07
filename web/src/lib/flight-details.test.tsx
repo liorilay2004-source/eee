@@ -54,6 +54,21 @@ describe("flight details and official airline handoff", () => {
     card.offer.deeplink = "https://www.aircanada.com.evil.test/en-ca/flights-from-tel-aviv-to-toronto";
     expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("evil.test");
   });
+  it("keeps validated links for mixed directions beyond Aegean and Ryanair", () => {
+    const { card } = fixture();
+    card.offer.source = "direct_combination";
+    card.offer.ticketStructure = "split";
+    card.offer.outbound.airlines = ["AC"];
+    card.offer.inbound.airlines = ["TP"];
+    card.offer.deeplink = "https://www.aircanada.com/en-ca/flights-from-tel-aviv";
+    card.offer.returnDeeplink = "https://www.flytap.com/en_il/flights-from-tel-aviv";
+    const html = renderToStaticMarkup(<BookingActions card={card} />);
+    expect(html).toContain(card.offer.deeplink);
+    expect(html).toContain(card.offer.returnDeeplink);
+    expect(html.match(/href=/g)).toHaveLength(2);
+    card.offer.returnDeeplink = "https://www.aircanada.com/en-ca/flights-from-tel-aviv";
+    expect(renderToStaticMarkup(<BookingActions card={card} />).match(/href=/g)).toHaveLength(1);
+  });
   it("shows the Air NZ dated original fare and only the verified official page", () => {
     const { card, request } = fixture();
     card.offer.source = "air_new_zealand";

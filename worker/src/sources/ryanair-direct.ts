@@ -58,7 +58,14 @@ export function createRyanairDirectSource(now: Date, fetchFn: typeof fetch = fet
     name: "ryanair", configured: true,
     // Zero means not a paid vendor allowance; this source does not use quota reservation.
     quota: { period: "monthly", cap: 0, allowance: 0 },
-    callCount: () => calls, nextQuoteRequests: () => 2,
+    callCount: () => calls,
+    nextQuoteRequests: (q) => {
+      if (!q) return 2;
+      if (q.party.adults !== 1 || q.party.children || q.party.infants) return 0;
+      const keys = [ryanairCalendarUrl(q.origin, q.destination, q.departDate.slice(0, 7)), ryanairCalendarUrl(q.destination, q.origin, q.returnDate.slice(0, 7))];
+      // A pending calendar is shared with its first caller, not a new airline request.
+      return keys.filter(key => !inFlight.has(key) && (calendars.get(key)?.expires ?? 0) <= now.getTime()).length;
+    },
     async oneWays(q) {
       if (q.party.adults !== 1 || q.party.children || q.party.infants) return [];
       const rows = (await Promise.all([load(q.origin, q.destination, q.departDate), load(q.destination, q.origin, q.returnDate)])).flat();

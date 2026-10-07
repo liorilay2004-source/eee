@@ -64,7 +64,13 @@ export function createPublishedSource(config: PublishedSourceConfig, now: Date, 
   return {
     name: config.source, configured: true, quota: { period: "monthly", cap: 0, allowance: 0 },
     callCount: () => calls,
-    nextQuoteRequests: (q) => q ? (config.routes[`${q.origin}:${q.destination}`] ?? config.originPages?.filter(page => page.origin === q.origin) ?? []).length : Math.max(1, config.originPages?.length ?? 0, ...Object.values(config.routes).map((pages) => pages.length)),
+    nextQuoteRequests: (q) => {
+      if (!q) return Math.max(1, config.originPages?.length ?? 0, ...Object.values(config.routes).map((pages) => pages.length));
+      if (q.party.adults !== 1 || q.party.children || q.party.infants) return 0;
+      const pages = config.routes[`${q.origin}:${q.destination}`] ?? config.originPages?.filter(page => page.origin === q.origin) ?? [];
+      // Pending loads already have their request slots reserved by the first caller.
+      return [...new Set(pages.map(page => page.sourceUrl))].filter(url => !pending.has(url) && (cache.get(url)?.expires ?? 0) <= now.getTime()).length;
+    },
     async oneWays(q) {
       const pages = config.routes[`${q.origin}:${q.destination}`] ?? config.originPages?.filter(page => page.origin === q.origin);
       if (!pages?.length || q.party.adults !== 1 || q.party.children || q.party.infants) return [];
