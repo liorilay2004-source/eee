@@ -33,7 +33,32 @@ is retained and entries older than 36 hours are excluded. Scheduled collection
 uses the existing bounded queue at 04, 10, 16 and 22 UTC. Successful future cron
 execution has not yet been observed.
 
-Scope currently proven: LHR–DUS in either direction, one adult. These are summed
+Scope initially proven: LHR–DUS in either direction, one adult. These are summed
 calendar advertisements, not confirmed checkout inventory. Flight times, stops,
 operating carrier and baggage are unknown. The UI says so and links to the official
 calendar. Other routes and arbitrary airline-site coverage remain required work.
+
+## Athens route expansion
+
+On 2026-10-08 the ordinary destination selector listed Athens and its own request
+used the same observed calendar URL with `destinationATH`. The response explicitly
+identified LHR/ATH/EW and contained 22 outbound and 196 inbound priced days.
+The station selector also exposes numeric cluster identifiers alongside airport
+codes; those identifiers must not be treated as airports or evidence of fares.
+
+The real remote Browser Run collector and cached adapter subsequently collected
+218 direction/day fares across 14 months for LHR–ATH. Exact November 12–15, 2026
+returned GBP 399.98 (189.99 outward plus 209.99 return) with zero search calls.
+The probe deliberately disabled production D1 access. Production search and future
+scheduled execution remain unverified while the daily storage allowance is spent.
+
+The parser now requires the selected route to match metadata in both directions.
+Cache and compact snapshot keys include the destination. A test using one adapter
+for both routes verifies Athens data cannot answer a Dusseldorf request.
+The four daily rendering slots now alternate routes: DUS at 04/16 UTC and ATH at
+10/22 UTC, retaining the total of four daily calls and the existing browser queue.
+No arbitrary route has been enabled merely because the selector lists it.
+
+The UI's departure selector returned no results for TLV while Athens was selected
+as destination. Therefore the LHR-origin station catalogue's mention of TLV does
+not prove a selectable TLV–ATH calendar, and that pair has not been enabled.

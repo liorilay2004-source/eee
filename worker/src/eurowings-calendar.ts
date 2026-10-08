@@ -1,7 +1,8 @@
-/** The observed official LHR–DUS calendar. Amounts are per direction and adult. */
+/** Observed official LHR calendars. Amounts are per direction and adult. */
+export type EurowingsDestination = "DUS" | "ATH";
 export interface EurowingsCalendarFare {
-  origin: "LHR" | "DUS";
-  destination: "LHR" | "DUS";
+  origin: "LHR" | EurowingsDestination;
+  destination: "LHR" | EurowingsDestination;
   date: string;
   amount: number;
   currency: "GBP";
@@ -10,14 +11,15 @@ export interface EurowingsCalendarFare {
 }
 
 const object = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === "object" && !Array.isArray(v);
-const route = (v: unknown) => object(v) && v.origin === "LHR" && v.destination === "DUS" && v.airlineCode === "EW";
+const route = (v: unknown, destination: EurowingsDestination) => object(v) && v.origin === "LHR" && v.destination === destination && v.airlineCode === "EW";
 const amount = (v: unknown): number | null => object(v) && typeof v.raw === "number" && Number.isFinite(v.raw) && v.raw > 0 ? v.raw : null;
 
-export function parseEurowingsCalendar(input: unknown, now: Date): EurowingsCalendarFare[] {
+export function parseEurowingsCalendar(input: unknown, now: Date, destination: EurowingsDestination = "DUS"): EurowingsCalendarFare[] {
+  if (!["DUS","ATH"].includes(destination)) return [];
   if (!object(input) || !object(input.header) || input.header.code !== "SUCCESS" || input.header.statusCode !== 200 ||
-      !object(input.meta) || !route(input.meta.stations) || !Array.isArray(input.sections) || input.sections.length !== 2) return [];
+      !object(input.meta) || !route(input.meta.stations, destination) || !Array.isArray(input.sections) || input.sections.length !== 2) return [];
   const sections = input.sections;
-  if (sections.some(s => !object(s) || !object(s.meta) || !route(s.meta.stations) || !Array.isArray(s.bookableMonths)) ||
+  if (sections.some(s => !object(s) || !object(s.meta) || !route(s.meta.stations, destination) || !Array.isArray(s.bookableMonths)) ||
       sections.filter(s => object(s) && s.type === "outbound").length !== 1 ||
       sections.filter(s => object(s) && s.type === "inbound").length !== 1) return [];
   const today = now.toISOString().slice(0, 10);
@@ -40,7 +42,7 @@ export function parseEurowingsCalendar(input: unknown, now: Date): EurowingsCale
         const key = `${section.type}:${date}`;
         if (seen.has(key)) return []; // ambiguous duplicate day fails closed
         seen.add(key);
-        fares.push({origin: section.type === "outbound" ? "LHR" : "DUS", destination: section.type === "outbound" ? "DUS" : "LHR",
+        fares.push({origin: section.type === "outbound" ? "LHR" : destination, destination: section.type === "outbound" ? destination : "LHR",
           date, amount: price, currency: "GBP", checkedAt: now.toISOString(), pricing: "advertised_calendar_price"});
       }
     }
@@ -49,10 +51,10 @@ export function parseEurowingsCalendar(input: unknown, now: Date): EurowingsCale
 }
 
 /** Browser Run returns the JSON document rendered inside a pre element. */
-export function parseEurowingsRenderedCalendar(html: string, now: Date): EurowingsCalendarFare[] {
+export function parseEurowingsRenderedCalendar(html: string, now: Date, destination: EurowingsDestination = "DUS"): EurowingsCalendarFare[] {
   if (html.length > 500_000) return [];
   const pre = /<pre(?:\s[^>]*)?>([\s\S]*?)<\/pre>/i.exec(html)?.[1];
   if (!pre) return [];
   const json = pre.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
-  try { return parseEurowingsCalendar(JSON.parse(json), now); } catch { return []; }
+  try { return parseEurowingsCalendar(JSON.parse(json), now, destination); } catch { return []; }
 }

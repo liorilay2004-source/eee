@@ -11,7 +11,9 @@ function cacheRequest(key: string): Request {
   const url = new URL(key);
   if (url.protocol !== "https:" || !hosts.has(url.hostname) || url.username || url.password || url.port || url.hash) throw new Error("Unsupported public fare source");
   if (url.hostname === "www.eurowings.com") {
-    if (url.pathname !== "/en/booking/flights/low-fare-calendar.html" || [...url.searchParams.keys()].length !== 1 || !/^\d{4}-(0[1-9]|1[0-2])$/.test(url.searchParams.get("month") ?? "")) throw new Error("Unsupported Eurowings calendar cache");
+    const keys = [...url.searchParams.keys()];
+    if (url.pathname !== "/en/booking/flights/low-fare-calendar.html" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(url.searchParams.get("month") ?? "") ||
+        !(keys.length === 1 && keys[0] === "month" || keys.length === 2 && keys.includes("month") && keys.includes("destination") && url.searchParams.get("destination") === "ATH")) throw new Error("Unsupported Eurowings calendar cache");
   } else if (url.hostname === "www.icelandair.com") {
     if(url.search || url.pathname!=="/en-gb/flights/flights-from-london-to-iceland")throw new Error("Unsupported Icelandair fare page");
   } else if (url.hostname === "www.norwegian.com") {

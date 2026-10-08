@@ -55,4 +55,19 @@ describe("Eurowings observed calendar", () => {
     await expect(loadRenderedEurowings({quickAction:async()=>Response.json({success:false})},now)).rejects.toThrow("Invalid calendar");
     await expect(loadRenderedEurowings({quickAction:async()=>new Response("x".repeat(1000001))},now)).rejects.toThrow("too large");
   });
+  it("keeps Athens metadata and cached month partitions separate from Dusseldorf", async () => {
+    const input=payload();input.meta.stations={...stations,destination:"ATH"};
+    for(const s of input.sections) s.meta.stations={...stations,destination:"ATH"};
+    expect(parseEurowingsCalendar(input,now)).toEqual([]);
+    const athens=parseEurowingsCalendar(input,now,"ATH");
+    expect(athens).toMatchObject([{origin:"LHR",destination:"ATH"},{origin:"ATH",destination:"LHR"}]);
+    const rows=[...athens,...athens.map(f=>({...f,date:"2026-11-05"}))];
+    const cache:PublicFareCache={put:async()=>{},get:async<T>(key:string)=>({fares:(key.endsWith("&destination=ATH")?rows:parseEurowingsCalendar(payload(),now)) as T[],expires:now.getTime()+3600000})};
+    const db={prepare:()=>{throw new Error("Must not query D1");}} as unknown as D1Database;
+    const source=createEurowingsCachedSource(db,now,cache);
+    const query={origin:"LHR",destination:"ATH",departDate:"2026-11-02",returnDate:"2026-11-05",party:{adults:1,children:0,infants:0}};
+    expect(await source.quote(query)).toMatchObject([{destination:"ATH",priceAmount:139.98}]);
+    expect(await source.quote({...query,destination:"DUS"})).toEqual([]);
+    expect(await source.quote({...query,origin:"ATH",destination:"LHR"})).toMatchObject([{origin:"ATH",destination:"LHR"}]);
+  });
 });
