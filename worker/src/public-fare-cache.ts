@@ -2,6 +2,7 @@ import {isSingaporeCacheKey} from "./sources/singapore-fares";
 import {aegeanCalendarUrl} from "./aegean-lowfare";
 import {EXTERNAL_PUBLISHED_PAGES} from "./external-published-catalog";
 import HAWAIIAN_PAGES from "../../collector/hawaiian-observed-pages.json";
+import FLYDUBAI_PAGES from "./flydubai-published-catalog.json";
 /** Shared public data only. No vendor keys, passenger details or pending promises. */
 export interface PublicFareCache {
   get<T>(key: string): Promise<{ fares: T[]; expires: number } | null>;
@@ -10,9 +11,13 @@ export interface PublicFareCache {
 const TTL_MS = 10 * 60_000;
 export const BACKGROUND_FARE_TTL_MS = 36 * 3_600_000;
 const MAX_BYTES = 500_000;
-const hosts = new Set(["www.kenya-airways.com", "bestfares.airastana.com", "asha.hawaiianairlines.com", "flights.flyfrontier.com", "www.singaporeair.com", "www.jetblue.com", "services-api.ryanair.com", "flights.aegeanair.com", "www.aircanada.com", "www.flytap.com", "www.ethiopianairlines.com", "www.aireuropa.com", "flights.philippineairlines.com", "flights.virginatlantic.com", "www.airnewzealand.com", "www.airbaltic.com", "www.skyexpress.gr", "www.voegol.com.br", "www.finnair.com", "www.iberia.com", "www.avianca.com", "www.copaair.com", "www.aeromexico.com", "www.klm.co.il", "www.aa.com", "www.aerlingus.com", "www.airserbia.com", "www.norwegian.com", "www.lufthansa.com", "www.swiss.com", "www.austrian.com", "www.brusselsairlines.com", "www.icelandair.com", "www.eurowings.com", "www.turkishairlines.com"]);
+const hosts = new Set(["flights.evaair.com", "www.vietnamairlines.com", "www.kenya-airways.com", "bestfares.airastana.com", "asha.hawaiianairlines.com", "flights.flyfrontier.com", "www.singaporeair.com", "www.jetblue.com", "services-api.ryanair.com", "flights.aegeanair.com", "www.aircanada.com", "www.flytap.com", "www.ethiopianairlines.com", "www.aireuropa.com", "flights.philippineairlines.com", "flights.virginatlantic.com", "www.airnewzealand.com", "www.airbaltic.com", "www.skyexpress.gr", "www.voegol.com.br", "www.finnair.com", "www.iberia.com", "www.avianca.com", "www.copaair.com", "www.aeromexico.com", "www.klm.co.il", "www.aa.com", "www.aerlingus.com", "www.airserbia.com", "www.norwegian.com", "www.lufthansa.com", "www.swiss.com", "www.austrian.com", "www.brusselsairlines.com", "www.icelandair.com", "www.eurowings.com", "www.turkishairlines.com"]);
 export function cacheRequest(key: string): Request {
   const url = new URL(key);
+  if(url.hostname==="www.flydubai.com"){
+    if(!FLYDUBAI_PAGES.some(p=>p.sourceUrl===key))throw new Error("Unsupported flydubai fare page");
+    return new Request(`https://eee-api.liorilay2004.workers.dev/__public_fares/v1/${encodeURIComponent(key)}`);
+  }
   if(url.hostname==="en.aegeanair.com") {
     const trip={origin:url.searchParams.get("dep")??"",destination:url.searchParams.get("arr")??"",departDate:url.searchParams.get("datedeparture")??"",returnDate:url.searchParams.get("datereturn")??""};
     if(aegeanCalendarUrl(trip)!==key)throw new Error("Unsupported Aegean selected calendar");
@@ -87,7 +92,7 @@ export function cacheRequest(key: string): Request {
 }
 
 export const publicFareMaximumRows=(key:string)=>isSingaporeCacheKey(key)?1000:500;
-export const publicFareMaximumAge = (key: string) => (isSingaporeCacheKey(key)||HAWAIIAN_PAGES.some(page=>page.url===key)||EXTERNAL_PUBLISHED_PAGES.some(page=>page.sourceUrl===key)) ? TTL_MS : new URL(key).hostname === "www.turkishairlines.com" ? 3600000 : new URL(key).hostname === "en.aegeanair.com" ? TTL_MS : ["services-api.ryanair.com", "www.airserbia.com", "flights.aegeanair.com"].includes(new URL(key).hostname) ? TTL_MS : BACKGROUND_FARE_TTL_MS;
+export const publicFareMaximumAge = (key: string) => (isSingaporeCacheKey(key)||HAWAIIAN_PAGES.some(page=>page.url===key)||FLYDUBAI_PAGES.some(page=>page.sourceUrl===key)||EXTERNAL_PUBLISHED_PAGES.some(page=>page.sourceUrl===key)) ? TTL_MS : new URL(key).hostname === "www.turkishairlines.com" ? 3600000 : new URL(key).hostname === "en.aegeanair.com" ? TTL_MS : ["services-api.ryanair.com", "www.airserbia.com", "flights.aegeanair.com"].includes(new URL(key).hostname) ? TTL_MS : BACKGROUND_FARE_TTL_MS;
 export function createPublicFareCache(storage: Pick<Cache, "match" | "put">, now: Date, ttlMs = TTL_MS): PublicFareCache {
   if (!Number.isFinite(ttlMs) || ttlMs < TTL_MS || ttlMs > BACKGROUND_FARE_TTL_MS) throw new Error("Invalid public cache lifetime");
   return {

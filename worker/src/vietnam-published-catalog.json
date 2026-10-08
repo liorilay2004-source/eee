@@ -1,0 +1,9 @@
+[
+  {
+    "airline": "VN",
+    "origin": "LHR",
+    "destination": "HAN",
+    "sourceUrl": "https://www.vietnamairlines.com/en-gb/flights-from-london-to-hanoi",
+    "collector": "vietnam"
+  }
+]

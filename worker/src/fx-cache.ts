@@ -2,7 +2,7 @@ import type { FxRates } from "./types";
 
 type Storage = Pick<Cache, "match" | "put">;
 const TTL = 3_600_000;
-const request = (now: Date, variant: "primary" | "ecb" | "nbk" = "primary") => new Request(`https://eee-api.liorilay2004.workers.dev/__public_fx/${variant === "primary" ? "" : `${variant}/`}v1/${now.toISOString().slice(0,10)}`);
+const request = (now: Date, variant: "primary" | "ecb" | "nbk" | "exotic" = "primary") => new Request(`https://eee-api.liorilay2004.workers.dev/__public_fx/${variant === "primary" ? "" : `${variant}/`}v1/${now.toISOString().slice(0,10)}`);
 
 function valid(value: unknown, now: Date): value is FxRates {
   if (!value || typeof value !== "object") return false;
@@ -18,7 +18,7 @@ function valid(value: unknown, now: Date): value is FxRates {
 }
 
 /** Public conversion rates only: no prices, passenger data or credentials. */
-export async function readFxCache(storage: Storage | undefined, now: Date, variant: "primary" | "ecb" | "nbk" = "primary"): Promise<FxRates | null> {
+export async function readFxCache(storage: Storage | undefined, now: Date, variant: "primary" | "ecb" | "nbk" | "exotic" = "primary"): Promise<FxRates | null> {
   if (!storage) return null;
   try {
     const response = await storage.match(request(now,variant));
@@ -33,7 +33,7 @@ export async function readFxCache(storage: Storage | undefined, now: Date, varia
   } catch { return null; }
 }
 
-export async function writeFxCache(storage: Storage | undefined, now: Date, fx: FxRates, variant: "primary" | "ecb" | "nbk" = "primary"): Promise<void> {
+export async function writeFxCache(storage: Storage | undefined, now: Date, fx: FxRates, variant: "primary" | "ecb" | "nbk" | "exotic" = "primary"): Promise<void> {
   if (!storage || !valid(fx, now)) return;
   try {
     await storage.put(request(now,variant), Response.json({storedAt:now.getTime(),expires:now.getTime()+TTL,fx}, {

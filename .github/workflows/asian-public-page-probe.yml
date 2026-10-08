@@ -1,0 +1,69 @@
+name: Refresh observed EVA Air and Vietnam Airlines public fare pages
+on:
+  workflow_dispatch:
+    inputs:
+      provider:
+        type: choice
+        options:
+          - eva
+          - vietnam
+        default: eva
+      offset:
+        type: number
+        default: 0
+  schedule:
+    - cron: '3,13,23,33,43,53 * * * *'
+permissions:
+  contents: read
+concurrency:
+  group: asian-public-page-probe
+  cancel-in-progress: false
+jobs:
+  eva:
+    if: github.event_name == 'workflow_dispatch' && inputs.provider == 'eva' || github.event_name == 'schedule' && vars.EXTERNAL_EVA_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node --test collector/probe-next-asian-airline-pages.test.mjs collector/probe-asian-published-pages.test.mjs collector/publish-asian-observation.test.mjs collector/publish-page-observation.test.mjs collector/fare-records.test.mjs
+      - run: |
+          node --input-type=module -e "if (!/^[a-f0-9]{64}$/.test(process.env.COLLECTOR_KEY ?? '')) throw Error('Missing collector configuration');"
+          node collector/probe-asian-published-pages.mjs
+        env:
+          COLLECTOR_KEY: ${{ secrets.COLLECTOR_KEY }}
+          ASIAN_PUBLIC_PROVIDER: eva
+          ASIAN_PUBLIC_OFFSET: ${{ inputs.offset || 0 }}
+          ASIAN_PUBLIC_LIMIT: 20
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eva-public-observations
+          path: eva-published-observations.json
+          retention-days: 3
+  vietnam:
+    if: github.event_name == 'workflow_dispatch' && inputs.provider == 'vietnam' || github.event_name == 'schedule' && vars.EXTERNAL_VIETNAM_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node --test collector/probe-next-asian-airline-pages.test.mjs collector/probe-asian-published-pages.test.mjs collector/publish-asian-observation.test.mjs collector/publish-page-observation.test.mjs collector/fare-records.test.mjs
+      - run: |
+          node --input-type=module -e "if (!/^[a-f0-9]{64}$/.test(process.env.COLLECTOR_KEY ?? '')) throw Error('Missing collector configuration');"
+          node collector/probe-asian-published-pages.mjs
+        env:
+          COLLECTOR_KEY: ${{ secrets.COLLECTOR_KEY }}
+          ASIAN_PUBLIC_PROVIDER: vietnam
+          ASIAN_PUBLIC_OFFSET: ${{ inputs.offset || 0 }}
+          ASIAN_PUBLIC_LIMIT: 20
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vietnam-public-observations
+          path: vietnam-published-observations.json
+          retention-days: 3

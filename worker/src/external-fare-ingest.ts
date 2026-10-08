@@ -12,14 +12,17 @@ import {cacheRequest,createPublicFareCache} from "./public-fare-cache";
 import type {Env} from "./types";
 import {hawaiianFares} from "../../collector/hawaiian-fares.mjs";
 import HAWAIIAN_PAGES from "../../collector/hawaiian-observed-pages.json";
+import FLYDUBAI_PAGES from "./flydubai-published-catalog.json";
+import {normalizeFlydubaiFares} from "../../collector/flydubai-fares.mjs";
 const TTL=600000;
 const reply=(status:number,body:unknown)=>Response.json(body,{status,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}});
 /** Machine-only ingestion: authentication precedes body reads; never fetch caller URLs or write D1. */
 export async function ingestPublicFares(request:Request,env:Env,now=new Date()):Promise<Response>{
  if(request.method!=="POST")return reply(405,{error:"method_not_allowed"});
- if(!env.COLLECTOR_KEY||!/^[a-f0-9]{64}$/.test(env.COLLECTOR_KEY))return reply(503,{error:"collector_unavailable"});
+ const keys=[env.COLLECTOR_KEY,env.LOCAL_COLLECTOR_KEY].filter((key):key is string=>typeof key==="string"&&/^[a-f0-9]{64}$/.test(key));
+ if(!keys.length)return reply(503,{error:"collector_unavailable"});
  const given=/^Bearer ([a-f0-9]{64})$/.exec(request.headers.get("Authorization")??"")?.[1];
- if(!given||!await keyMatches(given,env.COLLECTOR_KEY))return reply(401,{error:"unauthorized"});
+ if(!given||!(await Promise.all(keys.map(key=>keyMatches(given,key)))).some(Boolean))return reply(401,{error:"unauthorized"});
  if(!env.PUBLIC_FARES)return reply(503,{error:"storage_unavailable"});
  if(!(request.headers.get("Content-Type")??"").startsWith("application/json"))return reply(415,{error:"unsupported_media_type"});
  if(!request.body)return reply(400,{error:"invalid_payload"});
@@ -45,6 +48,17 @@ export async function ingestPublicFares(request:Request,env:Env,now=new Date()):
   let fares;try{fares=hawaiianFares({page:v.page,fetchedAt:new Date(at).toISOString(),records:v.records});}catch{return reply(400,{error:"invalid_page_records"});}
   if(!fares.length&&v.clearIfNoPrices!==true)return reply(422,{error:"no_valid_prices"});
   try{await env.PUBLIC_FARES.getByName(cacheRequest(v.page).url).write(v.page,JSON.stringify({storedAt:at,expires:at+TTL,fares}));}catch{return reply(503,{error:"storage_unavailable"});}
+  return reply(200,{source:v.source,fares:fares.length,checkedAt:new Date(at).toISOString()});
+ }
+ if(v.source==="flydubai_page"){
+  const pages=FLYDUBAI_PAGES.filter(p=>p.sourceUrl===v.page);
+  if(!pages.some(p=>p.origin===v.origin&&p.destination===v.destination))return reply(400,{error:"unapproved_page_route"});
+  if(!Number.isFinite(age)||age<0||age>120000)return reply(400,{error:"invalid_observation_time"});
+  if(!Array.isArray(v.records)||v.records.length>500)return reply(400,{error:"invalid_records"});
+  let fares;
+  try{const records=v.records as unknown[];fares=pages.flatMap(p=>normalizeFlydubaiFares(records,{...p,checkedAt:new Date(at).toISOString()}));fares=[...new Map(fares.map(f=>[JSON.stringify(f),f])).values()];}catch{return reply(400,{error:"invalid_page_records"});}
+  if(!fares.length&&v.clearIfNoPrices!==true)return reply(422,{error:"no_valid_prices"});
+  try{await env.PUBLIC_FARES.getByName(cacheRequest(v.page as string).url).write(v.page as string,JSON.stringify({storedAt:at,expires:at+TTL,fares}));}catch{return reply(503,{error:"storage_unavailable"});}
   return reply(200,{source:v.source,fares:fares.length,checkedAt:new Date(at).toISOString()});
  }
  if(v.source==="published_page"){

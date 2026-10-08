@@ -1,0 +1,79 @@
+name: Publish approved flydubai public fare pages
+on:
+  workflow_dispatch:
+    inputs:
+      offset:
+        type: number
+        default: 0
+      limit:
+        type: number
+        default: 20
+  schedule:
+    - cron: '1,11,21,31,41,51 * * * *'
+permissions:
+  contents: read
+concurrency:
+  group: flydubai-approved-publication
+  cancel-in-progress: false
+jobs:
+  plan:
+    if: github.event_name == 'workflow_dispatch' || vars.EXTERNAL_FLYDUBAI_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      offsets: ${{ steps.inventory.outputs.offsets }}
+      limit: ${{ steps.inventory.outputs.limit }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - id: inventory
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REQUESTED_OFFSET: ${{ inputs.offset || 0 }}
+          REQUESTED_LIMIT: ${{ inputs.limit || 20 }}
+        run: |
+          node --input-type=module <<'JS'
+          import {readFile,appendFile} from 'node:fs/promises';
+          import {approvedFlydubaiInventory} from './collector/publish-flydubai-observation.mjs';
+          const inventory=JSON.parse(await readFile('collector/flydubai-observed-pages.json','utf8'));
+          const catalog=JSON.parse(await readFile('worker/src/flydubai-published-catalog.json','utf8'));
+          const pages=approvedFlydubaiInventory(inventory,catalog);
+          const offset=Number(process.env.REQUESTED_OFFSET),limit=Number(process.env.REQUESTED_LIMIT);
+          if(!Number.isInteger(offset)||offset<0||offset>=pages.length||!Number.isInteger(limit)||limit<1||limit>20)throw Error('Invalid publication selection');
+          if(process.env.EVENT_NAME==='schedule'&&pages.length>40)throw Error('Scheduled publication coverage needs a refresh feasibility audit');
+          const offsets=process.env.EVENT_NAME==='schedule'?Array.from({length:Math.ceil(pages.length/20)},(_,i)=>i*20):[offset];
+          await appendFile(process.env.GITHUB_OUTPUT,`offsets=${JSON.stringify(offsets)}\nlimit=${limit}\n`);
+          console.log(JSON.stringify({approvedPages:pages.length,batches:offsets.length}));
+          JS
+  publish:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        offset: ${{ fromJSON(needs.plan.outputs.offsets) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node --test collector/flydubai-fares.test.mjs collector/flydubai-index.test.mjs collector/publish-flydubai-observation.test.mjs collector/probe-flydubai-pages.test.mjs
+      - run: node collector/probe-flydubai-pages.mjs
+        env:
+          COLLECTOR_KEY: ${{ secrets.COLLECTOR_KEY }}
+          FLYDUBAI_PUBLISH_APPROVED: 'true'
+          FLYDUBAI_OFFSET: ${{ matrix.offset }}
+          FLYDUBAI_LIMIT: ${{ needs.plan.outputs.limit }}
+      - run: node collector/build-flydubai-index.mjs
+        if: always()
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: flydubai-publication-${{ matrix.offset }}
+          path: |
+            flydubai-page-observations.json
+            flydubai-fare-index.json
+          retention-days: 3

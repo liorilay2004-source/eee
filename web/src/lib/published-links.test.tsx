@@ -1,6 +1,17 @@
 import {expect,it} from "vitest";
 import {renderToStaticMarkup} from "react-dom/server";
 import {BookingActions} from "../components/OfferCards";
+import FLYDUBAI_PAGES from '../../../worker/src/flydubai-published-catalog.json';
+import EVA_PAGES from '../../../worker/src/eva-published-catalog.json';
+import VIETNAM_PAGES from '../../../worker/src/vietnam-published-catalog.json';
+it('retains only approved flydubai, EVA and Vietnam official links',()=>{
+ for(const [source,pages] of [['flydubai',FLYDUBAI_PAGES],['eva',EVA_PAGES],['vietnam',VIETNAM_PAGES]] as const){
+  const page=pages[0]!;
+  const offer={source,deeplink:page.sourceUrl,ticketStructure:'roundtrip',origin:page.origin,destination:page.destination,departDate:'2027-06-13',returnDate:'2027-06-17',outbound:{airlines:[]},inbound:{airlines:[]}};
+  expect(renderToStaticMarkup(<BookingActions card={{offer} as any}/>)).toContain(`href="${page.sourceUrl}"`);
+  expect(renderToStaticMarkup(<BookingActions card={{offer:{...offer,deeplink:new URL('/account',page.sourceUrl).href}} as any}/>)).not.toContain('href=');
+ }
+});
 it('keeps the approved Hawaiian source link without implying an operating carrier',()=>{
  const url='https://asha.hawaiianairlines.com/en/flights-from-honolulu';
  const card={offer:{source:'hawaiian',deeplink:url,ticketStructure:'roundtrip',origin:'HNL',destination:'LAX',departDate:'2027-01-27',returnDate:'2027-02-03'}} as any;

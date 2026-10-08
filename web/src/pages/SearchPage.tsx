@@ -698,6 +698,7 @@ function Results({ submitted, response, dimmed, announce, knownSources }: { subm
     <WatchPanel key={JSON.stringify(request)} request={request} originLabel={originLabel} destinationLabel={destinationLabel} announce={announce} />
     <FlightLinkMemoryPanel request={request} announce={announce} />
     <p className="disclaimer"><Info size={16} aria-hidden="true" />{he.priceDisclaimer}</p>
+    {response.meta.fxSource.includes("open.er-api.com") && <p className="disclaimer">המרת המטבע לפי <a href="https://www.exchangerate-api.com/" target="_blank" rel="noopener noreferrer">ExchangeRate-API</a> · תאריך השער <span dir="ltr">{response.meta.fxDate}</span>.</p>}
     <details className="data-details">
       <summary>על הנתונים של החיפוש הזה</summary>
       <dl className="details-grid">

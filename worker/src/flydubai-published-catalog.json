@@ -1,0 +1,87 @@
+[
+  {
+    "origin": "ASM",
+    "destination": "DXB",
+    "sourceUrl": "https://www.flydubai.com/en-ae/flights-from-asmara-to-dubai/"
+  },
+  {
+    "origin": "JIB",
+    "destination": "DXB",
+    "sourceUrl": "https://www.flydubai.com/en-ae/flights-from-djibouti-to-dubai/"
+  },
+  {
+    "origin": "DXB",
+    "destination": "ASM",
+    "sourceUrl": "https://www.flydubai.com/en-ae/flights-from-dubai-to-asmara/"
+  },
+  {
+    "origin": "DXB",
+    "destination": "JIB",
+    "sourceUrl": "https://www.flydubai.com/en-ae/flights-from-dubai-to-djibouti/"
+  },
+  {
+    "origin": "DXB",
+    "destination": "ADD",
+    "sourceUrl": "https://www.flydubai.com/en-ae/flights-to-addis-ababa/"
+  },
+  {
+    "origin": "DXB",
+    "destination": "ASM",
+    "sourceUrl": "https://www.flydubai.com/en-ae/flights-to-asmara/"
+  },
+  {
+    "origin": "DXB",
+    "destination": "GYD",
+    "sourceUrl": "https://www.flydubai.com/en-ae/flights-to-baku/"
+  },
+  {
+    "origin": "DXB",
+    "destination": "BEN",
+    "sourceUrl": "https://www.flydubai.com/en-ae/flights-to-benghazi/"
+  },
+  {
+    "origin": "DXB",
+    "destination": "CMB",
+    "sourceUrl": "https://www.flydubai.com/en-ae/flights-to-colombo/"
+  },
+  {
+    "origin": "DXB",
+    "destination": "DAR",
+    "sourceUrl": "https://www.flydubai.com/en-ae/flights-to-dar-es-salaam/"
+  },
+  {
+    "origin": "DXB",
+    "destination": "JIB",
+    "sourceUrl": "https://www.flydubai.com/en-ae/flights-to-djibouti/"
+  },
+  {
+    "origin": "DXB",
+    "destination": "HGA",
+    "sourceUrl": "https://www.flydubai.com/en-ae/flights-to-hargeisa/"
+  },
+  {
+    "origin": "DXB",
+    "destination": "MLE",
+    "sourceUrl": "https://www.flydubai.com/en-ae/flights-to-male/"
+  },
+  {
+    "origin": "DXB",
+    "destination": "MBA",
+    "sourceUrl": "https://www.flydubai.com/en-ae/flights-to-mombasa/"
+  },
+  {
+    "origin": "DXB",
+    "destination": "NBO",
+    "sourceUrl": "https://www.flydubai.com/en-ae/flights-to-nairobi/"
+  },
+  {
+    "origin": "DXB",
+    "destination": "TBS",
+    "sourceUrl": "https://www.flydubai.com/en-ae/flights-to-tbilisi/"
+  },
+  {
+    "origin": "DXB",
+    "destination": "ZNZ",
+    "sourceUrl": "https://www.flydubai.com/en-ae/flights-to-zanzibar/"
+  }
+]

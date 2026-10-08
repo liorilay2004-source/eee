@@ -1,3 +1,9 @@
+import {supplementExoticFx} from './exotic-fx-supplement';
+import evaPages from './eva-published-catalog.json';
+import flydubaiPages from './flydubai-published-catalog.json';
+import {createEvaCachedSource} from './sources/eva-cached';
+import {createVietnamCachedSource} from './sources/vietnam-cached';
+import {createFlydubaiCachedSource} from './sources/flydubai-cached';
 import {createKenyaCachedSource} from './sources/kenya-cached';
 import {usesExternalPublishedCollector} from "./external-collection";
 import {ingestPublicFares,externalLhgCache} from "./external-fare-ingest";
@@ -322,6 +328,9 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
     env.AIRBALTIC_PUBLISHED_ENABLED === "true" ? createAirBalticPublishedSource(now, fetchFn, publicCache) : null,
     env.SKYEXPRESS_PUBLISHED_ENABLED === "true" ? createSkyExpressPublishedSource(now, fetchFn, publicCache) : null,
     env.GOL_PUBLISHED_ENABLED === "true" ? createGolPublishedSource(now, fetchFn, publicCache) : null,
+    env.EVA_PUBLISHED_ENABLED === "true" ? createEvaCachedSource(now,publicCache) : null,
+    env.VIETNAM_PUBLISHED_ENABLED === "true" ? createVietnamCachedSource(now,publicCache) : null,
+    env.FLYDUBAI_PUBLISHED_ENABLED === "true" ? createFlydubaiCachedSource(now,publicCache) : null,
     env.KENYA_PUBLISHED_ENABLED === "true" ? createKenyaCachedSource(now,publicCache) : null,
     env.AIRASTANA_PUBLISHED_ENABLED === "true" ? createAirAstanaCachedSource(now,publicCache) : null,
     env.HAWAIIAN_PUBLISHED_ENABLED === "true" ? createHawaiianCachedSource(now,publicCache) : null,
@@ -395,10 +404,13 @@ async function handleSearch(request: Request, env: Env, ctx: ExecutionContext): 
     marketFor: (origin) => marketForCountry(defaultResolver.countryOfAirport(origin)),
   });
   const searchCurrencies = [
+    ...(env.EVA_PUBLISHED_ENABLED === "true" && evaPages.some(p=>p.origin===parsed.req.origin&&p.destination===parsed.req.destination||p.origin===parsed.req.destination&&p.destination===parsed.req.origin) ? ["TWD"] : []),
+    ...(env.FLYDUBAI_PUBLISHED_ENABLED === "true" && flydubaiPages.some(p=>p.origin===parsed.req.origin&&p.destination===parsed.req.destination||p.origin===parsed.req.destination&&p.destination===parsed.req.origin) ? ["AED"] : []),
     ...(env.AIRASTANA_PUBLISHED_ENABLED === "true" && airAstanaPages.some(p=>p.origin===parsed.req.origin&&p.destination===parsed.req.destination||p.origin===parsed.req.destination&&p.destination===parsed.req.origin) ? ["KZT"] : []),
     ...(env.TURKISH_RENDERED_ENABLED === "true" && parsed.req.origin === "IST" && parsed.req.destination === "ATH" ? ["TRY"] : []),
     ...(env.SINGAPORE_PUBLISHED_ENABLED === "true" && parsed.req.origin === "SIN" && ["HND","NRT","TYO"].includes(parsed.req.destination) ? ["SGD"] : []),
   ];
+  const ecbCurrencies=searchCurrencies.filter(code=>code==="TRY"||code==="SGD");
   try {
     const result = await runSearch(
       {
@@ -406,11 +418,11 @@ async function handleSearch(request: Request, env: Env, ctx: ExecutionContext): 
         tp,
         fxCached: async () => {
           const rates = await readFxCache(typeof caches !== "undefined" ? caches.default : undefined, now);
-          return rates ? supplementKztFx(await supplementFx(rates,searchCurrencies,fetchFn,now,typeof caches !== "undefined" ? caches.default : undefined),searchCurrencies,fetchFn,now,typeof caches !== "undefined" ? caches.default : undefined) : rates;
+          return rates ? supplementExoticFx(await supplementKztFx(await supplementFx(rates,ecbCurrencies,fetchFn,now,typeof caches !== "undefined" ? caches.default : undefined),searchCurrencies,fetchFn,now,typeof caches !== "undefined" ? caches.default : undefined),searchCurrencies,fetchFn,now,typeof caches !== "undefined" ? caches.default : undefined) : rates;
         },
         fx: async () => {
           const rates = await getFxRates(repo, fetchFn, now, typeof caches !== "undefined" ? caches.default : undefined);
-          return supplementKztFx(await supplementFx(rates,searchCurrencies,fetchFn,now,typeof caches !== "undefined" ? caches.default : undefined),searchCurrencies,fetchFn,now,typeof caches !== "undefined" ? caches.default : undefined);
+          return supplementExoticFx(await supplementKztFx(await supplementFx(rates,ecbCurrencies,fetchFn,now,typeof caches !== "undefined" ? caches.default : undefined),searchCurrencies,fetchFn,now,typeof caches !== "undefined" ? caches.default : undefined),searchCurrencies,fetchFn,now,typeof caches !== "undefined" ? caches.default : undefined);
         },
         now,
         resolver: defaultResolver,

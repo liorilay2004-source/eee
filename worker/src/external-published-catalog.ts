@@ -1,7 +1,11 @@
+import EVA_PAGES from './eva-published-catalog.json';
+import VIETNAM_PAGES from './vietnam-published-catalog.json';
 import KENYA_PUBLISHED_PAGES from './kenya-published-catalog.json';
 import {FRONTIER_PUBLISHED_PAGES} from "./frontier-published-catalog";
 import AIRASTANA_PUBLISHED_PAGES from './airastana-published-catalog.json';
 export const EXTERNAL_PUBLISHED_PAGES:{airline:string;origin:string;destination:string;sourceUrl:string;collector?:string;allDestinations?:boolean;origins?:string[]}[]=[
+ ...EVA_PAGES,
+ ...VIETNAM_PAGES,
  ...FRONTIER_PUBLISHED_PAGES,
  ...AIRASTANA_PUBLISHED_PAGES,
  ...KENYA_PUBLISHED_PAGES,

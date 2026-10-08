@@ -1,0 +1,170 @@
+[
+  {
+    "airline": "BR",
+    "origin": "TSA",
+    "destination": "HND",
+    "sourceUrl": "https://flights.evaair.com/en-tw/flights-from-taipei-to-tokyo",
+    "collector": "eva"
+  },
+  {
+    "airline": "BR",
+    "origin": "TPE",
+    "destination": "NRT",
+    "sourceUrl": "https://flights.evaair.com/en-tw/flights-from-taipei-to-tokyo",
+    "collector": "eva"
+  },
+  {
+    "airline": "BR",
+    "origin": "TPE",
+    "destination": "ICN",
+    "sourceUrl": "https://flights.evaair.com/en-tw/flights-from-taipei",
+    "collector": "eva"
+  },
+  {
+    "airline": "BR",
+    "origin": "TPE",
+    "destination": "BKK",
+    "sourceUrl": "https://flights.evaair.com/en-tw/flights-from-taipei",
+    "collector": "eva"
+  },
+  {
+    "airline": "BR",
+    "origin": "TPE",
+    "destination": "FUK",
+    "sourceUrl": "https://flights.evaair.com/en-tw/flights-from-taipei",
+    "collector": "eva"
+  },
+  {
+    "airline": "BR",
+    "origin": "TPE",
+    "destination": "KIX",
+    "sourceUrl": "https://flights.evaair.com/en-tw/flights-from-taipei",
+    "collector": "eva"
+  },
+  {
+    "airline": "BR",
+    "origin": "TPE",
+    "destination": "NRT",
+    "sourceUrl": "https://flights.evaair.com/en-tw/flights-from-taipei",
+    "collector": "eva"
+  },
+  {
+    "airline": "BR",
+    "origin": "KHH",
+    "destination": "HKG",
+    "sourceUrl": "https://flights.evaair.com/en-tw/flights-from-kaohsiung-city",
+    "collector": "eva"
+  },
+  {
+    "airline": "BR",
+    "origin": "KHH",
+    "destination": "ICN",
+    "sourceUrl": "https://flights.evaair.com/en-tw/flights-from-kaohsiung-city",
+    "collector": "eva"
+  },
+  {
+    "airline": "BR",
+    "origin": "KHH",
+    "destination": "FUK",
+    "sourceUrl": "https://flights.evaair.com/en-tw/flights-from-kaohsiung-city",
+    "collector": "eva"
+  },
+  {
+    "airline": "BR",
+    "origin": "KHH",
+    "destination": "KIX",
+    "sourceUrl": "https://flights.evaair.com/en-tw/flights-from-kaohsiung-city",
+    "collector": "eva"
+  },
+  {
+    "airline": "BR",
+    "origin": "KHH",
+    "destination": "NRT",
+    "sourceUrl": "https://flights.evaair.com/en-tw/flights-from-kaohsiung-city",
+    "collector": "eva"
+  },
+  {
+    "airline": "BR",
+    "origin": "TPE",
+    "destination": "ICN",
+    "sourceUrl": "https://flights.evaair.com/en-tw/flights-from-taiwan",
+    "collector": "eva"
+  },
+  {
+    "airline": "BR",
+    "origin": "TPE",
+    "destination": "BKK",
+    "sourceUrl": "https://flights.evaair.com/en-tw/flights-from-taiwan",
+    "collector": "eva"
+  },
+  {
+    "airline": "BR",
+    "origin": "TPE",
+    "destination": "FUK",
+    "sourceUrl": "https://flights.evaair.com/en-tw/flights-from-taiwan",
+    "collector": "eva"
+  },
+  {
+    "airline": "BR",
+    "origin": "TPE",
+    "destination": "KIX",
+    "sourceUrl": "https://flights.evaair.com/en-tw/flights-from-taiwan",
+    "collector": "eva"
+  },
+  {
+    "airline": "BR",
+    "origin": "TPE",
+    "destination": "NRT",
+    "sourceUrl": "https://flights.evaair.com/en-tw/flights-from-taiwan",
+    "collector": "eva"
+  },
+  {
+    "airline": "BR",
+    "origin": "TSA",
+    "destination": "GMP",
+    "sourceUrl": "https://flights.evaair.com/en-tw/flights-from-taipei-to-seoul",
+    "collector": "eva"
+  },
+  {
+    "airline": "BR",
+    "origin": "TPE",
+    "destination": "ICN",
+    "sourceUrl": "https://flights.evaair.com/en-tw/flights-from-taipei-to-seoul",
+    "collector": "eva"
+  },
+  {
+    "airline": "BR",
+    "origin": "TPE",
+    "destination": "FUK",
+    "sourceUrl": "https://flights.evaair.com/en-tw/flights-from-taipei-to-fukuoka",
+    "collector": "eva"
+  },
+  {
+    "airline": "BR",
+    "origin": "TPE",
+    "destination": "BKK",
+    "sourceUrl": "https://flights.evaair.com/en-tw/flights-from-taipei-to-bangkok",
+    "collector": "eva"
+  },
+  {
+    "airline": "BR",
+    "origin": "TPE",
+    "destination": "HKG",
+    "sourceUrl": "https://flights.evaair.com/en-tw/flights-from-taipei-to-hong-kong",
+    "collector": "eva"
+  },
+  {
+    "airline": "BR",
+    "origin": "TPE",
+    "destination": "OKA",
+    "sourceUrl": "https://flights.evaair.com/en-tw/flights-from-taipei-to-okinawa",
+    "collector": "eva"
+  },
+  {
+    "airline": "BR",
+    "origin": "TPE",
+    "destination": "CTS",
+    "sourceUrl": "https://flights.evaair.com/en-tw/flights-from-taipei-to-sapporo",
+    "collector": "eva"
+  }
+]

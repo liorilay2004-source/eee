@@ -10,7 +10,7 @@
  */
 
 export type TicketStructure = "roundtrip" | "split";
-export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "ryanair" | "aegean" | "air_canada" | "tap" | "ethiopian" | "air_europa" | "philippine" | "virgin_atlantic" | "air_new_zealand" | "air_baltic" | "sky_express" | "gol" | "aeromexico" | "copa" | "brussels_airlines" | "turkish" | "lufthansa" | "swiss" | "austrian" | "icelandair" | "eurowings" | "finnair" | "norwegian" | "iberia" | "avianca" | "klm" | "american" | "aer_lingus" | "jetblue" | "kenya" | "air_astana" | "hawaiian" | "frontier" | "singapore" | "air_serbia" | "elal" | "direct_combination";
+export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "ryanair" | "aegean" | "air_canada" | "tap" | "ethiopian" | "air_europa" | "philippine" | "virgin_atlantic" | "air_new_zealand" | "air_baltic" | "sky_express" | "gol" | "aeromexico" | "copa" | "brussels_airlines" | "turkish" | "lufthansa" | "swiss" | "austrian" | "icelandair" | "eurowings" | "finnair" | "norwegian" | "iberia" | "avianca" | "klm" | "american" | "aer_lingus" | "jetblue" | "eva" | "vietnam" | "flydubai" | "kenya" | "air_astana" | "hawaiian" | "frontier" | "singapore" | "air_serbia" | "elal" | "direct_combination";
 export type Cabin = "economy" | "premium-economy" | "business" | "first";
 export type RecKind = "cheapest" | "best_value" | "my_times";
 
@@ -574,6 +574,7 @@ export interface Repo {
 
 export interface Env {
   COLLECTOR_KEY?: string;
+  LOCAL_COLLECTOR_KEY?: string;
   EXTERNAL_LHG_COLLECTOR?: string;
   EXTERNAL_PUBLISHED_COLLECTOR?: string;
   PUBLIC_FARES?: import("./shared-fare-cache").FareStoreNamespace;
@@ -619,6 +620,9 @@ export interface Env {
   AERLINGUS_PUBLISHED_ENABLED?: string;
   JETBLUE_PUBLISHED_ENABLED?: string;
   SINGAPORE_PUBLISHED_ENABLED?: string;
+  EVA_PUBLISHED_ENABLED?: string;
+  VIETNAM_PUBLISHED_ENABLED?: string;
+  FLYDUBAI_PUBLISHED_ENABLED?: string;
   KENYA_PUBLISHED_ENABLED?: string;
   AIRASTANA_PUBLISHED_ENABLED?: string;
   HAWAIIAN_PUBLISHED_ENABLED?: string;
