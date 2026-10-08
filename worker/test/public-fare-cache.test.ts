@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BACKGROUND_FARE_TTL_MS, createPublicFareCache } from "../src/public-fare-cache";
 import { createRyanairDirectSource, parseRyanairCalendar, ryanairCalendarUrl } from "../src/sources/ryanair-direct";
+import {EXTERNAL_PUBLISHED_PAGES} from "../src/external-published-catalog";
 const now = new Date("2026-10-12T00:00:00Z");
 const url = ryanairCalendarUrl("STN", "DUB", "2027-06");
 const storage = () => {
@@ -8,6 +9,12 @@ const storage = () => {
   return { rows, match: async (request: RequestInfo) => rows.get((request as Request).url)?.clone(), put: async (request: RequestInfo, response: Response) => { rows.set((request as Request).url, response.clone()); } };
 };
 describe("shared public fare data", () => {
+  it.each(EXTERNAL_PUBLISHED_PAGES)("expires external $airline snapshots at ten minutes even with background TTL",async page=>{
+    const db=storage();const cache=createPublicFareCache(db as unknown as Cache,now,BACKGROUND_FARE_TTL_MS);
+    await cache.put(page.sourceUrl,[{amount:42,checkedAt:now.toISOString()}]);
+    expect((await cache.get(page.sourceUrl))?.expires).toBe(now.getTime()+600000);
+    expect(await createPublicFareCache(db as unknown as Cache,new Date(now.getTime()+600000)).get(page.sourceUrl)).toBeNull();
+  });
   it("stores only the verified Austrian public route page",async()=>{
     const db=storage();const cache=createPublicFareCache(db as unknown as Cache,now,BACKGROUND_FARE_TTL_MS);
     const key="https://www.austrian.com/lhg/at/en/o-d/cy-cy/vienna-tel-aviv";

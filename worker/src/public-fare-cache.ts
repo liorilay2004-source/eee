@@ -1,4 +1,5 @@
 import {aegeanCalendarUrl} from "./aegean-lowfare";
+import {EXTERNAL_PUBLISHED_PAGES} from "./external-published-catalog";
 /** Shared public data only. No vendor keys, passenger details or pending promises. */
 export interface PublicFareCache {
   get<T>(key: string): Promise<{ fares: T[]; expires: number } | null>;
@@ -81,7 +82,7 @@ export function cacheRequest(key: string): Request {
   return new Request(`https://eee-api.liorilay2004.workers.dev/__public_fares/${version}/${encodeURIComponent(key)}`);
 }
 
-export const publicFareMaximumAge = (key: string) => new URL(key).hostname === "www.turkishairlines.com" ? 3600000 : new URL(key).hostname === "en.aegeanair.com" ? TTL_MS : ["services-api.ryanair.com", "www.airserbia.com", "flights.aegeanair.com"].includes(new URL(key).hostname) ? TTL_MS : BACKGROUND_FARE_TTL_MS;
+export const publicFareMaximumAge = (key: string) => EXTERNAL_PUBLISHED_PAGES.some(page=>page.sourceUrl===key) ? TTL_MS : new URL(key).hostname === "www.turkishairlines.com" ? 3600000 : new URL(key).hostname === "en.aegeanair.com" ? TTL_MS : ["services-api.ryanair.com", "www.airserbia.com", "flights.aegeanair.com"].includes(new URL(key).hostname) ? TTL_MS : BACKGROUND_FARE_TTL_MS;
 export function createPublicFareCache(storage: Pick<Cache, "match" | "put">, now: Date, ttlMs = TTL_MS): PublicFareCache {
   if (!Number.isFinite(ttlMs) || ttlMs < TTL_MS || ttlMs > BACKGROUND_FARE_TTL_MS) throw new Error("Invalid public cache lifetime");
   return {
