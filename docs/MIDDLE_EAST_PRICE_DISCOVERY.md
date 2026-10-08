@@ -12,3 +12,9 @@ These observations do not establish working production price adapters. Raw captu
 ## Royal Jordanian public search validation
 
 A public round-trip search AMM–LHR, 2026-11-08 to 2026-11-13, one adult, succeeded after using the form's observed economy cabin value E (not Y). The website requires its own freshly issued anti-forgery context and cookies; these were obtained normally from the public home page and were not logged or committed. HTTP 200 returned an auto-submitting form to https://booking.rj.com/plnext/royaljordanianB2CDX/Override.action. This proves a search handoff, not fare retrieval or a reservation. Next step: submit that search form within its original session and inspect the price response. Do not present the handoff alone as a working price adapter.
+
+## Search-engine and Gulf source follow-up
+
+Royal Jordanian's observed Override.action search handoff returned HTTP 200 with 30,187 characters, but the body is an Imperva/hCaptcha protection page rather than flight results. Status 200 is not proof of fare access; no price adapter was enabled. No CAPTCHA bypass attempted.
+
+flydubai's official home page provided concrete destination-page links. The observed https://www.flydubai.com/en-il/flights-to-tbilisi/ returned HTTP 200, 333,058 characters, with zero standard Fare records. It links /system/js/search-widget.min.js?v=12 and a Next.js page bundle. Next action: inspect the actual public data schema and search widget, rather than guessing prices or APIs. Air Arabia returned 403, Kuwait Airways fetch failed, and Etihad's home page returned 200 without observed fare-page links in this pass.
