@@ -39,7 +39,9 @@ export function createAirSerbiaDirectSource(now: Date, fetchFn: typeof fetch = f
   };
   const directions = async (q: QuoteQuery) => {
     if (!supported(q)) return [];
-    const rows = (await Promise.all([load(q.origin,q.destination,q.departDate), load(q.destination,q.origin,q.returnDate)])).flat();
+    const results = await Promise.allSettled([load(q.origin,q.destination,q.departDate), load(q.destination,q.origin,q.returnDate)]);
+    if (results.every(result => result.status === "rejected")) throw (results[0] as PromiseRejectedResult).reason;
+    const rows = results.flatMap(result => result.status === "fulfilled" ? result.value : []);
     return rows.filter(f => f.origin === q.origin && f.destination === q.destination && f.date === q.departDate || f.origin === q.destination && f.destination === q.origin && f.date === q.returnDate);
   };
   const leg = (): Leg => ({ departTime: null, arriveTime: null, durationMin: null, stops: null, airlines: ["JU"] });
