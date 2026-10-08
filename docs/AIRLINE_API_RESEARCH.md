@@ -93,3 +93,14 @@ This establishes a usable public transport and exact dated fare records, not pro
 ### Aer Lingus production integration verified
 
 Worker b432c57377ef enabled the Aer Lingus adapter and hourly public cache warming. Full worker suite: 2,142 tests passed; TypeScript and frontend production build passed. Production exact DUB–MAN 2026-12-07 to 2026-12-10 generated a real cross-carrier fare: EI outward EUR 23.32 plus FR return EUR 30.99 = EUR 54.31. Production D1 preserved both independently priced legs. FR alone EUR 48.61 was cheaper and won ranking. Aer Lingus transatlantic partial round-trip records are excluded. Coverage remains sparse dated advertisements and one adult; no checkout or universal coverage claim.
+
+## Air Serbia ordinary Cloudflare fetch — 2026-10-08
+
+Both previously observed public calendar endpoints returned HTTP 200 JSON from a fresh remote Worker preview with no cookies, authentication, challenge solving or special browser headers:
+
+- `https://www.airserbia.com/api/destination/flight-prices/BEG/ATH?year=2027&month=1&pos=GLOBAL`
+- `https://www.airserbia.com/api/destination/flight-prices/ATH/BEG?year=2027&month=1&pos=GLOBAL`
+
+Response keys: origin, destination, year, month, source, prices. Both source values were `db`. Each daily record exposes price, currency, direct, soldOut; direct was null and soldOut false. Observed BEG–ATH 2027-01-04 EUR 60.36; ATH–BEG 2027-01-08 EUR 74.74. Do not yet sum these as a purchasable itinerary: one-way passenger/cabin semantics, cached-fare age and agreement with booking results still require validation. Many later days share the same amount; this alone neither proves inventory nor invalidity. This public transport is accessible and is the next actionable candidate for integration, not a confirmed production source.
+
+Aeromexico `https://www.aeromexico.com/en_us/flights-from-los-angeles` returned HTTP 200 but only 5,340 characters and zero NEXT_DATA fare records from the same Worker. Indexed public HTML exposes dated round-trip advertisements, but normal Worker response currently does not. Do not interpret HTTP 200 as collected fare data. The preview was stopped after two-direction verification.
