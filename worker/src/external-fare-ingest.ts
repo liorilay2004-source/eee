@@ -10,6 +10,8 @@ import {parsePublishedFares} from "./sources/published-fares";
 import {parseIberiaFares} from "./iberia-fares";
 import {cacheRequest,createPublicFareCache} from "./public-fare-cache";
 import type {Env} from "./types";
+import {hawaiianFares} from "../../collector/hawaiian-fares.mjs";
+import HAWAIIAN_PAGES from "../../collector/hawaiian-observed-pages.json";
 const TTL=600000;
 const reply=(status:number,body:unknown)=>Response.json(body,{status,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}});
 /** Machine-only ingestion: authentication precedes body reads; never fetch caller URLs or write D1. */
@@ -34,6 +36,15 @@ export async function ingestPublicFares(request:Request,env:Env,now=new Date()):
   let fares;try{fares=singaporeObservations(v.records,new Date(at).toISOString()).filter(f=>(Date.parse(f.returnDate!)-Date.parse(f.departDate))/86400000===duration-1);}catch{return reply(400,{error:"invalid_records"});}
   if(!fares.length)return reply(422,{error:"no_valid_prices"});
   try{await env.PUBLIC_FARES.getByName(cacheRequest(singaporeCacheKey(duration)).url).write(singaporeCacheKey(duration),JSON.stringify({storedAt:at,expires:at+TTL,fares}));}catch{return reply(503,{error:"storage_unavailable"});}
+  return reply(200,{source:v.source,fares:fares.length,checkedAt:new Date(at).toISOString()});
+ }
+ if(v.source==="hawaiian_page"){
+  if(typeof v.page!=="string"||!HAWAIIAN_PAGES.some(p=>p.url===v.page))return reply(400,{error:"unapproved_page"});
+  if(!Number.isFinite(age)||age<0||age>120000)return reply(400,{error:"invalid_observation_time"});
+  if(!Array.isArray(v.records)||v.records.length>500)return reply(400,{error:"invalid_records"});
+  let fares;try{fares=hawaiianFares({page:v.page,fetchedAt:new Date(at).toISOString(),records:v.records});}catch{return reply(400,{error:"invalid_page_records"});}
+  if(!fares.length)return reply(422,{error:"no_valid_prices"});
+  try{await env.PUBLIC_FARES.getByName(cacheRequest(v.page).url).write(v.page,JSON.stringify({storedAt:at,expires:at+TTL,fares}));}catch{return reply(503,{error:"storage_unavailable"});}
   return reply(200,{source:v.source,fares:fares.length,checkedAt:new Date(at).toISOString()});
  }
  if(v.source==="published_page"){

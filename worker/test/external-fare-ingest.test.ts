@@ -6,6 +6,15 @@ import type {Env} from "../src/types";
 const now=new Date("2026-10-08T06:30:00Z"),key="a".repeat(64),entry=EXTERNAL_FARE_PAGES[0];
 const body={source:entry.source,page:entry.page,checkedAt:now.toISOString(),anchors:[{text:"From 304 EUR",url:"https://www.lufthansa.com/aircore/deeplink/redirect/en/gr/ATH/TLV/05.06.2027/19.06.2027/RT"}]};
 const request=(value:unknown=body,token=key)=>new Request("https://example.com/api/internal/public-fares",{method:"POST",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:JSON.stringify(value)});
+it('reparses approved Hawaiian raw records preserving unknown operator and source price age',async()=>{
+ const e=env(),value={source:'hawaiian_page',page:'https://asha.hawaiianairlines.com/en/flights-from-honolulu',checkedAt:now.toISOString(),records:[{__typename:'Fare',originAirportCode:'HNL',destinationAirportCode:'LAX',departureDate:'2027-01-27',returnDate:'2027-02-03',totalPrice:340,currencyCode:'USD',travelClass:'saver',farenetTravelClass:'ECONOMY',formattedTravelClass:'Saver',flightType:'ROUND_TRIP',priceLastSeen:{value:'19',unit:'hours'}}]};
+ expect((await ingestPublicFares(request(value),e.value,now)).status).toBe(200);
+ const stored=JSON.parse(e.write.mock.calls[0]![1]);
+ expect(stored).toMatchObject({storedAt:now.getTime(),expires:now.getTime()+600000,fares:[{amount:340,operator:null,upstreamPriceAge:{value:19,unit:'hours'}}]});
+ expect((await ingestPublicFares(request({...value,page:'https://asha.hawaiianairlines.com/account'}),e.value,now)).status).toBe(400);
+ expect((await ingestPublicFares(request({...value,checkedAt:new Date(now.getTime()-120001).toISOString()}),e.value,now)).status).toBe(400);
+ expect((await ingestPublicFares(request({...value,records:[]}),e.value,now)).status).toBe(422);
+});
 it("keeps both observed TAP airport pairs from the same city page",async()=>{
  const e=env(),record={__typename:"Fare",originAirportCode:"TLV",destinationAirportCode:"JFK",departureDate:"2027-06-01",returnDate:"2027-06-05",totalPrice:500,currencyCode:"USD",travelClass:"ECONOMY",flightType:"ROUND_TRIP"};
  const value={source:"published_page",airline:"TP",page:"https://www.flytap.com/en_il/flights-from-tel-aviv-to-new-york",checkedAt:now.toISOString(),records:[record,{...record,destinationAirportCode:"EWR",totalPrice:450},{...record,destinationAirportCode:"LAX"}]};
