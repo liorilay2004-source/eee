@@ -6,7 +6,7 @@ if(endpoint!=='https://eee-api.liorilay2004.workers.dev/api/internal/public-fare
 const browser=await chromium.launch({headless:true});let failed=0;
 try{for(const entry of EXTERNAL_FARE_PAGES){const page=await browser.newPage({viewport:{width:1280,height:900}});
  let stage='navigation',httpStatus=null;
- try{const checkedAt=new Date().toISOString();const navigation=await page.goto(entry.page,{waitUntil:'domcontentloaded',timeout:30000});httpStatus=navigation?.status()??null;stage='price_anchors';await page.locator('a[href*="/aircore/deeplink/redirect/"]').first().waitFor({state:'attached',timeout:20000});
+ try{const checkedAt=new Date().toISOString();const navigation=await page.goto(entry.page,{waitUntil:'domcontentloaded',timeout:30000});httpStatus=navigation?.status()??null;if(httpStatus!==200)throw new Error('Official page unavailable');stage='price_anchors';await page.locator('a[href*="/aircore/deeplink/redirect/"]').first().waitFor({state:'attached',timeout:20000});
  const anchors=await page.locator('a[href*="/aircore/deeplink/redirect/"]').evaluateAll(nodes=>nodes.slice(0,500).map(a=>({text:a.innerText,url:a.href})));
  stage='ingestion';const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${key}`},body:JSON.stringify({source:entry.source,page:entry.page,checkedAt,anchors}),signal:AbortSignal.timeout(15000)});
  if(!response.ok)throw new Error(`Ingest HTTP ${response.status}`);const result=await response.json();console.log(JSON.stringify({source:entry.source,fares:result.fares,checkedAt:result.checkedAt}));
