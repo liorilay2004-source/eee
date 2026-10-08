@@ -16,8 +16,9 @@ not be attached to an advertised price as if it identifies the selected flight.
 
 The parser accepts only the observed official market/path and explicit round-trip
 date pairs. It retains original currency, checked time and advertised-price
-classification, with unknown operating carrier. No production adapter is enabled
-yet: search integration and checkout price still require verification. These
+classification, with unknown operating carrier. The search adapter reads collected
+data only for one adult and exactly matching BRU–ATH dates. Checkout price still
+requires verification. These
 advertisements do not provide TLV–ATH June 1–5 coverage or arbitrary date coverage.
 
 ## Cloudflare collection verification
@@ -30,3 +31,13 @@ The conflicting May pair was excluded. The probe used no D1 reads or writes,
 did not create a reservation and did not handle security cookies or credentials.
 The renderer bounds its response to 4MB and selected anchors to 500.
 Type checking and all 12 parser tests passed after this runtime verification.
+
+The integrated collector/provider was then verified with an actual remote Browser
+Run binding and Workers Cache API: 25 advertisements collected, June 4–18 returned
+EUR184 with zero upstream search calls; June 4–19 returned no offer. Cache lookup
+and both provider calls together took 11ms in that probe, not an end-to-end search
+latency measurement. No D1 access occurred. Prices retain the collection timestamp
+and are rejected after 36 hours. Scheduled collection runs at 06/18 UTC inside the
+existing browser queue, which keeps its limit of two concurrent browser jobs.
+Future scheduled runs and a complete production search remain unverified while
+the production D1 daily read allowance is exhausted.

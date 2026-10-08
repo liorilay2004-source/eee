@@ -351,7 +351,7 @@ export const SOURCE_REGISTRY: readonly SourceRegistryEntry[] = Object.freeze([
   { ...entry("norwegian", "Norwegian", "manual-link", 52, ["EU"], "מחירי לוח מתוארכים לאתונה–אוסלו נאספים ברקע. מוצג סכום ההלוך והחזור, למבוגר אחד; נדרש אימות באתר החברה."), capabilities: { ...manual, cachedPrice: true } },
   { ...entry("icelandair", "Icelandair", "manual-link", 52, ["EU", "US"], "מחירי הלוך וחזור מתוארכים מלונדון הית׳רו וגטוויק לקפלוויק נאספים מהאתר הרשמי. יש לאמת זמינות ומחיר סופי באתר החברה."), capabilities: { ...manual, cachedPrice: true } },
   { ...entry("aer_lingus", "Aer Lingus", "manual-link", 52, ["EU", "US"], "מחירי כיוון אחד מתוארכים מהאתר הרשמי בדבלין, לחיבור עם טיסת חזור מתומחרת. המחירים החלקיים של הלוך וחזור אינם מוצגים."), capabilities: { ...manual, cachedPrice: true, combinations: true } },
-  entry("brussels", "Brussels Airlines", "planned", 52, ["EU", "Africa"], "מתוכנן כקישור/אדפטר עתידי."),
+  { ...entry("brussels", "Brussels Airlines", "manual-link", 52, ["EU", "Africa"], "מחירים מפורסמים מבריסל לאתונה עם תאריכי הלוך וחזור וקישור רשמי. זמינות ומחיר סופי נבדקים באתר החברה."), capabilities: { ...manual, cachedPrice: true } },
   { ...entry("eurowings", "Eurowings", "manual-link", 51, ["EU"], "מחירי לוח מתוארכים בין Heathrow לדיסלדורף ולאתונה נאספים ברקע. מוצג מחיר רגיל בלי הנחת מועדון, למבוגר אחד. המחיר הסופי נבדק באתר החברה."), capabilities: { ...manual, cachedPrice: true } },
   { ...entry("air_europa", "Air Europa", "manual-link", 51, ["IL", "EU", "LATAM"], "מחירים מתוארכים שפורסמו למסלולים מתל אביב לספרד. נדרש אימות זמינות ומחיר סופי באתר החברה."), capabilities: { ...manual, cachedPrice: true, combinations: true } },
   entry("transavia", "Transavia", "planned", 51, ["EU"], "מתוכנן כקישור/אדפטר עתידי."),

@@ -51,6 +51,16 @@ describe("flight details and official airline handoff", () => {
     card.offer.deeplink+="?untrusted=1";
     expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("untrusted");
   });
+  it("opens the dated Brussels booking link without claiming a saved booking", () => {
+    const {card}=fixture();card.offer.source="brussels_airlines";
+    card.offer.outbound.airlines=[];card.offer.inbound.airlines=[];
+    card.offer.deeplink="https://www.brusselsairlines.com/aircore/deeplink/redirect/en/be/BRU/ATH/04.06.2027/18.06.2027/RT";
+    const markup=renderToStaticMarkup(<BookingActions card={card} />);
+    expect(markup).toContain(card.offer.deeplink);
+    expect(markup).toContain("קישור רשמי עם תאריכי הלוך וחזור");
+    card.offer.deeplink+="?untrusted=1";
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("untrusted");
+  });
   it("opens only the observed official Icelandair fare page", () => {
     const {card}=fixture();card.offer.source="icelandair";card.offer.outbound.airlines=["FI"];card.offer.inbound.airlines=["FI"];
     card.offer.deeplink="https://www.icelandair.com/en-gb/flights/flights-from-london-to-iceland";

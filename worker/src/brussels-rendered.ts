@@ -1,6 +1,18 @@
 import type { Env } from "./types";
+import type { PublicFareCache } from "./public-fare-cache";
 import { parseBrusselsAdvertisements, type BrusselsAdvertisement } from "./brussels-advertisements";
 export const BRUSSELS_ATHENS_PAGE = "https://www.brusselsairlines.com/lhg/be/en/o-d/cy-cy/brussels-athens";
+
+export async function collectRenderedBrussels(deps: { env: Env; now: Date; cache?: PublicFareCache }) {
+  if(deps.env.BRUSSELS_RENDERED_ENABLED !== "true" || !deps.env.BROWSER) return {source:"brussels_airlines",ok:true,skipped:true,fares:0};
+  try {
+    const fares = await loadRenderedBrussels(deps.env.BROWSER,deps.now);
+    if (!fares.length) return {source:"brussels_airlines",ok:false,fares:0};
+    if (!deps.cache) return {source:"brussels_airlines",ok:false,fares:fares.length,cacheUnavailable:true};
+    await deps.cache.put(BRUSSELS_ATHENS_PAGE,fares);
+    return {source:"brussels_airlines",ok:true,fares:fares.length};
+  } catch { return {source:"brussels_airlines",ok:false,fares:0}; }
+}
 
 /** Reads public rendered anchors only. No account, passenger data or session tokens are retained. */
 export async function loadRenderedBrussels(browser: NonNullable<Env["BROWSER"]>, now: Date): Promise<BrusselsAdvertisement[]> {
