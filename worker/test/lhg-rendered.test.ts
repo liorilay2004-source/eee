@@ -3,6 +3,7 @@ import {loadRenderedLhgAnchors} from "../src/brussels-rendered";
 import {loadRenderedLufthansa,LUFTHANSA_ATHENS_TEL_AVIV_PAGE} from "../src/lufthansa-rendered";
 import type {Env} from "../src/types";
 import {loadRenderedSwiss,SWISS_TEL_AVIV_PAGE} from "../src/swiss-rendered";
+import {loadRenderedAustrian,AUSTRIAN_TEL_AVIV_PAGE} from "../src/austrian-rendered";
 const now=new Date("2026-10-08T03:50:00Z");
 const browser=(quickAction:unknown)=>({quickAction}) as NonNullable<Env["BROWSER"]>;
 it("does not navigate to caller supplied or unverified fare URLs",async()=>{
@@ -26,6 +27,14 @@ it("renders only the observed Swiss official route page",async()=>{
  await expect(loadRenderedSwiss(browser(quickAction),now)).rejects.toThrow("Official rendering failed");
  expect(quickAction).toHaveBeenCalledWith("content",{
  url:SWISS_TEL_AVIV_PAGE,gotoOptions:{waitUntil:"domcontentloaded",timeout:15000},
+ waitForTimeout:2000,rejectResourceTypes:["image","font","media"],
+ });
+});
+it("renders only the observed Austrian official route page",async()=>{
+ const quickAction=vi.fn(async()=>new Response("",{status:503}));
+ await expect(loadRenderedAustrian(browser(quickAction),now)).rejects.toThrow("Official rendering failed");
+ expect(quickAction).toHaveBeenCalledWith("content",{
+ url:AUSTRIAN_TEL_AVIV_PAGE,gotoOptions:{waitUntil:"domcontentloaded",timeout:15000},
  waitForTimeout:2000,rejectResourceTypes:["image","font","media"],
  });
 });

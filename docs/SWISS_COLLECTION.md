@@ -30,3 +30,5 @@ cache and storage integration and checkout-price verification remain required.
 No reservation, passenger entry or payment was performed.
 
 The collector now stores a bounded public cache and one current D1 row per departure month. A Browser Run probe at 2026-10-08T04:09:40.103Z collected and cached 26 advertisements while a deliberately unavailable D1 stub failed. Cache read took 5ms in that probe, not a full search latency measurement. Production scheduling, search-provider integration and production D1 persistence are still unverified.
+
+Search/UI integration was deployed at commit 8f13534. A separate probe loaded previously collected public cache data and returned the exact ZRH–TLV June1–15 2027 CHF358 offer with no airline request, rejected June16 return, and completed both cache quotes in 33ms. This is adapter latency, not end-to-end production search. The planned twice-daily production job and D1 writes after daily quota reset remain unverified.
