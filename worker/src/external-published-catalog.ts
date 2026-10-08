@@ -17,4 +17,10 @@ export const EXTERNAL_PUBLISHED_PAGES=[
  {airline:'A3',origin:'ATH',destination:'TLV',sourceUrl:'https://flights.aegeanair.com/en/flights-from-athens-to-tel-aviv'},
  {airline:'A3',origin:'ATH',destination:'FCO',sourceUrl:'https://flights.aegeanair.com/en/flights-from-athens-to-rome'},
  {airline:'A3',origin:'FCO',destination:'ATH',sourceUrl:'https://flights.aegeanair.com/en/flights-from-rome-to-athens'},
+ {"airline": "AC", "origin": "TLV", "destination": "YYZ", "sourceUrl": "https://www.aircanada.com/en-ca/flights-from-tel-aviv-to-toronto"},
+ {"airline": "AC", "origin": "TLV", "destination": "EWR", "sourceUrl": "https://www.aircanada.com/en-ca/flights-from-tel-aviv-to-newark"},
+ {"airline": "AC", "origin": "TLV", "destination": "YUL", "sourceUrl": "https://www.aircanada.com/en-ca/flights-from-tel-aviv-to-montreal"},
+ {"airline": "AC", "origin": "TLV", "destination": "YVR", "sourceUrl": "https://www.aircanada.com/en-ca/flights-from-tel-aviv-to-vancouver"},
+ {"airline": "AC", "origin": "TLV", "destination": "ORD", "sourceUrl": "https://www.aircanada.com/en-ca/flights-from-tel-aviv-to-chicago"},
+ {"airline": "AC", "origin": "TLV", "destination": "MCO", "sourceUrl": "https://www.aircanada.com/en-ca/flights-from-tel-aviv-to-orlando"},
 ];

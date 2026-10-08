@@ -7,6 +7,12 @@ const fare = { __typename: "Fare", originAirportCode: "TLV", destinationAirportC
 const html = (nodes: unknown[]) => `<script id="__NEXT_DATA__">${JSON.stringify({ props: { fares: nodes } })}</script>`;
 const q = { origin: "TLV", destination: "YYZ", departDate: fare.departureDate, returnDate: fare.returnDate, party: { adults: 1, children: 0, infants: 0 } };
 describe("Air Canada official published prices", () => {
+  it("supports observed Newark route snapshots without fetching or inventing flight times",async()=>{
+    const row={airline:"AC",origin:"TLV",destination:"EWR",departDate:"2026-12-07",returnDate:"2026-12-14",amount:1568,currency:"CAD",structure:"roundtrip",sourceUrl:"https://www.aircanada.com/en-ca/flights-from-tel-aviv-to-newark",checkedAt:now.toISOString(),pricing:"published_advertisement"};
+    const source=createAirCanadaPublishedSource(now,(async()=>{throw new Error("must not fetch");}) as typeof fetch,{get:async<T>()=>({fares:[row] as T[],expires:now.getTime()+600000}),put:async()=>{}});
+    expect(await source.quote({...q,destination:"EWR",departDate:row.departDate,returnDate:row.returnDate})).toMatchObject([{priceAmount:1568,priceCurrency:"CAD",outbound:{departTime:null,stops:null},deeplink:row.sourceUrl}]);
+    expect(source.callCount()).toBe(0);
+  });
   it("returns the observed cash economy fare only on the published exact dates", async () => {
     const source = createAirCanadaPublishedSource(now, (async () => new Response(html([fare]))) as typeof fetch);
     const offers = await source.quote(q);
