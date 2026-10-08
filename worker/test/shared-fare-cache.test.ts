@@ -1,4 +1,5 @@
 import * as renderer from "../src/aegean-lowfare-rendered";
+import * as httpCalendar from "../src/aegean-http-calendar";
 import {aegeanCalendarUrl} from "../src/aegean-lowfare";
 import {afterEach,it,expect,vi} from "vitest";
 import {DatabaseSync} from "node:sqlite";
@@ -63,9 +64,9 @@ it("atomically reserves no more than eight Aegean browser attempts in a day",asy
  expect(await instance(db).reserveAegean()).toBe(false);
  vi.setSystemTime(new Date(now.getTime()+86400000));expect(await store.reserveAegean()).toBe(true);db.close();
 });
-it("coalesces exact-date collection and retains its result without D1",async()=>{
+it("coalesces rendered exact-date collection and retains its result without D1",async()=>{
  vi.useFakeTimers();vi.setSystemTime(now);
- const trip={origin:"TLV",destination:"ATH",departDate:"2027-06-01",returnDate:"2027-06-05"};
+ const trip={origin:"ATH",destination:"FCO",departDate:"2027-06-01",returnDate:"2027-06-05"};
  const fare={...trip,amount:232.37,currency:"EUR" as const,outboundAmount:104.63,inboundAmount:127.74,bookingUrl:aegeanCalendarUrl(trip),checkedAt:now.toISOString(),pricing:"published_advertisement" as const,carrier:null};
  const load=vi.spyOn(renderer,"loadRenderedAegeanCalendar").mockResolvedValue(fare);
  const objects=new Map<string,FareStore>(),dbs:DatabaseSync[]=[];
@@ -82,8 +83,34 @@ it("failed renders consume quota and cannot repeat immediately",async()=>{
  const db=new DatabaseSync(":memory:"),budgetDb=new DatabaseSync(":memory:"),budget=instance(budgetDb);
  const ns={getByName:()=>budget};
  const store=instance(db,{BROWSER:{quickAction:vi.fn()},PUBLIC_FARES:ns});
- const trip={origin:"TLV",destination:"ATH",departDate:"2027-06-01",returnDate:"2027-06-05"};
+ const trip={origin:"ATH",destination:"FCO",departDate:"2027-06-01",returnDate:"2027-06-05"};
  expect(await store.collectAegean(trip)).toBeNull();expect(await store.collectAegean(trip)).toBeNull();
  expect(load).toHaveBeenCalledTimes(1);expect(budgetDb.prepare("SELECT used FROM allowance").get()?.used).toBe(1);
  db.close();budgetDb.close();
+});
+
+it("collects the observed HTTP route without Browser, quota reservations or D1 and preserves capture age",async()=>{
+ vi.useFakeTimers();vi.setSystemTime(now);
+ const trip={origin:"TLV",destination:"ATH",departDate:"2027-06-01",returnDate:"2027-06-05"};
+ const fare={...trip,amount:232.37,currency:"EUR" as const,outboundAmount:104.63,inboundAmount:127.74,bookingUrl:aegeanCalendarUrl(trip),checkedAt:now.toISOString(),pricing:"published_advertisement" as const,carrier:null,outboundUpdatedAt:"2026-10-07T00:00:00.000Z",inboundUpdatedAt:"2026-10-07T00:00:00.000Z",vendorUpdated:{outbound:'"/Date(1791331200000)/"',inbound:'"/Date(1791331200000)/"'}};
+ const load=vi.spyOn(httpCalendar,"loadHttpAegeanCalendar").mockImplementation(async()=>{vi.setSystemTime(new Date(now.getTime()+10000));return fare;});
+ const render=vi.spyOn(renderer,"loadRenderedAegeanCalendar");
+ const db=new DatabaseSync(":memory:"),store=instance(db);
+ expect(await Promise.all([store.collectAegean(trip),store.collectAegean(trip)])).toEqual([fare,fare]);
+ expect(load).toHaveBeenCalledOnce();expect(render).not.toHaveBeenCalled();
+ expect(JSON.parse((await store.read(aegeanCalendarUrl(trip)))!)).toEqual({storedAt:now.getTime(),expires:now.getTime()+600000,fares:[fare]});
+ expect(await store.collectAegean(trip)).toEqual(fare);expect(load).toHaveBeenCalledOnce();
+ vi.setSystemTime(new Date(now.getTime()+600000));expect(await store.read(aegeanCalendarUrl(trip))).toBeNull();db.close();
+});
+
+it("backs off failed public HTTP without consuming browser allowance or replacing an expired snapshot",async()=>{
+ vi.useFakeTimers();vi.setSystemTime(now);
+ const load=vi.spyOn(httpCalendar,"loadHttpAegeanCalendar").mockRejectedValue(Error("unavailable"));
+ const render=vi.spyOn(renderer,"loadRenderedAegeanCalendar"),getByName=vi.fn();
+ const db=new DatabaseSync(":memory:"),store=instance(db,{BROWSER:{quickAction:vi.fn()},PUBLIC_FARES:{getByName}});
+ const trip={origin:"ATH",destination:"TLV",departDate:"2027-06-01",returnDate:"2027-06-05"};
+ expect(await store.collectAegean(trip)).toBeNull();expect(await store.collectAegean(trip)).toBeNull();
+ expect(load).toHaveBeenCalledOnce();expect(render).not.toHaveBeenCalled();expect(getByName).not.toHaveBeenCalled();
+ expect(db.prepare("SELECT COUNT(*) AS n FROM snapshot").get()?.n).toBe(0);
+ vi.setSystemTime(new Date(now.getTime()+300000));await store.collectAegean(trip);expect(load).toHaveBeenCalledTimes(2);db.close();
 });

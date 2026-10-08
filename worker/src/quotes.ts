@@ -122,6 +122,8 @@ export interface FareQuoteSource {
   oneWays?(q: QuoteQuery): Promise<readonly PricedDirection[]>;
   /** Check stored offers against the current external snapshot, without upstream requests. */
   validatesStoredOffer?(offer: Offer): Promise<boolean>;
+  /** Read exactly this pair from stored public snapshots only; never request an airline or price vendor. */
+  quoteCached?(q: QuoteQuery): Promise<Offer[]>;
   /**
    * Live round-trip offers for exactly this date pair, per ADULT in the vendor's original currency (like
    * TravelpayoutsClient.roundTrips). Rejects with QuoteError; never retries; costs one reserved unit per request.

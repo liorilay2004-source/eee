@@ -4,6 +4,10 @@ export interface AegeanCalendarTrip {
 export interface AegeanCalendarFare extends AegeanCalendarTrip {
   amount:number; currency:"EUR"; outboundAmount:number; inboundAmount:number;
   bookingUrl:string; checkedAt:string; pricing:"published_advertisement"; carrier:null;
+  /** Calendar-row update times stated by the source, distinct from price verification or our capture. */
+  outboundUpdatedAt?:string; inboundUpdatedAt?:string;
+  /** Original source timestamp tokens, retained without assigning them price-found semantics. */
+  vendorUpdated?:{outbound:string;inbound:string};
 }
 export interface AegeanCalendarText {
   outboundRows:string[]; inboundRows:string[];

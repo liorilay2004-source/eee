@@ -3,9 +3,51 @@ import {ingestPublicFares,externalLhgCache} from "../src/external-fare-ingest";
 import {EXTERNAL_FARE_PAGES} from "../src/external-fare-catalog";
 import {storedQuoteWithinAge} from "../src/pipeline";
 import type {Env} from "../src/types";
+import {aegeanCalendarUrl} from "../src/aegean-lowfare";
+import {cacheRequest} from "../src/public-fare-cache";
 const now=new Date("2026-10-08T06:30:00Z"),key="a".repeat(64),entry=EXTERNAL_FARE_PAGES[0];
 const body={source:entry.source,page:entry.page,checkedAt:now.toISOString(),anchors:[{text:"From 304 EUR",url:"https://www.lufthansa.com/aircore/deeplink/redirect/en/gr/ATH/TLV/05.06.2027/19.06.2027/RT"}]};
 const request=(value:unknown=body,token=key)=>new Request("https://example.com/api/internal/public-fares",{method:"POST",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:JSON.stringify(value)});
+const aegeanTrip={origin:"TLV",destination:"ATH",departDate:"2027-06-01",returnDate:"2027-06-05"};
+const aegeanDate=(value:string)=>JSON.stringify(`/Date(${Date.parse(value)})/`);
+const aegeanRow=(day:string,price:number)=>({Date:aegeanDate(day),FullPrice:price,Price:price,Class:"Economy",Difference:null,Error:null,Updated:aegeanDate("2026-10-07"),ServiceFee:0});
+const aegeanPayload=()=>({source:"aegean_http_calendar",trip:aegeanTrip,checkedAt:now.toISOString(),records:{Outbound:[aegeanRow(aegeanTrip.departDate,104.63)],Inbound:[aegeanRow(aegeanTrip.returnDate,127.74)],CurrencySymbol:"€"}});
+it("ingests one exact public Aegean round trip without D1, preserving capture and vendor update dates",async()=>{
+ const e=env(),value=aegeanPayload();value.checkedAt=new Date(now.getTime()-60000).toISOString();
+ const getByName=vi.fn(()=>({read:e.read,write:e.write}));Object.assign(e.value.PUBLIC_FARES!,{getByName});
+ const prepare=vi.fn(()=>{throw Error("D1 is unavailable");});e.value.DB={prepare} as unknown as D1Database;
+ const response=await ingestPublicFares(request({...value,amount:1,currency:"USD"}),e.value,now);
+ expect(response.status).toBe(200);expect(await response.json()).toEqual({source:"aegean_http_calendar",fares:1,checkedAt:value.checkedAt});
+ const page=aegeanCalendarUrl(aegeanTrip);expect(getByName).toHaveBeenCalledWith(cacheRequest(page).url);expect(e.write.mock.calls[0]![0]).toBe(page);
+ const stored=JSON.parse(e.write.mock.calls[0]![1]);
+ expect(stored).toMatchObject({storedAt:Date.parse(value.checkedAt),expires:Date.parse(value.checkedAt)+600000,fares:[{...aegeanTrip,amount:232.37,currency:"EUR",outboundAmount:104.63,inboundAmount:127.74,carrier:null,checkedAt:value.checkedAt,outboundUpdatedAt:"2026-10-07T00:00:00.000Z",inboundUpdatedAt:"2026-10-07T00:00:00.000Z",vendorUpdated:{outbound:value.records.Outbound[0]!.Updated,inbound:value.records.Inbound[0]!.Updated}}]});
+ expect(prepare).not.toHaveBeenCalled();
+});
+it("requires authenticated recent canonical Aegean captures before reading body or writing",async()=>{
+ const e=env(),value=aegeanPayload(),unauthorized=request(value,"b".repeat(64));
+ expect((await ingestPublicFares(unauthorized,e.value,now)).status).toBe(401);expect(unauthorized.bodyUsed).toBe(false);
+ for(const checkedAt of ["bad",new Date(now.getTime()+1).toISOString(),new Date(now.getTime()-120001).toISOString(),"2026-10-08T06:30:00Z"]){
+  expect((await ingestPublicFares(request({...value,checkedAt}),e.value,now)).status).toBe(400);
+ }
+ expect(e.write).not.toHaveBeenCalled();
+ const boundary={...value,checkedAt:new Date(now.getTime()-120000).toISOString()};expect((await ingestPublicFares(request(boundary),e.value,now)).status).toBe(200);
+});
+it("rejects unknown Aegean trips, month minima, empty clearing and ambiguous or extra-cost schemas",async()=>{
+ const invalidTrips=[null,[],{...aegeanTrip,origin:"JFK"},{...aegeanTrip,departDate:"2027-02-30"},{...aegeanTrip,returnDate:aegeanTrip.departDate}];
+ for(const trip of invalidTrips){const e=env();expect((await ingestPublicFares(request({...aegeanPayload(),trip}),e.value,now)).status).toBe(400);expect(e.write).not.toHaveBeenCalled();}
+ for(const records of [[],null]){const e=env();expect((await ingestPublicFares(request({...aegeanPayload(),records}),e.value,now)).status).toBe(400);expect(e.write).not.toHaveBeenCalled();}
+ const missing=aegeanPayload();missing.records.Outbound=[];
+ const monthOnly={CurrencySymbol:"€",OutboundPrices:{"2027-6":58.52},InboundPrices:{"2027-6":96.99}};
+ const ambiguous=aegeanPayload();ambiguous.records.Outbound.push({...ambiguous.records.Outbound[0]!});
+ for(const records of [missing.records,monthOnly,ambiguous.records,{...aegeanPayload().records,CurrencySymbol:"$"},...([{Class:"Business"},{Error:"unavailable"},{FullPrice:100},{ServiceFee:1}] as const).map(changed=>({...aegeanPayload().records,Outbound:[{...aegeanPayload().records.Outbound[0]!,...changed}]}))]){
+  const e=env();expect((await ingestPublicFares(request({...aegeanPayload(),records,clearIfNoPrices:true}),e.value,now)).status).toBe(422);expect(e.write).not.toHaveBeenCalled();
+ }
+});
+it("keeps approved reverse Aegean context and reports storage failures without fetching URLs",async()=>{
+ const e=env(),value={...aegeanPayload(),trip:{...aegeanTrip,origin:"ATH",destination:"TLV"}};
+ expect((await ingestPublicFares(request(value),e.value,now)).status).toBe(200);expect(e.write.mock.calls[0]![0]).toBe(aegeanCalendarUrl(value.trip));
+ e.write.mockRejectedValue(Error("Shared storage unavailable"));expect((await ingestPublicFares(request(aegeanPayload()),e.value,now)).status).toBe(503);
+});
 it('reparses approved Hawaiian raw records preserving unknown operator and source price age',async()=>{
  const e=env(),value={source:'hawaiian_page',page:'https://asha.hawaiianairlines.com/en/flights-from-honolulu',checkedAt:now.toISOString(),records:[{__typename:'Fare',originAirportCode:'HNL',destinationAirportCode:'LAX',departureDate:'2027-01-27',returnDate:'2027-02-03',totalPrice:340,currencyCode:'USD',travelClass:'saver',farenetTravelClass:'ECONOMY',formattedTravelClass:'Saver',flightType:'ROUND_TRIP',priceLastSeen:{value:'19',unit:'hours'}}]};
  expect((await ingestPublicFares(request(value),e.value,now)).status).toBe(200);

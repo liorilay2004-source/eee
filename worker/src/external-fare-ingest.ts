@@ -14,6 +14,8 @@ import {hawaiianFares} from "../../collector/hawaiian-fares.mjs";
 import HAWAIIAN_PAGES from "../../collector/hawaiian-observed-pages.json";
 import FLYDUBAI_PAGES from "./flydubai-published-catalog.json";
 import {normalizeFlydubaiFares} from "../../collector/flydubai-fares.mjs";
+import {aegeanHttpCalendarUrl,parseAegeanHttpCalendar} from "./aegean-http-calendar";
+import {aegeanCalendarUrl} from "./aegean-lowfare";
 const TTL=600000;
 const reply=(status:number,body:unknown)=>Response.json(body,{status,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}});
 /** Machine-only ingestion: authentication precedes body reads; never fetch caller URLs or write D1. */
@@ -33,6 +35,21 @@ export async function ingestPublicFares(request:Request,env:Env,now=new Date()):
  if(!raw||typeof raw!=="object"||Array.isArray(raw))return reply(400,{error:"invalid_payload"});
  const v=raw as Record<string,unknown>,entry=EXTERNAL_FARE_PAGES.find(p=>p.source===v.source&&p.page===v.page);
  const at=typeof v.checkedAt==="string"?Date.parse(v.checkedAt):NaN,age=now.getTime()-at;
+ if(v.source==="aegean_http_calendar"){
+  if(!Number.isFinite(age)||age<0||age>120000||typeof v.checkedAt!=="string"||new Date(at).toISOString()!==v.checkedAt)return reply(400,{error:"invalid_observation_time"});
+  if(!v.trip||typeof v.trip!=="object"||Array.isArray(v.trip))return reply(400,{error:"invalid_trip"});
+  const rawTrip=v.trip as Record<string,unknown>;
+  if(typeof rawTrip.origin!=="string"||typeof rawTrip.destination!=="string"||typeof rawTrip.departDate!=="string"||typeof rawTrip.returnDate!=="string")return reply(400,{error:"invalid_trip"});
+  const trip={origin:rawTrip.origin,destination:rawTrip.destination,departDate:rawTrip.departDate,returnDate:rawTrip.returnDate};
+  let key:string;
+  try{aegeanHttpCalendarUrl(trip);key=aegeanCalendarUrl(trip);}catch{return reply(400,{error:"invalid_trip"});}
+  if(!v.records||typeof v.records!=="object"||Array.isArray(v.records))return reply(400,{error:"invalid_records"});
+  const fare=parseAegeanHttpCalendar(v.records,trip,v.checkedAt);
+  // Empty extraction, unavailable selected days and unknown cost schemas must not erase a saved offer.
+  if(!fare)return reply(422,{error:"no_valid_prices"});
+  try{await env.PUBLIC_FARES.getByName(cacheRequest(key).url).write(key,JSON.stringify({storedAt:at,expires:at+TTL,fares:[fare]}));}catch{return reply(503,{error:"storage_unavailable"});}
+  return reply(200,{source:v.source,fares:1,checkedAt:v.checkedAt});
+ }
  if(v.source==="singapore"){
   if(v.page!==SINGAPORE_PAGE||!Number.isFinite(age)||age<0||age>120000||!Array.isArray(v.records)||v.records.length>1000)return reply(400,{error:"invalid_payload"});
   const duration=v.duration===undefined?7:v.duration; if(duration!==7&&duration!==14)return reply(400,{error:"invalid_duration"});

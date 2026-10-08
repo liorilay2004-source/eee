@@ -65,6 +65,12 @@ export function vendorTimestamp(v: unknown, notAfterMs?: number): string | null 
   return new Date(ms).toISOString();
 }
 
+/** A calendar/data update cannot occur after our original capture; no found_at clock-skew allowance applies. */
+export function sourceUpdatedTimestamp(raw: unknown, checkedAt: unknown): string | null {
+  const update = vendorTimestamp(raw), capture = vendorTimestamp(checkedAt);
+  return update && capture && Date.parse(update) <= Date.parse(capture) ? update : null;
+}
+
 /** The older of two timestamps; null when either is unknown (a split is only as known as its least-known leg). */
 export function olderOf(a: string | null | undefined, b: string | null | undefined): string | null {
   if (!a || !b) return null;
@@ -183,9 +189,16 @@ export function fareFreshness(o: Offer, now: Date): FareFreshness {
   }
 
   const reported=o.upstreamPriceAge;
+  const sourceUpdatedAt=sourceUpdatedTimestamp(o.sourceUpdatedAt,o.checkedAt);
+  if(sourceUpdatedAt){
+    const date=`${sourceUpdatedAt.slice(8,10)}/${sourceUpdatedAt.slice(5,7)}/${sourceUpdatedAt.slice(0,4)}`;
+    return unknown("quote_unknown_age", `המקור מציין שלוח המחירים עודכן ב־${date} ${sourceUpdatedAt.slice(11,16)} UTC. הנתונים נאספו ${hebrewAgo(scanAgeMinutes)}. ההצעה פורסמה בלוח מחירים וטרם אומתה באתר ההזמנה.`);
+  }
   if(reported && Number.isSafeInteger(reported.value) && reported.value>=0 && reported.value<=36500 && ["minutes","hours","days"].includes(reported.unit)){
     const units={minutes:"דקות",hours:"שעות",days:"ימים"};
-    return unknown("quote_unknown_age", `בזמן האיסוף מקור המחיר ציין גיל של ${reported.value} ${units[reported.unit]}. הנתונים נאספו ${hebrewAgo(scanAgeMinutes)}; זה אינו אימות מחיר להזמנה כעת.`);
+    const one={minutes:"דקה אחת",hours:"שעה אחת",days:"יום אחד"},two={minutes:"שתי דקות",hours:"שעתיים",days:"יומיים"};
+    const duration=reported.value===1?one[reported.unit]:reported.value===2?two[reported.unit]:`${reported.value} ${units[reported.unit]}`;
+    return unknown("quote_unknown_age", `בזמן האיסוף מקור המחיר ציין גיל של ${duration}. הנתונים נאספו ${hebrewAgo(scanAgeMinutes)}; זה אינו אימות מחיר להזמנה כעת.`);
   }
 
   // 4. A search API that states nothing about the fare's age: our search time only.

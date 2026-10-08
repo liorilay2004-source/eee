@@ -55,7 +55,7 @@ import {
   historyTargets,
   type PriceGuard,
 } from "./priceguard";
-import { fareExpired, fareFreshness, vendorTimestamp } from "./freshness";
+import { fareExpired, fareFreshness, sourceUpdatedTimestamp, vendorTimestamp } from "./freshness";
 import { partyCheckMetaNow, signedPartyCheckFields, type PartyTokenSigner } from "./partycheck";
 import { sourceRegistryForRoute } from "./source-registry";
 import { buildSplits, dayNumber, pairOk } from "./splits";
@@ -342,12 +342,18 @@ export function sanitizeOffers(raw: unknown, sources: readonly string[] = SOURCE
       checkedAt: v.checkedAt,
       ...vendorTimes(v.fareFoundAt, v.fareExpiresAt, "fareFoundAt", "fareExpiresAt"),
       ...parseReportedAge(v.upstreamPriceAge),
+      ...parseSourceUpdate(v.sourceUpdatedAt,v.checkedAt),
       extrasAmountIls: 0,
       totalIls: null,
       tags: sourcePriceTags(v.tags),
     });
   }
   return out;
+}
+
+function parseSourceUpdate(raw:unknown,checkedAt:unknown):Pick<Offer,"sourceUpdatedAt">{
+  const sourceUpdatedAt=sourceUpdatedTimestamp(raw,checkedAt);
+  return sourceUpdatedAt ? {sourceUpdatedAt} : {};
 }
 
 function parseReportedAge(raw:unknown):Pick<Offer,"upstreamPriceAge">{
@@ -951,7 +957,15 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   // Valid carried quotes and Travelpayouts fares remain candidates alongside these newly read observations.
   // Failures here never fail the search.
   const quoters = (deps.quoteSources ?? []).filter((s) => s.configured);
-  const cacheHitQuoters = quoters.filter((source) => source.cacheOnly === true && source.nextQuoteRequests?.() === 0);
+  const cacheHitQuoters: FareQuoteSource[] = quoters.flatMap((source) => {
+    const readCached = source.quoteCached;
+    if (readCached) return [{
+      name: source.name, configured: source.configured, cacheOnly: true, quota: source.quota,
+      callCount: () => 0, nextQuoteRequests: () => 0,
+      quote: (q) => readCached.call(source, q),
+    }];
+    return source.cacheOnly === true && source.nextQuoteRequests?.() === 0 ? [source] : [];
+  });
   const primary = pairs[0];
   if (fromCache) working.push(...rankable(carriedQuotes));
   const canAskQuotes = primary && (fromCache ? cacheHitQuoters.length > 0

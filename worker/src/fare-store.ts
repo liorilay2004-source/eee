@@ -3,6 +3,7 @@ import {cacheRequest,publicFareMaximumAge,publicFareMaximumRows} from "./public-
 import {aegeanCalendarUrl,type AegeanCalendarTrip,type AegeanCalendarFare} from "./aegean-lowfare";
 import {AEGEAN_CALENDAR_MAX_AGE_MS,validateAegeanCalendar} from "./aegean-calendar-cache";
 import {loadRenderedAegeanCalendar} from "./aegean-lowfare-rendered";
+import {loadHttpAegeanCalendar} from "./aegean-http-calendar";
 import type {Env} from "./types";
 /** One bounded snapshot per official page/calendar. No search logs, credentials or passengers. */
 export class FareStore extends DurableObject<Record<string,unknown>> {
@@ -26,19 +27,25 @@ export class FareStore extends DurableObject<Record<string,unknown>> {
   if(trip.departDate<now.toISOString().slice(0,10))return null;
   if(this.collection)return this.collection;
   const bindings=this.env as Pick<Env,"BROWSER"|"PUBLIC_FARES">;
-  if(!bindings.BROWSER||!bindings.PUBLIC_FARES)return null;
+  const publicHttp=(trip.origin==="TLV"&&trip.destination==="ATH")||(trip.origin==="ATH"&&trip.destination==="TLV");
+  if(!publicHttp&&(!bindings.BROWSER||!bindings.PUBLIC_FARES))return null;
   this.collection=(async()=>{
    const stored=await this.read(key);
    if(stored){const fare=validateAegeanCalendar(JSON.parse(stored).fares?.[0],trip,now);if(fare)return fare;}
    const prior=this.ctx.storage.sql.exec<{attempted_at:number}>("SELECT attempted_at FROM collection_state WHERE id=1").toArray()[0];
    if(prior&&now.getTime()-prior.attempted_at<300000)return null;
    this.ctx.storage.sql.exec("INSERT INTO collection_state(id,attempted_at) VALUES (1,?) ON CONFLICT(id) DO UPDATE SET attempted_at=excluded.attempted_at",now.getTime());
-   const allowed=await bindings.PUBLIC_FARES!.getByName("aegean-browser-budget:"+now.toISOString().slice(0,10)).reserveAegean();
-   if(!allowed)return null;
    try {
-    const fare=await loadRenderedAegeanCalendar(bindings.BROWSER!,trip,now);
+    // Observed public HTTP routes never reserve or fall back to Browser Rendering.
+    if(!publicHttp){
+     const allowed=await bindings.PUBLIC_FARES!.getByName("aegean-browser-budget:"+now.toISOString().slice(0,10)).reserveAegean();
+     if(!allowed)return null;
+    }
+    const collected=publicHttp?await loadHttpAegeanCalendar(trip,now):await loadRenderedAegeanCalendar(bindings.BROWSER!,trip,now);
+    const fare=validateAegeanCalendar(collected,trip,new Date());
     if(!fare)return null;
-    await this.write(key,JSON.stringify({storedAt:now.getTime(),expires:now.getTime()+AEGEAN_CALENDAR_MAX_AGE_MS,fares:[fare]}));
+    const captured=Date.parse(fare.checkedAt);
+    await this.write(key,JSON.stringify({storedAt:captured,expires:captured+AEGEAN_CALENDAR_MAX_AGE_MS,fares:[fare]}));
     return fare;
    }catch{return null;}
   })();
