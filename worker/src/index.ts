@@ -1,3 +1,6 @@
+import {supplementFx} from "./fx-supplement";
+import {collectTurkishFares} from "./turkish-cache";
+import {createTurkishCachedSource} from "./sources/turkish-cached";
 /**
  * Worker entry point: the REST API (SPEC §6).
  *   POST /api/search    the search pipeline (rate limited)
@@ -281,6 +284,7 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
     env.FINNAIR_RENDERED_ENABLED === "true" ? createFinnairCachedSource(publicCache, env.DB, now) : null,
     env.AUSTRIAN_RENDERED_ENABLED === "true" ? createAustrianCachedSource(now, publicCache, env.DB) : null,
     env.SWISS_RENDERED_ENABLED === "true" ? createSwissCachedSource(now, publicCache, env.DB) : null,
+    env.TURKISH_RENDERED_ENABLED === "true" ? createTurkishCachedSource(now, publicCache) : null,
     env.LUFTHANSA_RENDERED_ENABLED === "true" ? createLufthansaCachedSource(now, publicCache, env.DB) : null,
     env.BRUSSELS_RENDERED_ENABLED === "true" ? createBrusselsCachedSource(now, publicCache, env.DB) : null,
     env.ICELANDAIR_RENDERED_ENABLED === "true" ? createIcelandairCachedSource(publicCache) : null,
@@ -374,8 +378,14 @@ async function handleSearch(request: Request, env: Env, ctx: ExecutionContext): 
       {
         repo,
         tp,
-        fxCached: () => readFxCache(typeof caches !== "undefined" ? caches.default : undefined, now),
-        fx: () => getFxRates(repo, fetchFn, now, typeof caches !== "undefined" ? caches.default : undefined),
+        fxCached: async () => {
+          const rates = await readFxCache(typeof caches !== "undefined" ? caches.default : undefined, now);
+          return rates && env.TURKISH_RENDERED_ENABLED === "true" && parsed.req.origin === "IST" && parsed.req.destination === "ATH" ? supplementFx(rates,["TRY"],fetchFn,now,typeof caches !== "undefined" ? caches.default : undefined) : rates;
+        },
+        fx: async () => {
+          const rates = await getFxRates(repo, fetchFn, now, typeof caches !== "undefined" ? caches.default : undefined);
+          return env.TURKISH_RENDERED_ENABLED === "true" && parsed.req.origin === "IST" && parsed.req.destination === "ATH" ? supplementFx(rates,["TRY"],fetchFn,now,typeof caches !== "undefined" ? caches.default : undefined) : rates;
+        },
         now,
         resolver: defaultResolver,
         waitUntil: (p) => ctx.waitUntil(p),
@@ -674,6 +684,7 @@ export default {
       });
       const [origin, destination] = pickSnapshotRoute(now);
       const browserJobs: Array<() => Promise<unknown>> = [];
+      if(env.TURKISH_RENDERED_ENABLED==="true" && env.BROWSER && typeof caches!=="undefined") browserJobs.push(()=>collectTurkishFares(env.BROWSER!,createPublicFareCache(caches.default,now,BACKGROUND_FARE_TTL_MS),now).then(fares=>console.log("Turkish public collection:",JSON.stringify({fares}))));
       if(env.AEGEAN_PUBLISHED_ENABLED==="true"&&now.getUTCHours()%12===5&&typeof caches!=="undefined")browserJobs.push(()=>collectRecentAegeanCalendar(env,now,createPublicFareCache(caches.default,now,6*3600000)).then(result=>console.log("Aegean exact calendar collection:",JSON.stringify(result))));
       if (now.getUTCHours() % 6 === 4) browserJobs.push(() => collectRenderedEurowings({env, now, destination: now.getUTCHours() % 12 === 4 ? "DUS" : "ATH", cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined}).then(result => console.log("Eurowings collection:", JSON.stringify(result))));
       if (env.AUSTRIAN_RENDERED_ENABLED === "true" && now.getUTCHours() % 12 === 11) browserJobs.push(() => collectRenderedAustrian({env,now,cache:typeof caches !== "undefined" ? createPublicFareCache(caches.default,now,BACKGROUND_FARE_TTL_MS) : undefined}).then(result => console.log("Austrian collection:",JSON.stringify(result))));

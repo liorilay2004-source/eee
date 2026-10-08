@@ -82,7 +82,7 @@ function cacheRequest(key: string): Request {
 }
 export function createPublicFareCache(storage: Pick<Cache, "match" | "put">, now: Date, ttlMs = TTL_MS): PublicFareCache {
   if (!Number.isFinite(ttlMs) || ttlMs < TTL_MS || ttlMs > BACKGROUND_FARE_TTL_MS) throw new Error("Invalid public cache lifetime");
-  const maximum = (key: string) => new URL(key).hostname === "en.aegeanair.com" ? 6*3600000 : ["services-api.ryanair.com", "www.airserbia.com", "flights.aegeanair.com"].includes(new URL(key).hostname) ? TTL_MS : BACKGROUND_FARE_TTL_MS;
+  const maximum = (key: string) => new URL(key).hostname === "www.turkishairlines.com" ? 3600000 : new URL(key).hostname === "en.aegeanair.com" ? 6*3600000 : ["services-api.ryanair.com", "www.airserbia.com", "flights.aegeanair.com"].includes(new URL(key).hostname) ? TTL_MS : BACKGROUND_FARE_TTL_MS;
   return {
     async get<T>(key: string): Promise<{ fares: T[]; expires: number } | null> {
       try {

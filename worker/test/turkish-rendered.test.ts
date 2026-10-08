@@ -31,7 +31,7 @@ it("collects and reads a public cache without D1 or a second browser call",async
  const f=result[0]!;
  expect(validateTurkishFare({...f,privateSession:"not retained"},now)).not.toHaveProperty("privateSession");
  for(const patch of [{origin:"ATH"},{currency:"USD"},{returnDate:"2026-11-16"},{departDate:"2026-02-30"},{amount:NaN},{sourceUrl:TURKISH_ATHENS_PAGE+"?token=x"},{checkedAt:"2026-10-09T00:00:00Z"}])expect(validateTurkishFare({...f,...patch},now)).toBeNull();
- expect(validateTurkishFare(f,new Date(now.getTime()+36*3600000))).toBeNull();
+ expect(validateTurkishFare(f,new Date(now.getTime()+3600000))).toBeNull();
 });
 it("cache failures are local and unrecognized Turkish pages cannot be cached",async()=>{
  expect(await readTurkishFares({get:async()=>{throw new Error("down");},put:async()=>{}},now)).toEqual([]);

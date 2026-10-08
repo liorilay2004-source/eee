@@ -326,7 +326,7 @@ export const SOURCE_REGISTRY: readonly SourceRegistryEntry[] = Object.freeze([
   { ...entry("elal", "El Al", "manual-link", 79, ["IL", "EU", "US", "Asia"], "מחירי מבצעים מתוארכים שנקראו מהאתר הרשמי ונטענו למאגר לזמן מוגבל. אין כרגע רענון אוטומטי רציף; נדרש אימות מחיר וזמינות באתר החברה."), capabilities: { ...manual, cachedPrice: true } },
   entry("arkia", "Arkia", "manual-link", 78, ["IL", "EU"], "קישור חיפוש ישיר מתוכנן, בלי קריאת מחיר חיה כרגע."),
   entry("israir", "Israir", "manual-link", 77, ["IL", "EU"], "קישור חיפוש ישיר מתוכנן, בלי קריאת מחיר חיה כרגע."),
-  entry("turkish", "Turkish Airlines", "manual-link", 76, ["IL", "EU", "Asia", "US"], "מקור עדיפות גבוהה לקונקשנים מישראל."),
+  { ...entry("turkish", "Turkish Airlines", "manual-link", 76, ["IL", "EU", "Asia", "US"], "מחירים מפורסמים מתוארכים מאיסטנבול לאתונה בלירה טורקית. זמינות ומחיר סופי דורשים אימות באתר החברה."), capabilities: { ...manual, cachedPrice: true } },
   entry("pegasus", "Pegasus Airlines", "manual-link", 75, ["IL", "EU", "Asia"], "מקור עדיפות גבוהה לטיסות זולות דרך טורקיה."),
   { ...entry("aegean", "Aegean Airlines", "manual-link", 74, ["IL", "EU"], "קריאת מחירים שפורסמו בעמודי תל אביב–אתונה ואתונה–רומא, בהתאמה לשני התאריכים. אין עדיין כיסוי מלא של זמינות חיה."), capabilities: { ...manual, cachedPrice: true, combinations: true } },
   entry("wizz", "Wizz Air", "manual-link", 73, ["IL", "EU"], "מקור לואו קוסט חשוב ליציאה מאזור ישראל."),
