@@ -9,6 +9,7 @@ const pages=candidateMode?[
  {airline:'AM',origin:'LAX',destination:'MEX',sourceUrl:'https://www.aeromexico.com/en_us/flights-from-los-angeles',allDestinations:true},
  {airline:'CM',origin:'PTY',destination:'MCO',sourceUrl:'https://www.copaair.com/en/flights-from-panama-city',allDestinations:true},
  {airline:'FI',origin:'LHR',origins:['LHR','LGW'],destination:'KEF',sourceUrl:'https://www.icelandair.com/en-gb/flights/flights-from-london-to-iceland'},
+ {airline:'TK',origin:'IST',destination:'ATH',sourceUrl:'https://www.turkishairlines.com/en/flights-from-istanbul-to-athens'},
 ]:EXTERNAL_PUBLISHED_PAGES;
 const results=[];
 const selection=process.env.PROBE_AIRLINE;
