@@ -1,0 +1,55 @@
+name: Complete observed Frontier linked route collection
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: frontier-route-discovery
+  cancel-in-progress: false
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      offsets: ${{ steps.inventory.outputs.offsets }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - id: inventory
+        run: |
+          node --input-type=module <<'JS'
+          import {readFile,appendFile} from 'node:fs/promises';
+          import {frontierBatch} from './collector/frontier-batch.mjs';
+          const rows=JSON.parse(await readFile('collector/frontier-linked-routes.json','utf8'));
+          frontierBatch(rows);
+          const offsets=Array.from({length:Math.ceil(rows.length/60)},(_,i)=>i*60);
+          await appendFile(process.env.GITHUB_OUTPUT,`offsets=${JSON.stringify(offsets)}\n`);
+          console.log(JSON.stringify({observedPages:rows.length,batches:offsets.length}));
+          JS
+  probe:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        offset: ${{ fromJSON(needs.plan.outputs.offsets) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node --test collector/frontier-batch.test.mjs collector/route-links.test.mjs
+      - run: node collector/probe-frontier-routes.mjs
+        env:
+          FRONTIER_PAGE_KIND: linked
+          FRONTIER_OFFSET: ${{ matrix.offset }}
+          FRONTIER_LIMIT: '60'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontier-linked-${{ matrix.offset }}
+          path: frontier-route-observations.json
+          retention-days: 3

@@ -538,5 +538,545 @@
     "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-san-diego",
     "checkedAt": "2026-10-08T09:06:11.943Z",
     "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "IAH",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-houston",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-houston",
+    "checkedAt": "2026-10-08T09:07:25.396Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "MIA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-miami",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-miami",
+    "checkedAt": "2026-10-08T09:07:25.898Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "ORD",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-chicago",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-chicago",
+    "checkedAt": "2026-10-08T09:07:26.028Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "SLC",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-salt-lake-city",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-salt-lake-city",
+    "checkedAt": "2026-10-08T09:07:26.163Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "DTW",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-detroit",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-detroit",
+    "checkedAt": "2026-10-08T09:07:26.277Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "SEA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-seattle",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-seattle",
+    "checkedAt": "2026-10-08T09:07:26.407Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "MSP",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-minneapolis",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-minneapolis",
+    "checkedAt": "2026-10-08T09:07:26.523Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "BNA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-nashville",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-nashville",
+    "checkedAt": "2026-10-08T09:07:26.649Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "SNA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-orange-county",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-orange-county",
+    "checkedAt": "2026-10-08T09:07:26.767Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "AUS",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-austin",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-austin",
+    "checkedAt": "2026-10-08T09:07:26.887Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "CLT",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-charlotte",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-charlotte",
+    "checkedAt": "2026-10-08T09:07:27.011Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "RDU",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-raleigh",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-raleigh",
+    "checkedAt": "2026-10-08T09:07:27.144Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "CVG",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-cincinnati",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-cincinnati",
+    "checkedAt": "2026-10-08T09:07:28.948Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "PNS",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-pensacola",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-pensacola",
+    "checkedAt": "2026-10-08T09:07:30.697Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "MSY",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-new-orleans",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-new-orleans",
+    "checkedAt": "2026-10-08T09:07:30.821Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "IND",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-indianapolis",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-indianapolis",
+    "checkedAt": "2026-10-08T09:07:30.944Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "ONT",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-ontario-ca",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-ontario-ca",
+    "checkedAt": "2026-10-08T09:07:32.412Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "CUN",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-cancun",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-cancun",
+    "checkedAt": "2026-10-08T09:07:32.544Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "MCI",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-kansas-city",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-kansas-city",
+    "checkedAt": "2026-10-08T09:07:32.675Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "PDX",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-portland",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-portland",
+    "checkedAt": "2026-10-08T09:07:32.800Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "STL",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-st-louis",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-st-louis",
+    "checkedAt": "2026-10-08T09:07:32.928Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "PHL",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-philadelphia",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-philadelphia",
+    "checkedAt": "2026-10-08T09:07:33.051Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "SMF",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-sacramento",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-sacramento",
+    "checkedAt": "2026-10-08T09:07:33.177Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "CLE",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-cleveland",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-cleveland",
+    "checkedAt": "2026-10-08T09:07:33.315Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "OKC",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-oklahoma-city",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-oklahoma-city",
+    "checkedAt": "2026-10-08T09:07:33.447Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "SAT",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-san-antonio",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-san-antonio",
+    "checkedAt": "2026-10-08T09:07:33.574Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "ELP",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-el-paso",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-el-paso",
+    "checkedAt": "2026-10-08T09:07:33.697Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "LGA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-new-york",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-new-york",
+    "checkedAt": "2026-10-08T09:07:33.820Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "RSW",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-fort-myers",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-fort-myers",
+    "checkedAt": "2026-10-08T09:07:33.940Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "GRR",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-grand-rapids",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-grand-rapids",
+    "checkedAt": "2026-10-08T09:07:34.068Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "CMH",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-columbus",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-columbus",
+    "checkedAt": "2026-10-08T09:07:35.833Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "SJU",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-san-juan",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-san-juan",
+    "checkedAt": "2026-10-08T09:07:35.970Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "BWI",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-baltimore",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-baltimore",
+    "checkedAt": "2026-10-08T09:07:36.097Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "EWR",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-newark",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-newark",
+    "checkedAt": "2026-10-08T09:07:37.676Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "OMA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-omaha",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-omaha",
+    "checkedAt": "2026-10-08T09:07:37.804Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "MEM",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-memphis",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-memphis",
+    "checkedAt": "2026-10-08T09:07:37.935Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "SJC",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-san-jose",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-san-jose",
+    "checkedAt": "2026-10-08T09:07:38.081Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "XNA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-fayetteville",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-fayetteville",
+    "checkedAt": "2026-10-08T09:07:38.205Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "DSM",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-des-moines",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-des-moines",
+    "checkedAt": "2026-10-08T09:07:38.322Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "FAR",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-fargo",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-fargo",
+    "checkedAt": "2026-10-08T09:07:38.444Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "ATL",
+    "destination": "LGA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-new-york",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-new-york",
+    "checkedAt": "2026-10-08T09:07:38.598Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "ATL",
+    "destination": "MCO",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-orlando",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-orlando",
+    "checkedAt": "2026-10-08T09:07:38.737Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "ATL",
+    "destination": "EWR",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-newark",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-newark",
+    "checkedAt": "2026-10-08T09:07:38.861Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "ATL",
+    "destination": "MIA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-miami",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-miami",
+    "checkedAt": "2026-10-08T09:07:38.992Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "ATL",
+    "destination": "PHL",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-philadelphia",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-philadelphia",
+    "checkedAt": "2026-10-08T09:07:39.137Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "ATL",
+    "destination": "LAS",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-las-vegas",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-las-vegas",
+    "checkedAt": "2026-10-08T09:07:39.277Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "ATL",
+    "destination": "DFW",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-dallas",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-dallas",
+    "checkedAt": "2026-10-08T09:07:39.410Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "ATL",
+    "destination": "LAX",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-los-angeles",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-los-angeles",
+    "checkedAt": "2026-10-08T09:07:39.544Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "ATL",
+    "destination": "SJU",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-san-juan",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-san-juan",
+    "checkedAt": "2026-10-08T09:07:39.693Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "ATL",
+    "destination": "DEN",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-denver",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-denver",
+    "checkedAt": "2026-10-08T09:07:39.858Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "ATL",
+    "destination": "BWI",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-baltimore",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-baltimore",
+    "checkedAt": "2026-10-08T09:07:40.018Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "ATL",
+    "destination": "ORD",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-chicago",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-chicago",
+    "checkedAt": "2026-10-08T09:07:40.159Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "ATL",
+    "destination": "IAH",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-houston",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-houston",
+    "checkedAt": "2026-10-08T09:07:40.288Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "ATL",
+    "destination": "DTW",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-detroit",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-detroit",
+    "checkedAt": "2026-10-08T09:07:40.419Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "ATL",
+    "destination": "TPA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-tampa",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-tampa",
+    "checkedAt": "2026-10-08T09:07:40.540Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "ATL",
+    "destination": "BOS",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-boston",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-boston",
+    "checkedAt": "2026-10-08T09:07:40.678Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "ATL",
+    "destination": "SFO",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-san-francisco",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-san-francisco",
+    "checkedAt": "2026-10-08T09:07:40.808Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "ATL",
+    "destination": "IAD",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-washington",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-washington",
+    "checkedAt": "2026-10-08T09:07:40.936Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "ATL",
+    "destination": "CLE",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-cleveland",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-cleveland",
+    "checkedAt": "2026-10-08T09:07:41.066Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "ATL",
+    "destination": "CUN",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-cancun",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-atlanta-to-cancun",
+    "checkedAt": "2026-10-08T09:07:41.192Z",
+    "structure": "oneway"
   }
 ]
