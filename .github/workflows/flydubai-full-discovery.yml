@@ -40,14 +40,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: node --test collector/flydubai-fares.test.mjs
+      - run: node --test collector/flydubai-fares.test.mjs collector/flydubai-index.test.mjs
       - run: node collector/probe-flydubai-pages.mjs
         env:
           FLYDUBAI_OFFSET: ${{ matrix.offset }}
           FLYDUBAI_LIMIT: 20
+      - run: node collector/build-flydubai-index.mjs
+        if: always()
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: flydubai-observations-${{ matrix.offset }}
-          path: flydubai-page-observations.json
+          path: |
+            flydubai-page-observations.json
+            flydubai-fare-index.json
           retention-days: 3
