@@ -7,3 +7,8 @@ it("keeps verified new airline route-page links in booking actions",()=>{
   expect(renderToStaticMarkup(<BookingActions card={card}/>)).toContain(`href="${url}"`);
  }
 });
+it("keeps both observed Frontier links for independently booked tickets",()=>{
+ const forward="https://flights.flyfrontier.com/en/flights-from-denver-to-phoenix",reverse="https://flights.flyfrontier.com/en/flights-from-phoenix-to-denver";
+ const card={offer:{source:"frontier",deeplink:forward,returnDeeplink:reverse,ticketStructure:"split",origin:"DEN",destination:"PHX",departDate:"2026-10-28",returnDate:"2026-10-31"}} as any;
+ const html=renderToStaticMarkup(<BookingActions card={card}/>);expect(html).toContain(`href="${forward}"`);expect(html).toContain(`href="${reverse}"`);
+});
