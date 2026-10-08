@@ -29,9 +29,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: node --test collector/fare-records.test.mjs collector/hawaiian-fares.test.mjs collector/hawaiian-trips.test.mjs
+      - run: node --test collector/fare-records.test.mjs collector/hawaiian-fares.test.mjs collector/hawaiian-trips.test.mjs collector/publish-hawaiian-observation.test.mjs
       - run: node collector/probe-hawaiian-pages.mjs
         env:
+          COLLECTOR_KEY: ${{ secrets.COLLECTOR_KEY }}
           HAWAIIAN_ORIGINS: ${{ github.event_name == 'schedule' || inputs.origins || false }}
           HAWAIIAN_OFFSET: ${{ inputs.offset || 0 }}
           HAWAIIAN_LIMIT: ${{ github.event_name == 'schedule' && 49 || inputs.limit || 20 }}

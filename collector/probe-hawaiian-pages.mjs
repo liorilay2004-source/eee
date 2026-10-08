@@ -2,6 +2,7 @@ import {readFile,writeFile} from 'node:fs/promises';
 import {fareRecords} from './fare-records.mjs';
 import {routeLinks} from './route-links.mjs';
 import {hawaiianFares} from './hawaiian-fares.mjs';
+import {publishHawaiianObservation} from './publish-hawaiian-observation.mjs';
 // Official URLs observed in search results and verified directly. No inferred operator.
 const inventory=JSON.parse(await readFile(new URL('./hawaiian-observed-pages.json',import.meta.url),'utf8'));
 const offset=Number(process.env.HAWAIIAN_OFFSET??0),limit=Number(process.env.HAWAIIAN_LIMIT??20);
@@ -24,7 +25,11 @@ for(const page of pages){
   const observation={page,fetchedAt,records,discoveredPages,checkoutVerified:false,operatorVerified:false};
   if(new URL(page).hostname==='asha.hawaiianairlines.com')observation.fares=hawaiianFares(observation);
   observations.push(observation);
+  if(process.env.COLLECTOR_KEY&&process.env.HAWAIIAN_ORIGINS==='true'){
+   observation.publication=await publishHawaiianObservation(observation,process.env.COLLECTOR_KEY);
+   console.log(JSON.stringify({page,...observation.publication}));
+  }
   console.log(JSON.stringify({page,records:records.length,discoveredPages:discoveredPages.length,bytes}));
- }catch(error){observations.push({page,fetchedAt,error:error.message});process.exitCode=1;}
+ }catch(error){observations.push({page,fetchedAt,error:error.message});process.exitCode=1;if(error.fatal){await writeFile('hawaiian-page-observations.json',JSON.stringify(observations,null,2));throw error;}}
  await writeFile('hawaiian-page-observations.json',JSON.stringify(observations,null,2));
 }
