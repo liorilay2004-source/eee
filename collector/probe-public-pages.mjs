@@ -15,7 +15,7 @@ for(const page of pages){const now=new Date();try{
  const response=await fetch(page.sourceUrl,{redirect:'manual',signal:AbortSignal.timeout(15000)});
  if(response.status!==200)throw new Error(`HTTP ${response.status}`);
  const reader=response.body.getReader();const chunks=[];let size=0;
- try{for(;;){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>2000000){await reader.cancel();throw new Error('Response too large');}chunks.push(part.value);}}finally{reader.releaseLock();}
+ try{for(;;){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>(page.airline==='AA'?3000000:2000000)){await reader.cancel();throw new Error('Response too large');}chunks.push(part.value);}}finally{reader.releaseLock();}
  const html=Buffer.concat(chunks).toString('utf8');
  const fares=parsePublishedFares(html,{...page,now});
  if(process.env.COLLECTOR_KEY&&!candidateMode){
