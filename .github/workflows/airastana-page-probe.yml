@@ -5,6 +5,8 @@ on:
       offset:
         type: number
         default: 0
+  schedule:
+    - cron: '5,15,25,35,45,55 * * * *'
 permissions:
   contents: read
 concurrency:
@@ -12,6 +14,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   probe:
+    if: github.event_name == 'workflow_dispatch' || vars.EXTERNAL_AIRASTANA_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
@@ -19,10 +22,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: node --test collector/fare-records.test.mjs
+      - run: node --test collector/fare-records.test.mjs collector/publish-page-observation.test.mjs
       - run: node collector/probe-airastana-pages.mjs
         env:
-          AIRASTANA_OFFSET: ${{ inputs.offset }}
+          COLLECTOR_KEY: ${{ secrets.COLLECTOR_KEY }}
+          AIRASTANA_OFFSET: ${{ inputs.offset || 0 }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
