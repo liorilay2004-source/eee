@@ -606,5 +606,189 @@
     "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-kozani",
     "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
     "checkedAt": "2026-10-08T07:25:12.971Z"
+  },
+  {
+    "airline": "ET",
+    "origin": "TLV",
+    "destination": "BKK",
+    "sourceUrl": "https://www.ethiopianairlines.com/en-il/flights-from-tel-aviv-to-bangkok",
+    "observedOn": "https://www.ethiopianairlines.com/en-il/",
+    "checkedAt": "2026-10-08T07:24:10.270Z"
+  },
+  {
+    "airline": "ET",
+    "origin": "TLV",
+    "destination": "ICN",
+    "sourceUrl": "https://www.ethiopianairlines.com/en-il/flights-from-tel-aviv-to-seoul",
+    "observedOn": "https://www.ethiopianairlines.com/en-il/",
+    "checkedAt": "2026-10-08T07:24:25.259Z"
+  },
+  {
+    "airline": "ET",
+    "origin": "TLV",
+    "destination": "MNL",
+    "sourceUrl": "https://www.ethiopianairlines.com/en-il/flights-from-tel-aviv-to-manila",
+    "observedOn": "https://www.ethiopianairlines.com/en-il/",
+    "checkedAt": "2026-10-08T07:24:39.201Z"
+  },
+  {
+    "airline": "ET",
+    "origin": "TLV",
+    "destination": "JNB",
+    "sourceUrl": "https://www.ethiopianairlines.com/en-il/flights-from-tel-aviv-to-johannesburg",
+    "observedOn": "https://www.ethiopianairlines.com/en-il/",
+    "checkedAt": "2026-10-08T07:24:46.724Z"
+  },
+  {
+    "airline": "ET",
+    "origin": "TLV",
+    "destination": "CPT",
+    "sourceUrl": "https://www.ethiopianairlines.com/en-il/flights-from-tel-aviv-to-cape-town",
+    "observedOn": "https://www.ethiopianairlines.com/en-il/",
+    "checkedAt": "2026-10-08T07:24:51.332Z"
+  },
+  {
+    "airline": "ET",
+    "origin": "TLV",
+    "destination": "TYO",
+    "sourceUrl": "https://www.ethiopianairlines.com/en-il/flights-from-tel-aviv-to-tokyo",
+    "observedOn": "https://www.ethiopianairlines.com/en-il/",
+    "checkedAt": "2026-10-08T07:24:58.402Z"
+  },
+  {
+    "airline": "ET",
+    "origin": "TLV",
+    "destination": "DEL",
+    "sourceUrl": "https://www.ethiopianairlines.com/en-il/flights-from-tel-aviv-to-delhi",
+    "observedOn": "https://www.ethiopianairlines.com/en-il/",
+    "checkedAt": "2026-10-08T07:25:05.192Z"
+  },
+  {
+    "airline": "ET",
+    "origin": "TLV",
+    "destination": "HAN",
+    "sourceUrl": "https://www.ethiopianairlines.com/en-il/flights-from-tel-aviv-to-hanoi",
+    "observedOn": "https://www.ethiopianairlines.com/en-il/",
+    "checkedAt": "2026-10-08T07:25:11.289Z"
+  },
+  {
+    "airline": "ET",
+    "origin": "TLV",
+    "destination": "BOM",
+    "sourceUrl": "https://www.ethiopianairlines.com/en-il/flights-from-tel-aviv-to-mumbai",
+    "observedOn": "https://www.ethiopianairlines.com/en-il/",
+    "checkedAt": "2026-10-08T07:25:17.150Z"
+  },
+  {
+    "airline": "ET",
+    "origin": "TLV",
+    "destination": "HKG",
+    "sourceUrl": "https://www.ethiopianairlines.com/en-il/flights-from-tel-aviv-to-hong-kong",
+    "observedOn": "https://www.ethiopianairlines.com/en-il/",
+    "checkedAt": "2026-10-08T07:25:22.912Z"
+  },
+  {
+    "airline": "ET",
+    "origin": "TLV",
+    "destination": "ADD",
+    "sourceUrl": "https://www.ethiopianairlines.com/en-il/flights-from-tel-aviv-to-addis-ababa",
+    "observedOn": "https://www.ethiopianairlines.com/en-il/",
+    "checkedAt": "2026-10-08T07:25:29.855Z"
+  },
+  {
+    "airline": "ET",
+    "origin": "TLV",
+    "destination": "CAN",
+    "sourceUrl": "https://www.ethiopianairlines.com/en-il/flights-from-tel-aviv-to-guangzhou",
+    "observedOn": "https://www.ethiopianairlines.com/en-il/",
+    "checkedAt": "2026-10-08T07:25:37.030Z"
+  },
+  {
+    "airline": "ET",
+    "origin": "TLV",
+    "destination": "NBO",
+    "sourceUrl": "https://www.ethiopianairlines.com/en-il/flights-from-tel-aviv-to-nairobi",
+    "observedOn": "https://www.ethiopianairlines.com/en-il/",
+    "checkedAt": "2026-10-08T07:25:44.211Z"
+  },
+  {
+    "airline": "ET",
+    "origin": "TLV",
+    "destination": "EZE",
+    "sourceUrl": "https://www.ethiopianairlines.com/en-il/flights-from-tel-aviv-to-buenos-aires-bue",
+    "observedOn": "https://www.ethiopianairlines.com/en-il/",
+    "checkedAt": "2026-10-08T07:25:58.261Z"
+  },
+  {
+    "airline": "ET",
+    "origin": "TLV",
+    "destination": "SEZ",
+    "sourceUrl": "https://www.ethiopianairlines.com/en-il/flights-from-tel-aviv-to-mahe",
+    "observedOn": "https://www.ethiopianairlines.com/en-il/",
+    "checkedAt": "2026-10-08T07:26:02.975Z"
+  },
+  {
+    "airline": "ET",
+    "origin": "TLV",
+    "destination": "JUB",
+    "sourceUrl": "https://www.ethiopianairlines.com/en-il/flights-from-tel-aviv-to-juba",
+    "observedOn": "https://www.ethiopianairlines.com/en-il/",
+    "checkedAt": "2026-10-08T07:26:23.283Z"
+  },
+  {
+    "airline": "ET",
+    "origin": "TLV",
+    "destination": "ZNZ",
+    "sourceUrl": "https://www.ethiopianairlines.com/en-il/flights-from-tel-aviv-to-zanzibar",
+    "observedOn": "https://www.ethiopianairlines.com/en-il/",
+    "checkedAt": "2026-10-08T07:26:53.436Z"
+  },
+  {
+    "airline": "ET",
+    "origin": "TLV",
+    "destination": "MRU",
+    "sourceUrl": "https://www.ethiopianairlines.com/en-il/flights-from-tel-aviv-to-port-louis",
+    "observedOn": "https://www.ethiopianairlines.com/en-il/",
+    "checkedAt": "2026-10-08T07:26:59.337Z"
+  },
+  {
+    "airline": "ET",
+    "origin": "TLV",
+    "destination": "GBE",
+    "sourceUrl": "https://www.ethiopianairlines.com/en-il/flights-from-tel-aviv-to-gaborone",
+    "observedOn": "https://www.ethiopianairlines.com/en-il/",
+    "checkedAt": "2026-10-08T07:27:08.805Z"
+  },
+  {
+    "airline": "ET",
+    "origin": "TLV",
+    "destination": "SHA",
+    "sourceUrl": "https://www.ethiopianairlines.com/en-il/flights-from-tel-aviv-to-shanghai",
+    "observedOn": "https://www.ethiopianairlines.com/en-il/",
+    "checkedAt": "2026-10-08T07:27:13.287Z"
+  },
+  {
+    "airline": "ET",
+    "origin": "TLV",
+    "destination": "JRO",
+    "sourceUrl": "https://www.ethiopianairlines.com/en-il/flights-from-tel-aviv-to-kilimanjaro",
+    "observedOn": "https://www.ethiopianairlines.com/en-il/",
+    "checkedAt": "2026-10-08T07:27:27.464Z"
+  },
+  {
+    "airline": "ET",
+    "origin": "TLV",
+    "destination": "NOS",
+    "sourceUrl": "https://www.ethiopianairlines.com/en-il/flights-from-tel-aviv-to-nosy-be",
+    "observedOn": "https://www.ethiopianairlines.com/en-il/",
+    "checkedAt": "2026-10-08T07:27:55.714Z"
+  },
+  {
+    "airline": "ET",
+    "origin": "TLV",
+    "destination": "GDQ",
+    "sourceUrl": "https://www.ethiopianairlines.com/en-il/flights-from-tel-aviv-to-gondar",
+    "observedOn": "https://www.ethiopianairlines.com/en-il/",
+    "checkedAt": "2026-10-08T07:28:08.105Z"
   }
 ]
