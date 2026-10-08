@@ -1,6 +1,20 @@
 name: Observed Frontier route price discovery
 on:
   workflow_dispatch:
+    inputs:
+      kind:
+        description: Observed page inventory
+        type: choice
+        options: [origins, linked, legacy]
+        default: origins
+      offset:
+        description: First route index
+        type: number
+        default: 0
+      limit:
+        description: Maximum pages, up to sixty
+        type: number
+        default: 60
 permissions:
   contents: read
 concurrency:
@@ -15,10 +29,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: node --test collector/route-links.test.mjs
+      - run: node --test collector/route-links.test.mjs collector/frontier-batch.test.mjs
       - run: node collector/probe-frontier-routes.mjs
         env:
-          FRONTIER_PAGE_KIND: origins
+          FRONTIER_PAGE_KIND: ${{ inputs.kind }}
+          FRONTIER_OFFSET: ${{ inputs.offset }}
+          FRONTIER_LIMIT: ${{ inputs.limit }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
