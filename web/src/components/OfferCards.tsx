@@ -61,7 +61,7 @@ function publishedPriceLink(source: string, link: string | null, trip?: Pick<Off
     const url=new URL(link);
     if(url.hostname==="en.aegeanair.com") {
       const realDate=(date:string)=>/^\d{4}-\d{2}-\d{2}$/.test(date)&&Number.isFinite(Date.parse(date))&&new Date(date).toISOString().slice(0,10)===date;
-      if(trip.origin!=="TLV"||trip.destination!=="ATH"||!realDate(trip.departDate)||!realDate(trip.returnDate)||trip.returnDate<=trip.departDate||trip.returnDate.slice(0,7)!==trip.departDate.slice(0,7))return null;
+      if(!/^[A-Z]{3}$/.test(trip.origin)||!/^[A-Z]{3}$/.test(trip.destination)||trip.origin===trip.destination||!realDate(trip.departDate)||!realDate(trip.returnDate)||trip.returnDate<=trip.departDate)return null;
       const expected=new URL("https://en.aegeanair.com/flight-deals/low-fare-calendar/");
       expected.search=new URLSearchParams({arr:trip.destination,datedeparture:trip.departDate,datereturn:trip.returnDate,dep:trip.origin,month:trip.departDate.slice(0,7),type:"R"}).toString();
       return link===expected.href?link:null;

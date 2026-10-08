@@ -2,14 +2,15 @@ import {aegeanCalendarUrl,type AegeanCalendarTrip} from "./aegean-lowfare";
 import {collectAegeanCalendar,readAegeanCalendar} from "./aegean-calendar-cache";
 import type {PublicFareCache} from "./public-fare-cache";
 import type {Env} from "./types";
+export const AEGEAN_RECENT_DEMAND_SQL="SELECT origin,destination,window_start,window_end,stay_min,stay_max,pax_json FROM searches INDEXED BY idx_searches_collection_recent WHERE created_at>=? ORDER BY created_at DESC LIMIT 12";
 
 /** At most one browser job per scheduled invocation, using recent exact-date demand. */
 export async function collectRecentAegeanCalendar(env:Env,now:Date,cache:PublicFareCache):Promise<{collected:number;skipped:boolean}> {
   if(!env.BROWSER||env.AEGEAN_PUBLISHED_ENABLED!=="true")return {collected:0,skipped:true};
   let rows:DemandRow[];
   try{
-    const result=await env.DB.prepare("SELECT window_start,window_end,stay_min,stay_max,pax_json FROM searches WHERE origin=? AND destination=? AND created_at>=? ORDER BY created_at DESC LIMIT 12")
-      .bind("TLV","ATH",new Date(now.getTime()-86400000).toISOString()).all<DemandRow>();
+    const result=await env.DB.prepare(AEGEAN_RECENT_DEMAND_SQL)
+      .bind(new Date(now.getTime()-86400000).toISOString()).all<DemandRow>();
     rows=result.results;
   }catch{return {collected:0,skipped:true};}
   const seen=new Set<string>();
@@ -22,9 +23,9 @@ export async function collectRecentAegeanCalendar(env:Env,now:Date,cache:PublicF
   }
   return {collected:0,skipped:true};
 }
-interface DemandRow {window_start:string;window_end:string;stay_min:number;stay_max:number;pax_json:string}
+interface DemandRow {origin:string;destination:string;window_start:string;window_end:string;stay_min:number;stay_max:number;pax_json:string}
 export function aegeanDemandTrip(row:DemandRow,now:Date):AegeanCalendarTrip|null {
-  const trip={origin:"TLV",destination:"ATH",departDate:row.window_start,returnDate:row.window_end};
+  const trip={origin:row.origin,destination:row.destination,departDate:row.window_start,returnDate:row.window_end};
   try{
     aegeanCalendarUrl(trip);
     if(trip.departDate<now.toISOString().slice(0,10)||row.pax_json.length>1000)return null;

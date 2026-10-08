@@ -15,7 +15,7 @@ function realDate(value:string):boolean {
   return Number.isFinite(parsed.getTime())&&parsed.toISOString().slice(0,10)===value;
 }
 function validTrip(q:AegeanCalendarTrip):boolean {
-  return q.origin==="TLV"&&q.destination==="ATH"&&realDate(q.departDate)&&realDate(q.returnDate)&&q.returnDate>q.departDate&&q.departDate.slice(0,7)===q.returnDate.slice(0,7);
+  return /^[A-Z]{3}$/.test(q.origin)&&/^[A-Z]{3}$/.test(q.destination)&&q.origin!==q.destination&&realDate(q.departDate)&&realDate(q.returnDate)&&q.returnDate>q.departDate;
 }
 /** Only the observed ordinary calendar query, never caller-supplied URLs or credentials. */
 export function aegeanCalendarUrl(q:AegeanCalendarTrip):string {
@@ -45,14 +45,15 @@ function monthPrices(rows:string[],month:string):Map<string,number>|null {
 /** Selected trip only. Contextual return-trip calendars are never treated as independent one-way quotes. */
 export function parseAegeanCalendar(text:AegeanCalendarText,q:AegeanCalendarTrip,now:Date):AegeanCalendarFare|null {
   if(!validTrip(q)||q.departDate<now.toISOString().slice(0,10))return null;
-  const month=q.departDate.slice(0,7);const name=monthNames[Number(month.slice(5))-1];
-  for(const selected of [text.outboundMonths,text.inboundMonths]){
+  const outMonth=q.departDate.slice(0,7),backMonth=q.returnDate.slice(0,7);
+  for(const [selected,month] of [[text.outboundMonths,outMonth],[text.inboundMonths,backMonth]] as const){
+    const name=monthNames[Number(month.slice(5))-1];
     if(selected.length!==1||selected[0]!.length>200||!new RegExp(`^${name} from €\\s*\\d+(?:\\.\\d{1,2})?$`).test(clean(selected[0]!)))return null;
   }
-  const outbound=monthPrices(text.outboundRows,month),inbound=monthPrices(text.inboundRows,month);
+  const outbound=monthPrices(text.outboundRows,outMonth),inbound=monthPrices(text.inboundRows,backMonth);
   const out=outbound?.get(q.departDate),back=inbound?.get(q.returnDate);
   if(out===undefined||back===undefined||text.summaries.length>10)return null;
-  const pattern=new RegExp(`^[^()]+\\(TLV\\) to [^()]+\\(ATH\\) ${displayDate(q.departDate)} [^()]+\\(ATH\\) to [^()]+\\(TLV\\) ${displayDate(q.returnDate)} €\\s*(\\d+(?:\\.\\d{1,2})?)\\s*Total(?: Book this trip)?$`);
+  const pattern=new RegExp(`^[^()]+\\(${q.origin}\\) to [^()]+\\(${q.destination}\\) ${displayDate(q.departDate)} [^()]+\\(${q.destination}\\) to [^()]+\\(${q.origin}\\) ${displayDate(q.returnDate)} €\\s*(\\d+(?:\\.\\d{1,2})?)\\s*Total(?: Book this trip)?$`);
   const matches=text.summaries.filter(s=>s.length<=2000).map(s=>pattern.exec(clean(s))).filter(m=>m!==null);
   if(matches.length!==1)return null;
   const amount=Number(matches[0]![1]);

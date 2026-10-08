@@ -18,7 +18,8 @@ it("reads the trip overview independently of the booking button",()=>{
 });
 it("uses only the verified calendar path and query parameters",()=>{
  expect(aegeanCalendarUrl(q)).toBe("https://en.aegeanair.com/flight-deals/low-fare-calendar/?arr=ATH&datedeparture=2027-06-01&datereturn=2027-06-05&dep=TLV&month=2027-06&type=R");
- expect(()=>aegeanCalendarUrl({...q,origin:"ATH",destination:"TLV"})).toThrow();
+ expect(()=>aegeanCalendarUrl({...q,origin:"ATH?",destination:"TLV"})).toThrow();
+ expect(parseAegeanCalendar(text(),{...q,origin:"ATH",destination:"TLV"},now)).toBeNull();
 });
 it.each(["2027-06-06","2027-07-05","2027-06-31"])("does not reuse a price for another return date %s",returnDate=>{
  expect(parseAegeanCalendar(text(),{...q,returnDate},now)).toBeNull();

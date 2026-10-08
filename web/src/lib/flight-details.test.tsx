@@ -4,6 +4,11 @@ import { BookingActions, FlightDetailsCard } from "../components/OfferCards";
 import { demoResult } from "./demo";
 
 describe("flight details and official airline handoff", () => {
+  it("retains the exact Aegean route and dates across June and July",()=>{
+    const {card}=fixture();Object.assign(card.offer,{source:"aegean",origin:"ATH",destination:"FCO",departDate:"2027-06-30",returnDate:"2027-07-04",deeplink:"https://en.aegeanair.com/flight-deals/low-fare-calendar/?arr=FCO&datedeparture=2027-06-30&datereturn=2027-07-04&dep=ATH&month=2027-06&type=R"});
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).toContain("datereturn=2027-07-04");
+    card.offer.destination="CIA";expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("datereturn=2027-07-04");
+  });
   it("opens the exact selected Aegean calendar and rejects other dates or added query parameters",()=>{
     const {card}=fixture();card.offer.source="aegean";
     card.offer.origin="TLV";card.offer.destination="ATH";card.offer.departDate="2027-06-01";card.offer.returnDate="2027-06-05";

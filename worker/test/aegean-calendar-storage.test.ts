@@ -8,7 +8,7 @@ import {createTestD1} from "./helpers/d1";
 const now=new Date("2026-10-08T04:30:00Z");
 const trip={origin:"TLV",destination:"ATH",departDate:"2027-06-01",returnDate:"2027-06-05"};
 const fare={...trip,amount:232.37,currency:"EUR" as const,outboundAmount:104.63,inboundAmount:127.74,bookingUrl:aegeanCalendarUrl(trip),checkedAt:now.toISOString(),pricing:"published_advertisement" as const,carrier:null};
-const demand={window_start:trip.departDate,window_end:trip.returnDate,stay_min:4,stay_max:4,pax_json:JSON.stringify({adults:1,children:0,infants:0})};
+const demand={origin:trip.origin,destination:trip.destination,window_start:trip.departDate,window_end:trip.returnDate,stay_min:4,stay_max:4,pax_json:JSON.stringify({adults:1,children:0,infants:0})};
 function database(row:unknown={fare_json:JSON.stringify(fare),checked_at:now.toISOString()}) {
  const bind=vi.fn();const run=vi.fn(async()=>({success:true}));const prepare=vi.fn((_sql:string)=>({bind:(...params:unknown[])=>{bind(...params);return {run,first:async()=>row};}}));
  return {db:{prepare} as unknown as D1Database,prepare,bind,run};

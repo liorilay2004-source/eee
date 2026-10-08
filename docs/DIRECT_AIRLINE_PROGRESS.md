@@ -188,3 +188,28 @@ ICN dates, original USD price and official Israeli price-page URL.
 - Existing Browser Run quickAction also loads a selected month through the observed D_Month/R_Month/AdultCount/CurrencyCode parameters. Added bounded loadRenderedNorwegian using the existing production browser interface; an actual remote-binding run of this repository function returned 2,590,695 HTML characters, the matching ATH–OSL June metadata and the June 5 EUR 56.44 card. Response bytes are capped at 4 MB, and mismatched route/month/party/currency metadata is rejected. TypeScript and three Norwegian tests pass. HTML-to-fare parsing, background storage and user-facing source wiring remain pending.
 - Added parseNorwegianCalendarHtml for the observed rendered low-fare tables. It validates ATH–OSL one-adult EUR month metadata, binds each amount to one dated button inside its explicit Outbound/Return table, strips scripts/styles, rejects duplicate ambiguous labels, unavailable/no-price rows and invalid dates, and excludes transit rows because HTML does not state an exact transit count. Running the repository parser against the real 2.59 MB June render accepted 36 direct dated directions, including ATH–OSL June 5 EUR 56.44. Four Norwegian tests and TypeScript passed. This is still advertisement data with unknown operating carrier, not held booking inventory; source storage and pipeline integration remain pending.
 - Added migration 0010_public_calendar_snapshots.sql and collectNorwegianMonth. The collector stores one bounded monthly snapshot and does not replace valid data with an empty or failed render. Migration applied and registered in production eee-db. Running the repository collector with actual remote Browser Run/D1 bindings saved 36 June ATH–OSL directions; a separate indexed D1 read verified the month, route, record count and timestamp. TypeScript and 12 health/Norwegian tests passed. Automatic scheduling and search wiring are still pending.
+
+## Turkish public dated fare discovery — 2026-10-08
+
+An ordinary browser loaded the official page
+https://www.turkishairlines.com/en/flights-from-istanbul-to-athens .
+Its public table displayed IST–ATH round-trip Economy advertisements around
+TRY7,238. Bounded read-only extraction of Fare records from NEXT_DATA confirmed
+explicit original amounts, airport codes and full ISO dates, including:
+
+- IST–ATH, 2026-11-17 to 2026-12-01: TRY7237.73, usdTotalPrice147.10654.
+- IST–ATH, 2026-11-30 to 2026-12-14: TRY7237.73.
+- IST–ATH, 2027-02-06 to 2027-02-13: TRY7234.15.
+
+The first record stated ECONOMY and null stops, departureTime, returnTime and
+flightDuration. No carrier field was present in that public Fare record. Those
+missing details must not be filled with assumptions. Displayed whole-lira prices
+are rounded; the numeric original totalPrice is retained for comparisons.
+The page says advertisements were collected within the previous 48 hours and
+may not be available when booking. No payment or reservation was submitted.
+
+This is a discovery, not an enabled search source or verified checkout quote.
+Direct Worker/Cloudflare rendering, extraction/cache/storage/provider integration,
+TRY conversion availability and booking handoff still need verification. A vendor's
+usdTotalPrice is not permission to relabel its original TRY booking price as USD.
+No credentials, configuration tokens or private session data were copied.

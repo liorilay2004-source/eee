@@ -10,9 +10,9 @@ it("navigates only to the observed public calendar with exact dates",async()=>{
  await expect(loadRenderedAegeanCalendar(browser(quickAction),q,now)).rejects.toThrow("Aegean calendar rendering failed");
  expect(quickAction).toHaveBeenCalledWith("content",{url:aegeanCalendarUrl(q),gotoOptions:{waitUntil:"domcontentloaded",timeout:20000},waitForTimeout:4000,rejectResourceTypes:["image","font","media"]});
 });
-it("rejects unobserved routes before browser navigation",async()=>{
+it("rejects malformed route codes before browser navigation",async()=>{
  const quickAction=vi.fn();
- await expect(loadRenderedAegeanCalendar(browser(quickAction),{...q,destination:"FCO"},now)).rejects.toThrow("Unsupported collected");
+ await expect(loadRenderedAegeanCalendar(browser(quickAction),{...q,destination:"FCO?"},now)).rejects.toThrow("Unsupported collected");
  expect(quickAction).not.toHaveBeenCalled();
 });
 it("rejects unsuccessful envelopes and oversized responses",async()=>{
