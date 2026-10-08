@@ -134,3 +134,14 @@ USD 950.38 (ILS 2,921.47), one Ethiopian page call. TLV–ICN July 1–13 then
 returned USD 732.58 (ILS 2,251.95) with zero Ethiopian calls, the same checkedAt,
 and a complete API response in 1.174 seconds. Browser rendering confirmed the
 ICN dates, original USD price and official Israeli price-page URL.
+
+## Finnair production integration — 2026-10-08
+
+- Official fixed origin page: https://www.finnair.com/en/flights/from/hel/flights-from-Helsinki.
+- Cloudflare Browser Run reads public `fcom-ux-state` JSON; only dated EUR Economy round-trip records from HEL are accepted. XTP/XTZ bus destinations, expired dates and premium cabins are excluded. Flight numbers, times and stops remain unknown.
+- First production collection completed with 8,425 fares saved through the actual D1 repository. An earlier parser-only run found 8,428; the page can change between reads.
+- Cache partitions are per destination, up to 500 records per partition. Searches never launch Browser Run. Background collection is scheduled daily at 01:43 UTC, separately from the other browser sources. The scheduled production invocation has not yet been observed; the collector was verified directly with the same remote bindings.
+- Live production search HEL–RIX, 2026-11-17 to 2026-11-20, one adult: source `finnair` enabled/ok, one offer, zero provider calls. Official advertisement EUR 96 / ILS 329.87 appears in airline price links. A cheaper SerpApi quote USD 98 / ILS 301.25 ranks ahead of it. The rendered stable website shows Finnair at rounded ILS 330.
+- Worker build `dbd8e230a5e0`, version `e82c8460-09f2-41a8-9b80-7e2618661188`; Pages deployment https://23fd1839.eee-web-bly.pages.dev.
+- Verification: 2,187 worker tests and 249 web tests passed; TypeScript and web build passed.
+- Coverage is published HEL-origin date pairs, not arbitrary live availability or all Finnair origins. Final checkout price and partner-operated legs are not verified. Global airline coverage and global cheapest remain incomplete.
