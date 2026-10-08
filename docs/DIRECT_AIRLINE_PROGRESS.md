@@ -145,3 +145,10 @@ ICN dates, original USD price and official Israeli price-page URL.
 - Worker build `dbd8e230a5e0`, version `e82c8460-09f2-41a8-9b80-7e2618661188`; Pages deployment https://23fd1839.eee-web-bly.pages.dev.
 - Verification: 2,187 worker tests and 249 web tests passed; TypeScript and web build passed.
 - Coverage is published HEL-origin date pairs, not arbitrary live availability or all Finnair origins. Final checkout price and partner-operated legs are not verified. Global airline coverage and global cheapest remain incomplete.
+
+## Iberia dated card integration — 2026-10-08
+
+- Official fixed page https://www.iberia.com/es/cheap-flights/Madrid-Tel-Aviv/ renders in Cloudflare Browser Run although ordinary Worker fetch returns HTTP 403. No cookies or protection bypass are used.
+- Complete public card MAD–TLV, 2026-10-31 to 2026-11-11, round trip EUR 239 was parsed from the real rendered response and saved through the production D1 repository (one fare/one offer). Dates are absent from the JSON-LD Flight, so the parser reads each card's dates and amount together and excludes incomplete or mismatched cards.
+- Cabin, flight numbers, stops, baggage and final availability are unverified. This is a published advertisement, not checkout proof. Iberia's official September 7 Update 8 notice says three daytime weekly flights are cancelled October 25–December 9 while seven weekly frequencies continue; it does not justify excluding the entire route. https://agencias.iberia.com/content/iberia-agencias/language-masters/en/flexibilizaciones/listado/telaviv-update-8.html
+- Integration adds an exact-date one-adult cache-only source and daily background collection at 03:43 UTC. The scheduled invocation has not yet been observed. Coverage remains one published route card, not arbitrary Iberia searches or all airline sites.
