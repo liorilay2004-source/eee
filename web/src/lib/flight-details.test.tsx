@@ -69,6 +69,13 @@ describe("flight details and official airline handoff", () => {
     card.offer.deeplink+="?untrusted=1";
     expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("untrusted");
   });
+  it("opens only the observed Swiss dated official booking link",()=>{
+    const {card}=fixture();card.offer.source="swiss";
+    card.offer.deeplink="https://www.swiss.com/aircore/deeplink/redirect/en/ch/ZRH/TLV/01.06.2027/15.06.2027/RT";
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).toContain(card.offer.deeplink);
+    card.offer.deeplink+="?untrusted=1";
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("untrusted");
+  });
   it("opens only the observed official Icelandair fare page", () => {
     const {card}=fixture();card.offer.source="icelandair";card.offer.outbound.airlines=["FI"];card.offer.inbound.airlines=["FI"];
     card.offer.deeplink="https://www.icelandair.com/en-gb/flights/flights-from-london-to-iceland";
