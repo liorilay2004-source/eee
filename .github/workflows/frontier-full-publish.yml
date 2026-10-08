@@ -1,6 +1,8 @@
 name: Refresh all approved Frontier fare pages
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '7,37 * * * *'
 permissions:
   contents: read
 concurrency:
@@ -8,6 +10,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   plan:
+    if: github.event_name == 'workflow_dispatch' || vars.EXTERNAL_FRONTIER_FULL_ENABLED == 'true'
     runs-on: ubuntu-latest
     outputs:
       offsets: ${{ steps.inventory.outputs.offsets }}
@@ -54,4 +57,24 @@ jobs:
         with:
           name: frontier-publication-${{ matrix.offset }}
           path: frontier-publication-receipts.json
+          retention-days: 3
+  summary:
+    needs: [plan, publish]
+    if: always() && needs.plan.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: frontier-publication-*
+          path: publication-receipts
+      - run: node --test collector/frontier-publication-summary.test.mjs
+      - run: node collector/frontier-publication-summary.mjs publication-receipts frontier-publication-summary.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontier-publication-summary
+          path: frontier-publication-summary.json
           retention-days: 3

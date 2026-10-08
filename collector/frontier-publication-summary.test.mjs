@@ -1,0 +1,6 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';import {tmpdir} from 'node:os';import {join} from 'node:path';import {frontierPublicationSummary} from './frontier-publication-summary.mjs';
+test('distinguishes attempted, published, cleared and expired pages',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'frontier-receipts-'));
+ try{await mkdir(join(dir,'frontier-publication-0'));const now=new Date('2026-10-08T10:00:00Z');const rows=[{page:'a',ok:true,result:{page:'a',fares:1,checkedAt:'2026-10-08T09:50:00Z',expiresAfterSeconds:600}},{page:'b',ok:true,result:{page:'b',fares:0,checkedAt:now.toISOString(),expiresAfterSeconds:600}},{page:'c',ok:false,error:'HTTP 503'}];await writeFile(join(dir,'frontier-publication-0','frontier-publication-receipts.json'),JSON.stringify(rows));const s=await frontierPublicationSummary(dir,now,['a','b','c','d']);assert.equal(s.attemptedPages,3);assert.equal(s.missingPages,1);assert.equal(s.publishedPages,2);assert.equal(s.clearedPages,1);assert.equal(s.freshPages,1);assert.equal(s.allFresh,false);assert.equal(s.freshAdvertisedPrices,0);}
+ finally{await rm(dir,{recursive:true,force:true});}
+});
