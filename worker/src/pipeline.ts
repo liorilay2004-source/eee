@@ -604,9 +604,9 @@ function historyRows(live: Offer[], fx: FxRates, pax: number, now: Date): Offer[
 
 /** Local retention is distinct from a vendor promise of fare freshness. */
 export function storedQuoteWithinAge(o:Pick<Offer,"source"|"checkedAt">,now:Date):boolean {
-  if(o.source!=="turkish")return ageHours(o.checkedAt,now)<=QUOTE_MAX_AGE_HOURS;
+  if(o.source!=="turkish"&&o.source!=="aegean")return ageHours(o.checkedAt,now)<=QUOTE_MAX_AGE_HOURS;
   const age=now.getTime()-Date.parse(o.checkedAt);
-  return Number.isFinite(age)&&age>=0&&age<3600000;
+  return Number.isFinite(age)&&age>=0&&age<(o.source==="aegean"?10*60_000:3600000);
 }
 function ageHours(checkedAt: string, now: Date): number {
   const ms = Date.parse(checkedAt);

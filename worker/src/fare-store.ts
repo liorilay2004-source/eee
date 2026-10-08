@@ -1,7 +1,7 @@
 import {DurableObject} from "cloudflare:workers";
 import {cacheRequest,publicFareMaximumAge} from "./public-fare-cache";
 import {aegeanCalendarUrl,type AegeanCalendarTrip,type AegeanCalendarFare} from "./aegean-lowfare";
-import {validateAegeanCalendar} from "./aegean-calendar-cache";
+import {AEGEAN_CALENDAR_MAX_AGE_MS,validateAegeanCalendar} from "./aegean-calendar-cache";
 import {loadRenderedAegeanCalendar} from "./aegean-lowfare-rendered";
 import type {Env} from "./types";
 /** One bounded snapshot per official page/calendar. No search logs, credentials or passengers. */
@@ -38,7 +38,7 @@ export class FareStore extends DurableObject<Record<string,unknown>> {
    try {
     const fare=await loadRenderedAegeanCalendar(bindings.BROWSER!,trip,now);
     if(!fare)return null;
-    await this.write(key,JSON.stringify({storedAt:now.getTime(),expires:now.getTime()+6*3600000,fares:[fare]}));
+    await this.write(key,JSON.stringify({storedAt:now.getTime(),expires:now.getTime()+AEGEAN_CALENDAR_MAX_AGE_MS,fares:[fare]}));
     return fare;
    }catch{return null;}
   })();

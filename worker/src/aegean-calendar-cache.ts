@@ -3,7 +3,7 @@ import {loadRenderedAegeanCalendar} from "./aegean-lowfare-rendered";
 import type {PublicFareCache} from "./public-fare-cache";
 import type {Env} from "./types";
 
-export const AEGEAN_CALENDAR_MAX_AGE_MS=6*3600000;
+export const AEGEAN_CALENDAR_MAX_AGE_MS=10*60_000;
 export async function collectAegeanCalendar(browser:NonNullable<Env["BROWSER"]>,trip:AegeanCalendarTrip,now:Date,cache:PublicFareCache,db?:D1Database) {
   const fare=await loadRenderedAegeanCalendar(browser,trip,now);
   if(fare){await cache.put(aegeanCalendarUrl(trip),[fare]);
