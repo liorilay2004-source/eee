@@ -1,10 +1,13 @@
 name: Official published fare page probe
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '6,16,26,36,46,56 * * * *'
 permissions:
   contents: read
 jobs:
   probe:
+    if: github.event_name == 'workflow_dispatch' || vars.EXTERNAL_PUBLISHED_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
