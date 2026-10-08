@@ -1,3 +1,4 @@
+import {collectByHost} from './host-queue.mjs';
 import {writeFile} from 'node:fs/promises';
 import {parsePublishedFares} from '../worker/src/sources/published-fares.ts';
 import {fareRecords} from './fare-records.mjs';
@@ -23,7 +24,8 @@ const pages=candidateMode?[
 const results=[];
 const selection=process.env.PROBE_AIRLINE;
 if(selection&&(!candidateMode||!pages.some(page=>page.airline===selection)))throw new Error('Invalid candidate selection');
-for(const page of [...new Map(pages.filter(page=>!selection||page.airline===selection).map(page=>[page.sourceUrl,page])).values()]){const now=new Date();try{
+let checkpoint=Promise.resolve();
+async function probe(page){const now=new Date();try{
  const response=await fetch(page.sourceUrl,{redirect:'manual',signal:AbortSignal.timeout(15000)});
  if(response.status!==200)throw new Error(`HTTP ${response.status}`);
  const reader=response.body.getReader();const chunks=[];let size=0;
@@ -43,5 +45,8 @@ for(const page of [...new Map(pages.filter(page=>!selection||page.airline===sele
  const result={airline:page.airline,page:page.sourceUrl,checkedAt:now.toISOString(),fares,discoveredPages};results.push(result);
  console.log(JSON.stringify({airline:page.airline,status:200,fares:fares.length,bytes:size,discoveredPages:discoveredPages.length}));
 }catch(error){results.push({airline:page.airline,error:error.message});console.log(JSON.stringify({airline:page.airline,error:error.message}));process.exitCode=1;}
-await writeFile('public-page-probe.json',JSON.stringify(results,null,2));}
+checkpoint=checkpoint.then(()=>writeFile('public-page-probe.json',JSON.stringify(results,null,2)));
+await checkpoint;}
+await collectByHost([...new Map(pages.filter(page=>!selection||page.airline===selection).map(page=>[page.sourceUrl,page])).values()],probe);
+await checkpoint;
 await writeFile('public-page-probe.json',JSON.stringify(results,null,2));
