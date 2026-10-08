@@ -43,6 +43,23 @@ availability must be verified separately; the verified initial snapshot was June
 
 ## Outstanding requirements
 
+### Public exchange-rate cache
+
+Exchange rates now have an optional hourly edge-cache entry keyed by the UTC
+request day. Fresh cache hits skip both D1 FX reads and upstream FX calls.
+Concurrent misses in one isolate share one loader promise. Rates retain the
+original source date and stale marker; invalid, future, expired or oversized
+entries are rejected. Cache failures leave the existing D1/official-source
+fallback intact. No passenger information or credentials enter this cache.
+
+An actual Wrangler runtime probe fetched Bank of Israel rates on 2026-10-08 with
+D1 deliberately unavailable. Its first load made one unsuccessful D1 read and
+one upstream call. The repeat returned identical rates in 2 ms, with zero D1
+reads and zero upstream calls. This is evidence for the FX-cache path, not a
+whole-search latency guarantee or proof that all fare sources work without D1.
+Targeted pipeline tests also verify a fare-cache hit uses public cached FX
+without querying either daily or latest stored FX.
+
 Live verification subsequently hit D1's daily **read** allowance too. The independent
 monthly read returned its metadata once, but the subsequent cached-adapter query returned
 no offers; a direct CLI read then explicitly failed with the daily row-read limit. This

@@ -153,6 +153,8 @@ export interface SearchDeps {
   tp: TravelpayoutsClient;
   /** Rates, or a loader (production: getFxRates over D1 + Bank of Israel). */
   fx: FxRates | (() => Promise<FxRates>);
+  /** Optional public-cache read: never invokes an upstream source. */
+  fxCached?: () => Promise<FxRates | null>;
   now: Date;
   resolver?: Resolver;
   /** ctx.waitUntil: persistence runs after the response is ready. Without it runSearch awaits the writes. */
@@ -663,6 +665,8 @@ async function loadFxOrFail(deps: SearchDeps): Promise<FxRates> {
  */
 async function fxForCacheHit(deps: SearchDeps): Promise<FxRates> {
   if (typeof deps.fx !== "function") return deps.fx;
+  const publicCached = deps.fxCached ? await attempt(deps.fxCached) : null;
+  if (publicCached) return publicCached;
   const today = deps.now.toISOString().slice(0, 10);
   const stored = await attempt(async () => (await deps.repo.getFxRates(today)) ?? (await deps.repo.getLatestFxRates()));
   return stored ?? loadFxOrFail(deps);

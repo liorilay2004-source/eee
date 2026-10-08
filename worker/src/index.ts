@@ -40,6 +40,7 @@ import { createRepo, pruneHistory } from "./db";
 import { loadDeals, refreshDealReport } from "./dealreports";
 import { EXPLORE_RATE_LIMIT_MAX, EXPLORE_RATE_LIMIT_WINDOW_SECONDS, ExploreError, parseExploreParams, runExplore } from "./explore";
 import { getFxRates } from "./fx";
+import { readFxCache } from "./fx-cache";
 import { handleFlightLinks } from "./flight-links";
 import { checkHealth } from "./health";
 import { handlePartyCheck, signPartyToken } from "./partycheck";
@@ -360,7 +361,8 @@ async function handleSearch(request: Request, env: Env, ctx: ExecutionContext): 
       {
         repo,
         tp,
-        fx: () => getFxRates(repo, fetchFn, now),
+        fxCached: () => readFxCache(typeof caches !== "undefined" ? caches.default : undefined, now),
+        fx: () => getFxRates(repo, fetchFn, now, typeof caches !== "undefined" ? caches.default : undefined),
         now,
         resolver: defaultResolver,
         waitUntil: (p) => ctx.waitUntil(p),
@@ -425,7 +427,7 @@ async function handleExplore(request: Request, url: URL, env: Env, ctx: Executio
           const verdict = await scanBudgetLeft(repo, now);
           return typeof verdict === "boolean" ? verdict : verdict.allowed;
         },
-        fx: () => getFxRates(repo, fetchFn, now),
+        fx: () => getFxRates(repo, fetchFn, now, typeof caches !== "undefined" ? caches.default : undefined),
         waitUntil: (p) => ctx.waitUntil(p),
       },
       parsed.params,
@@ -484,7 +486,7 @@ async function handleCalendar(request: Request, url: URL, env: Env, ctx: Executi
   };
   try {
     const body = await runCalendar(
-      { db: env.DB, tp, fx: () => getFxRates(repo, fetchFn, now), now, reserveFetch, waitUntil: (p) => ctx.waitUntil(p) },
+      { db: env.DB, tp, fx: () => getFxRates(repo, fetchFn, now, typeof caches !== "undefined" ? caches.default : undefined), now, reserveFetch, waitUntil: (p) => ctx.waitUntil(p) },
       parsed.q,
     );
     return { status: 200, body };
@@ -509,7 +511,7 @@ async function handlePartyCheckRoute(request: Request, env: Env): Promise<ApiRes
   const fetchFn: typeof fetch = (input, init) => globalThis.fetch(input, init);
   return handlePartyCheck(
     // tokenSecret: the key the search signed its cards with (handleSearch's partyToken), so only a card of a recent search is checked.
-    { repo, sources: quoteSources(env, repo, fetchFn, now), fx: () => getFxRates(repo, fetchFn, now), tokenSecret: limiterSalt(env), now, clientKey },
+    { repo, sources: quoteSources(env, repo, fetchFn, now), fx: () => getFxRates(repo, fetchFn, now, typeof caches !== "undefined" ? caches.default : undefined), tokenSecret: limiterSalt(env), now, clientKey },
     () => readJson(request),
   );
 }
@@ -677,7 +679,7 @@ export default {
       // Then the route's deal report, as of AFTER the scan (a fresh Date, not the scheduled time: see detectDeals).
       // Only D1 reads and one upsert; it runs even when the scan was skipped or failed (user searches add history too).
       ctx.waitUntil(
-        runSnapshot({ repo, tp, fx: () => getFxRates(repo, fetchFn, now), now, resolver: defaultResolver })
+        runSnapshot({ repo, tp, fx: () => getFxRates(repo, fetchFn, now, typeof caches !== "undefined" ? caches.default : undefined), now, resolver: defaultResolver })
           .then(() => refreshDealReport(env.DB, origin, destination, new Date()))
           .then(() => undefined),
       );
@@ -700,7 +702,7 @@ export default {
           tp,
           now,
           fetchFn,
-          fx: () => getFxRates(repo, fetchFn, now),
+          fx: () => getFxRates(repo, fetchFn, now, typeof caches !== "undefined" ? caches.default : undefined),
           telegram: telegramConfig(env),
           scanBudget: async () => {
             const verdict = await scanBudgetLeft(repo, now);

@@ -1,4 +1,5 @@
 import type { FxRates, Repo } from "./types";
+import { readFxCache, writeFxCache } from "./fx-cache";
 
 /**
  * FX to ILS (SPEC §4.2), mirroring engine/tpe/fx.py: Bank of Israel first, open.er-api.com as fallback, then the
@@ -151,7 +152,7 @@ async function olderDay(repo: Repo, fx: FxRates): Promise<FxRates> {
   return markStale(fx);
 }
 
-export async function getFxRates(repo: Repo, fetchFn: typeof fetch, now: Date): Promise<FxRates> {
+async function loadFxRates(repo: Repo, fetchFn: typeof fetch, now: Date): Promise<FxRates> {
   const date = now.toISOString().slice(0, 10); // rates are cached per UTC date (24h)
 
   const cached = await attempt(() => repo.getFxRates(date));
@@ -177,4 +178,24 @@ export async function getFxRates(repo: Repo, fetchFn: typeof fetch, now: Date): 
   const stale = await attempt(() => repo.getLatestFxRates());
   if (usable(stale)) return markStale(stale);
   throw new Error(`No FX rates available (${failures.join("; ")})`);
+}
+
+/** Skip D1 and upstream FX calls when a valid public edge-cache entry exists. */
+const pendingRates = new WeakMap<object, Map<string, Promise<FxRates>>>();
+export async function getFxRates(repo: Repo, fetchFn: typeof fetch, now: Date, storage?: Pick<Cache, "match" | "put">): Promise<FxRates> {
+  const hit = await readFxCache(storage, now);
+  if (hit) return hit;
+  if (!storage) return loadFxRates(repo, fetchFn, now);
+  let pending = pendingRates.get(storage);
+  if (!pending) { pending = new Map(); pendingRates.set(storage, pending); }
+  const date = now.toISOString().slice(0,10);
+  const existing = pending.get(date);
+  if (existing) return existing;
+  const work = (async () => {
+    const rates = await loadFxRates(repo, fetchFn, now);
+    await writeFxCache(storage, now, rates);
+    return rates;
+  })();
+  pending.set(date, work);
+  try { return await work; } finally { pending.delete(date); }
 }

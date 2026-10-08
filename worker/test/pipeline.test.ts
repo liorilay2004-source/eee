@@ -381,6 +381,18 @@ describe("currency (SPEC §4.2)", () => {
 });
 
 describe("cache (SPEC §7 step 2, §16)", () => {
+  it("uses public cached FX without database FX reads on a fare cache hit", async () => {
+    const {repo,deps,fx}=setup({tp:mockTp({rt:rtFor([offer(164)])})});
+    await runSearch(deps,req());
+    const today=vi.spyOn(repo,"getFxRates").mockRejectedValue(new Error("D1 unavailable"));
+    const latest=vi.spyOn(repo,"getLatestFxRates").mockRejectedValue(new Error("D1 unavailable"));
+    const result=await runSearch({...deps,fxCached:async()=>FX},req());
+    expect(result.meta.fromCache).toBe(true);
+    expect(today).not.toHaveBeenCalled();
+    expect(latest).not.toHaveBeenCalled();
+    expect(fx).toHaveBeenCalledTimes(1);
+    expect(result.cards[0]?.offer.totalIls).toBe(492);
+  });
   it("the same search twice within 6h: the second is served from D1 with zero Travelpayouts calls", async () => {
     const tp = mockTp({ rt: rtFor([offer(164)]) });
     const { db, repo, fx, deps } = setup({ tp });
