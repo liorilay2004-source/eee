@@ -15,6 +15,14 @@ it('reparses approved Hawaiian raw records preserving unknown operator and sourc
  expect((await ingestPublicFares(request({...value,checkedAt:new Date(now.getTime()-120001).toISOString()}),e.value,now)).status).toBe(400);
  expect((await ingestPublicFares(request({...value,records:[]}),e.value,now)).status).toBe(422);
 });
+it('clears removed prices only through an explicit authenticated approved-page snapshot',async()=>{
+ for(const value of [{source:'hawaiian_page',page:'https://asha.hawaiianairlines.com/en/flights-from-honolulu'},{source:'published_page',airline:'F9',page:'https://flights.flyfrontier.com/en/flights-from-denver-to-phoenix'}]){
+  const e=env(),payload={...value,records:[],checkedAt:now.toISOString(),clearIfNoPrices:true};
+  expect((await ingestPublicFares(request(payload),e.value,now)).status).toBe(200);
+  expect(JSON.parse(e.write.mock.calls[0]![1])).toMatchObject({fares:[],storedAt:now.getTime(),expires:now.getTime()+600000});
+  expect((await ingestPublicFares(request({...payload,page:'https://evil.test'}),e.value,now)).status).toBe(400);
+ }
+});
 it("keeps both observed TAP airport pairs from the same city page",async()=>{
  const e=env(),record={__typename:"Fare",originAirportCode:"TLV",destinationAirportCode:"JFK",departureDate:"2027-06-01",returnDate:"2027-06-05",totalPrice:500,currencyCode:"USD",travelClass:"ECONOMY",flightType:"ROUND_TRIP"};
  const value={source:"published_page",airline:"TP",page:"https://www.flytap.com/en_il/flights-from-tel-aviv-to-new-york",checkedAt:now.toISOString(),records:[record,{...record,destinationAirportCode:"EWR",totalPrice:450},{...record,destinationAirportCode:"LAX"}]};

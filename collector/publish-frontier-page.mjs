@@ -17,8 +17,7 @@ const reader=response.body.getReader(),chunks=[];let size=0;
 try{for(;;){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>2000000)throw new Error('Page size limit');chunks.push(part.value);}}finally{await reader.cancel();}
 const html=Buffer.concat(chunks).toString('utf8'),records=fareRecords(html);
 const fares=configs.flatMap(config=>parsePublishedFares(html,{...config,now:new Date(checkedAt)}));
-if(!fares.length)throw new Error('No explicit public prices');
-const payload=JSON.stringify({source:'published_page',airline:'F9',page,checkedAt,records});
+const payload=JSON.stringify({source:'published_page',airline:'F9',page,checkedAt,records,clearIfNoPrices:true});
 if(Buffer.byteLength(payload)>128000)throw new Error('Payload size limit');
 const published=await fetch('https://eee-api.liorilay2004.workers.dev/api/internal/public-fares',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${process.env.COLLECTOR_KEY}`},body:payload,signal:AbortSignal.timeout(15000)});
 if(!published.ok)throw Object.assign(new Error(`Ingestion HTTP ${published.status}`),{fatal:[401,403].includes(published.status)});
