@@ -5,7 +5,7 @@ export interface PublicFareCache {
 }
 const TTL_MS = 10 * 60_000;
 const MAX_BYTES = 500_000;
-const hosts = new Set(["services-api.ryanair.com", "flights.aegeanair.com", "www.aircanada.com", "www.flytap.com", "www.ethiopianairlines.com", "www.aireuropa.com", "flights.philippineairlines.com", "flights.virginatlantic.com", "www.airnewzealand.com", "www.airbaltic.com", "www.skyexpress.gr", "www.voegol.com.br", "www.copaair.com", "www.aeromexico.com", "www.klm.co.il", "www.aa.com", "www.aerlingus.com", "www.airserbia.com"]);
+const hosts = new Set(["services-api.ryanair.com", "flights.aegeanair.com", "www.aircanada.com", "www.flytap.com", "www.ethiopianairlines.com", "www.aireuropa.com", "flights.philippineairlines.com", "flights.virginatlantic.com", "www.airnewzealand.com", "www.airbaltic.com", "www.skyexpress.gr", "www.voegol.com.br", "www.avianca.com", "www.copaair.com", "www.aeromexico.com", "www.klm.co.il", "www.aa.com", "www.aerlingus.com", "www.airserbia.com"]);
 function cacheRequest(key: string): Request {
   const url = new URL(key);
   if (url.protocol !== "https:" || !hosts.has(url.hostname) || url.username || url.password || url.port || url.hash) throw new Error("Unsupported public fare source");
@@ -17,6 +17,8 @@ function cacheRequest(key: string): Request {
     if (url.search) throw new Error("Unsupported public Air Canada origin page");
   } else if (url.hostname === "www.flytap.com" && url.pathname === "/en_il/flights-from-tel-aviv") {
     if (url.search) throw new Error("Unsupported public TAP origin page");
+  } else if (url.hostname === "www.avianca.com") {
+    if (url.search || url.pathname !== "/us/en/flights-from-miami-to-cali") throw new Error("Unsupported public Avianca page");
   } else if (url.hostname === "www.copaair.com") {
     if (url.search || url.pathname !== "/en/flights-from-panama-city") throw new Error("Unsupported public Copa page");
   } else if (url.hostname === "www.aeromexico.com") {

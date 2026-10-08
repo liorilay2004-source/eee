@@ -29,3 +29,18 @@ export async function loadRenderedAvianca(browser: NonNullable<Env["BROWSER"]>, 
   if (envelope.success !== true || typeof envelope.result !== "string") throw new Error("Invalid rendering response");
   return parseAviancaCard(envelope.result, now);
 }
+import type { Repo } from "./types";
+import type { PublicFareCache } from "./public-fare-cache";
+import { matchPublishedTrip } from "./sources/published-source";
+export async function collectRenderedAvianca(deps: { env: Env; repo: Pick<Repo,"savePrices">; now: Date; cache?: PublicFareCache }) {
+  const empty = {source: "avianca", ok: true, fares: 0, saved: 0};
+  if(deps.env.AVIANCA_RENDERED_ENABLED !== "true" || !deps.env.BROWSER) return {...empty, skipped: true};
+  try {
+    const fares = await loadRenderedAvianca(deps.env.BROWSER, deps.now);
+    await deps.cache?.put(AVIANCA_PAGE, fares);
+    const offers = fares.filter(f=>f.structure === "roundtrip" && f.returnDate).flatMap(f=>matchPublishedTrip([f],{origin:f.origin,destination:f.destination,departDate:f.departDate,returnDate:f.returnDate!,party:{adults:1,children:0,infants:0}},{airline:"AV",source:"avianca"}));
+    if(!offers.length) return {...empty,ok:false};
+    if(offers.length) await deps.repo.savePrices(offers,{skipUnchangedSince:new Date(deps.now.getTime()-3_600_000).toISOString()});
+    return {...empty, fares:fares.length, saved:offers.length};
+  } catch { return {...empty,ok:false}; }
+}

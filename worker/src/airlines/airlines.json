@@ -26,6 +26,7 @@
     {"iata": "AI", "nameEn": "Air India", "nameHe": "אייר אינדיה", "lowCost": false, "heSource": "hewiki"},
     {"iata": "AM", "nameEn": "Aeromexico", "nameHe": "אירומקסיקו", "lowCost": false, "heSource": "transliteration"},
     {"iata": "AT", "nameEn": "Royal Air Maroc", "nameHe": "רויאל אייר מרוק", "lowCost": false, "heSource": "hewiki"},
+    {"iata": "AV", "nameEn": "Avianca", "nameHe": "אוויאנקה", "lowCost": false, "heSource": "transliteration"},
     {"iata": "AY", "nameEn": "Finnair", "nameHe": "פינאייר", "lowCost": false, "heSource": "hewiki"},
     {"iata": "AZ", "nameEn": "ITA Airways", "nameHe": "ITA איירווייז", "lowCost": false, "heSource": "hewiki"},
     {"iata": "B2", "nameEn": "Belavia", "nameHe": "בלאביה", "lowCost": false, "heSource": "hewiki"},
