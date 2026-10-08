@@ -93,3 +93,9 @@ describe("Copa Airlines observed economy round-trip advertisements", () => {
     expect(parsePublishedFares(html([{...observed,returnDate:observed.departureDate},{...observed,travelClass:"Business"},{...observed,originAirportCode:"DAV"}]),cm)).toEqual([]);
   });
 });
+it("accepts only explicit public Frontier economy fares and rejects club/headline prices",()=>{
+ const q={...query,airline:"F9",origin:"DEN",destination:"LAS",sourceUrl:"https://flights.flyfrontier.com/en/flights-from-denver-to-las-vegas"};
+ const ordinary={...fare,originAirportCode:"DEN",destinationAirportCode:"LAS",departureDate:"2027-01-05",totalPrice:49.98,currencyCode:"USD",travelClass:"ECONOMY",formattedTravelClass:"ECONOMY"};
+ const nodes=[ordinary,{...ordinary,travelClass:"Discount Den",formattedTravelClass:"Discount Den Basic Fare"},{...ordinary,brandedFareClass:"GoWild member fare"},{...ordinary,promoCode:"CLUB"},{...ordinary,travelClass:null},{__typename:"Fare",totalPrice:19.98,currencyCode:"USD"}];
+ expect(parsePublishedFares(html(nodes),q)).toEqual([expect.objectContaining({airline:"F9",amount:49.98,currency:"USD",departDate:"2027-01-05",structure:"oneway",returnDate:null})]);
+});

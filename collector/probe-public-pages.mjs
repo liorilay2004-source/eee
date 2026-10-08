@@ -8,6 +8,7 @@ import {parseFinnairFares} from '../worker/src/finnair-fares.ts';
 import {EXTERNAL_PUBLISHED_PAGES} from '../worker/src/external-published-catalog.ts';
 const candidateMode=process.env.PROBE_CANDIDATES==='true';
 const pages=candidateMode?[
+ {airline:'F9',origin:'DEN',destination:'LAS',sourceUrl:'https://flights.flyfrontier.com/en/flights-from-denver-to-las-vegas'},
  {airline:'B6',origin:'JFK',origins:['JFK','LGA'],destination:'MCO',sourceUrl:'https://www.jetblue.com/en/flights-from-new-york',allDestinations:true},
  {airline:'AA',origin:'LAX',destination:'MEX',sourceUrl:'https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city'},
  {airline:'KL',origin:'TLV',destination:'AMS',sourceUrl:'https://www.klm.co.il/en-il/flights-from-tel-aviv',allDestinations:true},
