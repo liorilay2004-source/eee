@@ -14,7 +14,7 @@ export interface PublishedFare {
   checkedAt: string;
   pricing: "published_advertisement";
 }
-const officialHosts: Readonly<Record<string, string>> = { A3: "flights.aegeanair.com", AC: "www.aircanada.com", TP: "www.flytap.com", ET: "www.ethiopianairlines.com", UX: "www.aireuropa.com", PR: "flights.philippineairlines.com", VS: "flights.virginatlantic.com", NZ: "www.airnewzealand.com", BT: "www.airbaltic.com", GQ: "www.skyexpress.gr", G3: "www.voegol.com.br" };
+const officialHosts: Readonly<Record<string, string>> = { A3: "flights.aegeanair.com", AC: "www.aircanada.com", TP: "www.flytap.com", ET: "www.ethiopianairlines.com", UX: "www.aireuropa.com", PR: "flights.philippineairlines.com", VS: "flights.virginatlantic.com", NZ: "www.airnewzealand.com", BT: "www.airbaltic.com", GQ: "www.skyexpress.gr", G3: "www.voegol.com.br", EI: "www.aerlingus.com" };
 const record = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v);
 const date = (v: unknown): v is string => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && Number.isFinite(Date.parse(v)) && new Date(v).toISOString().slice(0, 10) === v;
 
@@ -58,9 +58,9 @@ export function parsePublishedFares(html: string, query: { airline: string; orig
         returnDate: null, totalPrice: node.priceSpecification.totalPrice, currencyCode: node.priceSpecification.currencyCode,
         travelClass: "ECONOMY", flightType: "ONE_WAY", redemption: null };
     }
-    if (record(node) && node.__typename === "Fare" && (node.redemption == null || node.redemption === false) && (node.travelClass == null || typeof node.travelClass === "string" && (node.travelClass.toUpperCase() === "ECONOMY" || query.airline === "PR" && node.travelClass === "eco" || query.airline === "VS" && ["Economy Classic", "Economy Classic Flex"].includes(node.travelClass))) && typeof node.originAirportCode === "string" && (node.originAirportCode === query.origin || query.origins?.includes(node.originAirportCode)) && typeof node.destinationAirportCode === "string" && /^[A-Z]{3}$/.test(node.destinationAirportCode) && (query.allDestinations || node.destinationAirportCode === query.destination) && date(node.departureDate) && node.departureDate >= today && typeof node.totalPrice === "number" && Number.isFinite(node.totalPrice) && node.totalPrice > 0 && typeof node.currencyCode === "string" && /^[A-Z]{3}$/.test(node.currencyCode)) {
+    if (record(node) && node.__typename === "Fare" && (node.redemption == null || node.redemption === false) && (node.travelClass == null || typeof node.travelClass === "string" && (node.travelClass.toUpperCase() === "ECONOMY" || query.airline === "EI" && node.travelClass === "low" && node.flightType === "ONE_WAY" || query.airline === "PR" && node.travelClass === "eco" || query.airline === "VS" && ["Economy Classic", "Economy Classic Flex"].includes(node.travelClass))) && typeof node.originAirportCode === "string" && (node.originAirportCode === query.origin || query.origins?.includes(node.originAirportCode)) && typeof node.destinationAirportCode === "string" && /^[A-Z]{3}$/.test(node.destinationAirportCode) && (query.allDestinations || node.destinationAirportCode === query.destination) && date(node.departureDate) && node.departureDate >= today && typeof node.totalPrice === "number" && Number.isFinite(node.totalPrice) && node.totalPrice > 0 && typeof node.currencyCode === "string" && /^[A-Z]{3}$/.test(node.currencyCode)) {
       const isOneWay = node.flightType === "ONE_WAY" && (node.returnDate === "" || node.returnDate == null);
-      const isRoundTrip = node.flightType === "ROUND_TRIP" && date(node.returnDate) && node.returnDate > node.departureDate;
+      const isRoundTrip = query.airline !== "EI" && node.flightType === "ROUND_TRIP" && date(node.returnDate) && node.returnDate > node.departureDate;
       if (isOneWay || isRoundTrip) {
         const fare: PublishedFare = { airline: query.airline, origin: node.originAirportCode, destination: node.destinationAirportCode,
           departDate: node.departureDate, returnDate: isRoundTrip ? node.returnDate as string : null,

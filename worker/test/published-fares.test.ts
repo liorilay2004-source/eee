@@ -28,3 +28,17 @@ describe("published official airline page data", () => {
     expect(parsePublishedFares(html(invalid), query)).toEqual([]);
   });
 });
+
+describe("Aer Lingus explicitly one-way published cash fares", () => {
+  const ei = { ...query, airline: "EI", origin: "DUB", destination: "AMS", sourceUrl: "https://www.aerlingus.com/en-ie/flights-from-dublin" };
+  const oneWay = { ...fare, originAirportCode: "DUB", destinationAirportCode: "AMS", departureDate: "2027-01-26", totalPrice: 41.45, travelClass: "low" };
+  it("retains the exact observed dated one-way amount", () => {
+    expect(parsePublishedFares(html([oneWay]), ei)).toMatchObject([{ airline: "EI", origin: "DUB", destination: "AMS", departDate: "2027-01-26", amount: 41.45, currency: "EUR", structure: "oneway", returnDate: null }]);
+  });
+  it("rejects every round-trip record because visible fares can be per direction", () => {
+    expect(parsePublishedFares(html([ ...["low", "saver", "ECONOMY", null].map(travelClass => ({ ...oneWay, flightType: "ROUND_TRIP", returnDate: "2027-01-30", travelClass })) ]), ei)).toEqual([]);
+  });
+  it("does not accept unrelated routes, premium cabins or malformed returns", () => {
+    expect(parsePublishedFares(html([{ ...oneWay, originAirportCode: "ORK" }, { ...oneWay, travelClass: "BUSINESS" }, { ...oneWay, returnDate: "2027-01-30" }]), ei)).toEqual([]);
+  });
+});
