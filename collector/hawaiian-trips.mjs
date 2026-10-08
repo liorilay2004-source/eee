@@ -8,16 +8,16 @@ export function hawaiianIndex(observations,now=new Date()){
   if(row?.error||!Number.isFinite(at)||at>now.getTime())continue;
   if(!latest.has(row.page)||at>Date.parse(latest.get(row.page).fetchedAt))latest.set(row.page,row);
  }
- const byDate={};
+ const byDate={},roundTrips={};
  for(const row of latest.values()){
   if(now.getTime()-Date.parse(row.fetchedAt)>=600000)continue;
   for(const fare of hawaiianFares(row)){
-   if(fare.structure!=='oneway')continue;
-   const key=[fare.origin,fare.destination,fare.departDate].join(':');
-   (byDate[key]??=[]).push(fare);
+   const key=[fare.origin,fare.destination,fare.departDate,...(fare.structure==='roundtrip'?[fare.returnDate]:[])].join(':');
+   const target=fare.structure==='roundtrip'?roundTrips:byDate;
+   (target[key]??=[]).push(fare);
   }
  }
- return {byDate};
+ return {byDate,roundTrips};
 }
 export function hawaiianTrips(index,q,now=new Date()){
  const date=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;
@@ -25,7 +25,7 @@ export function hawaiianTrips(index,q,now=new Date()){
  const fresh=f=>Number.isFinite(Date.parse(f.fetchedAt))&&now.getTime()>=Date.parse(f.fetchedAt)&&now.getTime()-Date.parse(f.fetchedAt)<600000;
  const outs=(index.byDate?.[[q.origin,q.destination,q.departDate].join(':')]??[]).filter(fresh);
  const backs=(index.byDate?.[[q.destination,q.origin,q.returnDate].join(':')]??[]).filter(fresh);
- const trips=[];
+ const trips=(index.roundTrips?.[[q.origin,q.destination,q.departDate,q.returnDate].join(':')]??[]).filter(fresh).map(fare=>({...q,amount:fare.amount,currency:fare.currency,offer:fare,sourceUrl:fare.sourceUrl,structure:'roundtrip',operator:null,checkoutVerified:false,ancillaryFeesKnown:false,pricing:'published_advertisement',priceAgeKnown:!!fare.upstreamPriceAge}));
  for(const outbound of outs)for(const inbound of backs){
   if(outbound.currency!==inbound.currency)continue;
   trips.push({...q,amount:Math.round((outbound.amount+inbound.amount)*100)/100,currency:outbound.currency,outbound,inbound,structure:'split',operator:null,checkoutVerified:false,ancillaryFeesKnown:false,pricing:'published_advertisement',priceAgeKnown:!!outbound.upstreamPriceAge&&!!inbound.upstreamPriceAge});

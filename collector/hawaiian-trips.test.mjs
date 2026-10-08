@@ -23,3 +23,12 @@ test('a newer empty successful page removes old advertised prices without renewi
  assert.equal(Object.values(index.byDate).flat()[0].fetchedAt,row.fetchedAt);
  assert.deepEqual(hawaiianTrips(index,q,new Date(now.getTime()+600000)),[]);
 });
+test('compares whole return-ticket advertisements with independent tickets without dividing prices',()=>{
+ const roundtrip={...fare,flightType:'ROUND_TRIP',returnDate:q.returnDate,totalPrice:200};
+ const index=hawaiianIndex([{...row,records:[...row.records,roundtrip]}],now);
+ const trips=hawaiianTrips(index,q,now);
+ assert.deepEqual(trips.map(t=>[t.structure,t.amount]),[['roundtrip',200],['split',234.1]]);
+ assert.equal(trips[0].sourceUrl,row.page);
+ assert.deepEqual(hawaiianTrips(index,{...q,returnDate:'2027-02-04'},now),[]);
+ assert.deepEqual(hawaiianTrips(index,q,new Date(now.getTime()+600000)),[]);
+});
