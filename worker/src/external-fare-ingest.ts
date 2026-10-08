@@ -1,6 +1,9 @@
 import {keyMatches} from "./access";
 import {parseLhgAdvertisements} from "./brussels-advertisements";
 import {EXTERNAL_FARE_PAGES} from "./external-fare-catalog";
+import {parseRyanairCalendar,ryanairCalendarUrl} from "./sources/ryanair-direct";
+import {parseAirSerbiaCalendar} from "./airserbia-calendar";
+import {airSerbiaCalendarUrl} from "./sources/airserbia-direct";
 import {cacheRequest,createPublicFareCache} from "./public-fare-cache";
 import type {Env} from "./types";
 const TTL=600000;
@@ -21,6 +24,18 @@ export async function ingestPublicFares(request:Request,env:Env,now=new Date()):
  if(!raw||typeof raw!=="object"||Array.isArray(raw))return reply(400,{error:"invalid_payload"});
  const v=raw as Record<string,unknown>,entry=EXTERNAL_FARE_PAGES.find(p=>p.source===v.source&&p.page===v.page);
  const at=typeof v.checkedAt==="string"?Date.parse(v.checkedAt):NaN,age=now.getTime()-at;
+ if(v.source==="ryanair"||v.source==="air_serbia"){
+  if(!Number.isFinite(age)||age<0||age>120000||typeof v.origin!=="string"||typeof v.destination!=="string"||typeof v.month!=="string"||!/^\d{4}-(0[1-9]|1[0-2])$/.test(v.month))return reply(400,{error:"invalid_payload"});
+  let page:string,fares:unknown[];
+  try{
+   page=v.source==="ryanair"?ryanairCalendarUrl(v.origin,v.destination,v.month):airSerbiaCalendarUrl(v.origin,v.destination,`${v.month}-01`);
+   if(page!==v.page)return reply(400,{error:"invalid_payload"});
+   fares=v.source==="ryanair"?parseRyanairCalendar(v.body,v.origin,v.destination,v.month,new Date(at)):parseAirSerbiaCalendar(v.body,{origin:v.origin,destination:v.destination,year:Number(v.month.slice(0,4)),month:Number(v.month.slice(5)),now:new Date(at)});
+  }catch{return reply(400,{error:"invalid_payload"});}
+  if(!fares.length||fares.length>31)return reply(422,{error:"no_valid_prices"});
+  try{await env.PUBLIC_FARES.getByName(cacheRequest(page).url).write(page,JSON.stringify({storedAt:at,expires:at+TTL,fares}));}catch{return reply(503,{error:"storage_unavailable"});}
+  return reply(200,{source:v.source,fares:fares.length,checkedAt:new Date(at).toISOString()});
+ }
  if(!entry||!Number.isFinite(age)||age<0||age>120000||!Array.isArray(v.anchors)||v.anchors.length>500)return reply(400,{error:"invalid_payload"});
  const anchors:{text:string;url:string}[]=[];
  for(const item of v.anchors){if(!item||typeof item!=="object"||typeof item.text!=="string"||item.text.length>2000||typeof item.url!=="string"||item.url.length>1000)return reply(400,{error:"invalid_payload"});anchors.push({text:item.text,url:item.url});}

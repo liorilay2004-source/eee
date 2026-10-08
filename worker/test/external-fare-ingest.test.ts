@@ -6,6 +6,18 @@ import type {Env} from "../src/types";
 const now=new Date("2026-10-08T06:30:00Z"),key="a".repeat(64),entry=EXTERNAL_FARE_PAGES[0];
 const body={source:entry.source,page:entry.page,checkedAt:now.toISOString(),anchors:[{text:"From 304 EUR",url:"https://www.lufthansa.com/aircore/deeplink/redirect/en/gr/ATH/TLV/05.06.2027/19.06.2027/RT"}]};
 const request=(value:unknown=body,token=key)=>new Request("https://example.com/api/internal/public-fares",{method:"POST",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:JSON.stringify(value)});
+it("ingests parsed official Ryanair calendars and rejects mismatched URLs",async()=>{
+ const e=env(),value={source:"ryanair",origin:"ATH",destination:"FCO",month:"2027-06",page:"https://services-api.ryanair.com/farfnd/v4/oneWayFares/ATH/FCO/cheapestPerDay?outboundMonthOfDate=2027-06-01&currency=EUR",checkedAt:now.toISOString(),body:{outbound:{fares:[{day:"2027-06-01",departureDate:"2027-06-01T10:00:00",price:{value:42,currencyCode:"EUR"}}]}}};
+ expect((await ingestPublicFares(request(value),e.value,now)).status).toBe(200);
+ expect(JSON.parse(e.write.mock.calls[0]![1]).fares[0]).toMatchObject({airline:"FR",amount:42,checkedAt:now.toISOString()});
+ expect((await ingestPublicFares(request({...value,page:"https://evil.example"}),e.value,now)).status).toBe(400);
+});
+it("ingests matching Air Serbia calendars without inventing flight times",async()=>{
+ const e=env(),value={source:"air_serbia",origin:"BEG",destination:"ATH",month:"2027-06",page:"https://www.airserbia.com/api/destination/flight-prices/BEG/ATH?year=2027&month=6&pos=GLOBAL",checkedAt:now.toISOString(),body:{origin:"BEG",destination:"ATH",year:2027,month:6,source:"db",prices:{"2027-06-01":{price:55,currency:"EUR",soldOut:false}}}};
+ expect((await ingestPublicFares(request(value),e.value,now)).status).toBe(200);
+ expect(JSON.parse(e.write.mock.calls[0]![1]).fares[0]).toMatchObject({airline:"JU",amount:55});
+ expect((await ingestPublicFares(request({...value,body:{...value.body,origin:"TLV"}}),e.value,now)).status).toBe(422);
+});
 function env(){const write=vi.fn().mockResolvedValue(undefined),read=vi.fn().mockResolvedValue(null);return {write,read,value:{COLLECTOR_KEY:key,PUBLIC_FARES:{getByName:()=>({write,read})}} as unknown as Env};}
 it("authenticates before consuming body or writing",async()=>{const e=env();expect((await ingestPublicFares(request(body,"b".repeat(64)),e.value,now)).status).toBe(401);expect(e.write).not.toHaveBeenCalled();});
 it("fails closed without collector configuration",async()=>{expect((await ingestPublicFares(request(),{} as Env,now)).status).toBe(503);});

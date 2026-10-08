@@ -14,6 +14,14 @@ for (const target of targets) {
     const reader=response.body.getReader();let size=0;const chunks=[];
     try {for(;;){const chunk=await reader.read();if(chunk.done)break;size+=chunk.value.length;if(size>100000){await reader.cancel();throw new Error('Response too large');}chunks.push(chunk.value);}}finally{reader.releaseLock();}
     const body=JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    if(process.env.COLLECTOR_KEY){
+      if(!/^[a-f0-9]{64}$/.test(process.env.COLLECTOR_KEY))throw new Error('Invalid collector configuration');
+      const route=new URL(target.url).pathname.split('/');
+      const origin=target.source==='ryanair'?route[4]:route[4],destination=route[5];
+      const published=await fetch('https://eee-api.liorilay2004.workers.dev/api/internal/public-fares',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${process.env.COLLECTOR_KEY}`},body:JSON.stringify({source:target.source,page:target.url,origin,destination,month:'2027-06',checkedAt,body}),signal:AbortSignal.timeout(15000)});
+      if(!published.ok)throw new Error(`Ingestion HTTP ${published.status}`);
+      const accepted=await published.json();console.log(JSON.stringify({source:target.source,publishedFares:accepted.fares,checkedAt:accepted.checkedAt}));
+    }
     const result={...target,checkedAt,status:200,body};results.push(result);
     console.log(JSON.stringify({source:target.source,url:target.url,status:200,bytes:size,checkedAt}));
   } catch(error) {
