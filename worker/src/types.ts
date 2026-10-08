@@ -571,6 +571,8 @@ export interface Repo {
 }
 
 export interface Env {
+  COLLECTOR_KEY?: string;
+  EXTERNAL_LHG_COLLECTOR?: string;
   PUBLIC_FARES?: import("./shared-fare-cache").FareStoreNamespace;
   DB: D1Database;
   BROWSER?: { quickAction(action: "content", options: { url: string; gotoOptions: { waitUntil: "networkidle2" | "domcontentloaded"; timeout: number }; waitForSelector?: { selector: string; timeout: number }; waitForTimeout?: number; rejectResourceTypes: string[] }): Promise<Response> };

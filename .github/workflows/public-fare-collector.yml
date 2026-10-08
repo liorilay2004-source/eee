@@ -1,0 +1,30 @@
+name: Public airline fare collector
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '7,17,27,37,47,57 * * * *'
+permissions:
+  contents: read
+concurrency:
+  group: public-fare-collector
+  cancel-in-progress: false
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: collector
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: collector/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: node collect.mjs
+        env:
+          COLLECTOR_ENDPOINT: https://eee-api.liorilay2004.workers.dev/api/internal/public-fares
+          COLLECTOR_KEY: ${{ secrets.COLLECTOR_KEY }}

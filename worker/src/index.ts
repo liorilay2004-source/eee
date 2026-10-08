@@ -1,3 +1,4 @@
+import {ingestPublicFares,externalLhgCache} from "./external-fare-ingest";
 import {getOrCollectAegean} from "./aegean-on-demand";
 export {FareStore} from "./fare-store";
 import {createSharedFareCache} from "./shared-fare-cache";
@@ -283,13 +284,15 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
   const serpApi = secret(env.SERPAPI_KEY);
   const duffel = secret(env.DUFFEL_API_TOKEN);
   const hasData = secret(env.HASDATA_API_KEY);
+  const lhgCache=externalLhgCache(env,now)??publicCache;
+  const lhgDb=env.EXTERNAL_LHG_COLLECTOR==="true"?undefined:env.DB;
   const providers = [
     env.FINNAIR_RENDERED_ENABLED === "true" ? createFinnairCachedSource(publicCache, env.DB, now) : null,
-    env.AUSTRIAN_RENDERED_ENABLED === "true" ? createAustrianCachedSource(now, publicCache, env.DB) : null,
-    env.SWISS_RENDERED_ENABLED === "true" ? createSwissCachedSource(now, publicCache, env.DB) : null,
+    env.AUSTRIAN_RENDERED_ENABLED === "true" ? createAustrianCachedSource(now, lhgCache, lhgDb) : null,
+    env.SWISS_RENDERED_ENABLED === "true" ? createSwissCachedSource(now, lhgCache, lhgDb) : null,
     env.TURKISH_RENDERED_ENABLED === "true" ? createTurkishCachedSource(now, publicCache) : null,
-    env.LUFTHANSA_RENDERED_ENABLED === "true" ? createLufthansaCachedSource(now, publicCache, env.DB) : null,
-    env.BRUSSELS_RENDERED_ENABLED === "true" ? createBrusselsCachedSource(now, publicCache, env.DB) : null,
+    env.LUFTHANSA_RENDERED_ENABLED === "true" ? createLufthansaCachedSource(now, lhgCache, lhgDb) : null,
+    env.BRUSSELS_RENDERED_ENABLED === "true" ? createBrusselsCachedSource(now, lhgCache, lhgDb) : null,
     env.ICELANDAIR_RENDERED_ENABLED === "true" ? createIcelandairCachedSource(publicCache) : null,
     env.EUROWINGS_RENDERED_ENABLED === "true" ? createEurowingsCachedSource(env.DB, now, publicCache) : null,
     env.NORWEGIAN_RENDERED_ENABLED === "true" ? createNorwegianCachedSource(env.DB, now, publicCache) : null,
@@ -690,10 +693,10 @@ export default {
       if(env.TURKISH_RENDERED_ENABLED==="true" && env.BROWSER && typeof caches!=="undefined") browserJobs.push(()=>collectTurkishFares(env.BROWSER!,createSharedFareCache(env.PUBLIC_FARES,caches.default,now,BACKGROUND_FARE_TTL_MS),now).then(fares=>console.log("Turkish public collection:",JSON.stringify({fares}))));
       if(env.AEGEAN_PUBLISHED_ENABLED==="true"&&now.getUTCHours()%12===5&&typeof caches!=="undefined")browserJobs.push(()=>collectRecentAegeanCalendar(env,now,createSharedFareCache(env.PUBLIC_FARES,caches.default,now,6*3600000)).then(result=>console.log("Aegean exact calendar collection:",JSON.stringify(result))));
       if (now.getUTCHours() % 6 === 4) browserJobs.push(() => collectRenderedEurowings({env, now, destination: now.getUTCHours() % 12 === 4 ? "DUS" : "ATH", cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined}).then(result => console.log("Eurowings collection:", JSON.stringify(result))));
-      if (env.AUSTRIAN_RENDERED_ENABLED === "true" && now.getUTCHours() % 12 === 11) browserJobs.push(() => collectRenderedAustrian({env,now,cache:typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default,now,BACKGROUND_FARE_TTL_MS) : undefined}).then(result => console.log("Austrian collection:",JSON.stringify(result))));
-      if (env.SWISS_RENDERED_ENABLED === "true" && now.getUTCHours() % 12 === 9) browserJobs.push(() => collectRenderedSwiss({env,now,cache:typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default,now,BACKGROUND_FARE_TTL_MS) : undefined}).then(result => console.log("SWISS collection:",JSON.stringify(result))));
-      if (now.getUTCHours() % 12 === 7) browserJobs.push(() => collectRenderedLufthansa({ env, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Lufthansa collection:", JSON.stringify(result))));
-      if (now.getUTCHours() % 12 === 6) browserJobs.push(() => collectRenderedBrussels({ env, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Brussels collection:", JSON.stringify(result))));
+      if (env.EXTERNAL_LHG_COLLECTOR!=="true" && env.AUSTRIAN_RENDERED_ENABLED === "true" && now.getUTCHours() % 12 === 11) browserJobs.push(() => collectRenderedAustrian({env,now,cache:typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default,now,BACKGROUND_FARE_TTL_MS) : undefined}).then(result => console.log("Austrian collection:",JSON.stringify(result))));
+      if (env.EXTERNAL_LHG_COLLECTOR!=="true" && env.SWISS_RENDERED_ENABLED === "true" && now.getUTCHours() % 12 === 9) browserJobs.push(() => collectRenderedSwiss({env,now,cache:typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default,now,BACKGROUND_FARE_TTL_MS) : undefined}).then(result => console.log("SWISS collection:",JSON.stringify(result))));
+      if (env.EXTERNAL_LHG_COLLECTOR!=="true" && now.getUTCHours() % 12 === 7) browserJobs.push(() => collectRenderedLufthansa({ env, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Lufthansa collection:", JSON.stringify(result))));
+      if (env.EXTERNAL_LHG_COLLECTOR!=="true" && now.getUTCHours() % 12 === 6) browserJobs.push(() => collectRenderedBrussels({ env, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Brussels collection:", JSON.stringify(result))));
       if (now.getUTCHours() % 6 === 2) browserJobs.push(() => collectRenderedIcelandair({ env, repo, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Icelandair collection:", JSON.stringify(result))));
       if (env.NORWEGIAN_RENDERED_ENABLED === "true") browserJobs.push(() => collectNorwegianMonth(env, norwegianCollectionMonth(now), now, typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined).then(result => console.log("Norwegian collection:", JSON.stringify(result))).catch(() => console.error("Norwegian collection unavailable")));
       if (now.getUTCHours() === 3) browserJobs.push(() => collectRenderedIberia({ env, repo, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Iberia collection:", JSON.stringify(result))));
@@ -756,6 +759,7 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     let cors: Record<string, string> = {};
     try {
+      if(new URL(request.url).pathname==="/api/internal/public-fares")return await ingestPublicFares(request,env);
       cors = corsHeaders(request, env);
       // The private-use lock comes before everything else: no rate-limit row, D1 read or cache lookup for a refused request.
       // Its answers carry the CORS headers too, so the web can read them.

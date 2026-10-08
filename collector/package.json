@@ -1,0 +1,8 @@
+{
+  "name": "eee-public-fare-collector",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "playwright": "^1.58.2"
+  }
+}
