@@ -1,6 +1,8 @@
 import {writeFile} from 'node:fs/promises';
 import {parsePublishedFares} from '../worker/src/sources/published-fares.ts';
 import {fareRecords} from './fare-records.mjs';
+import {parseIberiaFares} from '../worker/src/iberia-fares.ts';
+import {parseFinnairFares} from '../worker/src/finnair-fares.ts';
 import {EXTERNAL_PUBLISHED_PAGES} from '../worker/src/external-published-catalog.ts';
 const candidateMode=process.env.PROBE_CANDIDATES==='true';
 const pages=candidateMode?[
@@ -10,6 +12,8 @@ const pages=candidateMode?[
  {airline:'CM',origin:'PTY',destination:'MCO',sourceUrl:'https://www.copaair.com/en/flights-from-panama-city',allDestinations:true},
  {airline:'FI',origin:'LHR',origins:['LHR','LGW'],destination:'KEF',sourceUrl:'https://www.icelandair.com/en-gb/flights/flights-from-london-to-iceland'},
  {airline:'TK',origin:'IST',destination:'ATH',sourceUrl:'https://www.turkishairlines.com/en/flights-from-istanbul-to-athens'},
+ {airline:'IB',origin:'MAD',destination:'TLV',sourceUrl:'https://www.iberia.com/es/cheap-flights/Madrid-Tel-Aviv/'},
+ {airline:'AY',origin:'HEL',destination:'ATH',sourceUrl:'https://www.finnair.com/en/flights/from/hel/flights-from-Helsinki'},
 ]:EXTERNAL_PUBLISHED_PAGES;
 const results=[];
 const selection=process.env.PROBE_AIRLINE;
@@ -18,9 +22,9 @@ for(const page of pages.filter(page=>!selection||page.airline===selection)){cons
  const response=await fetch(page.sourceUrl,{redirect:'manual',signal:AbortSignal.timeout(15000)});
  if(response.status!==200)throw new Error(`HTTP ${response.status}`);
  const reader=response.body.getReader();const chunks=[];let size=0;
- try{for(;;){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>(page.airline==='AA'?3000000:2000000)){await reader.cancel();throw new Error('Response too large');}chunks.push(part.value);}}finally{reader.releaseLock();}
+ try{for(;;){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>(page.airline==='AY'?4000000:page.airline==='AA'?3000000:2000000)){await reader.cancel();throw new Error('Response too large');}chunks.push(part.value);}}finally{reader.releaseLock();}
  const html=Buffer.concat(chunks).toString('utf8');
- const fares=parsePublishedFares(html,{...page,now});
+ const fares=page.airline==='IB'?parseIberiaFares(html,now):page.airline==='AY'?parseFinnairFares(html,now):parsePublishedFares(html,{...page,now});
  if(process.env.COLLECTOR_KEY&&!candidateMode){
   if(!/^[a-f0-9]{64}$/.test(process.env.COLLECTOR_KEY))throw new Error('Invalid collector configuration');
   const payload=JSON.stringify({source:'published_page',airline:page.airline,page:page.sourceUrl,checkedAt:now.toISOString(),records:fareRecords(html)});
