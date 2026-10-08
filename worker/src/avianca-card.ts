@@ -17,6 +17,11 @@ export function parseAviancaCard(html: string, now: Date): PublishedFare[] {
   const currency=/class="hh-rtcard-currency"[^>]*>(USD)<\/span>/.exec(card)?.[1];
   const amountText=/class="hh-rtcard-amount"[^>]*>(\d+(?:\.\d{1,2})?)<\/span>/.exec(card)?.[1];
   const amount=Number(amountText);
+  const visible=clean.replace(/<[^>]*>/g," ").replace(/\s+/g," ");
+  const minimumText=/Round trip from (\d+(?:\.\d{1,2})?) USD/.exec(visible)?.[1];
+  const minimum=Number(minimumText);
+  // React may insert the return date before replacing the outbound-only amount.
+  if(minimumText && Number.isFinite(minimum) && amount < minimum) return [];
   if(dates.length!==2 || !dates[0] || !dates[1] || dates[1]<=dates[0] || dates[0]<now.toISOString().slice(0,10) || currency!=="USD" || !amountText || !Number.isFinite(amount) || amount<=0 || !/class="hh-rtcard-cta"[^>]*>Book now<\/button>/.test(card)) return [];
   return [{airline:"AV",origin:"MIA",destination:"CLO",departDate:dates[0],returnDate:dates[1],amount,currency,structure:"roundtrip",sourceUrl:AVIANCA_PAGE,checkedAt:now.toISOString(),pricing:"published_advertisement"}];
 }

@@ -256,3 +256,19 @@ expired departures and scripts are rejected. Three tests and typecheck pass.
 A later real parser/render repeat timed out with error 6002 and yielded no card;
 production integration remains pending until repeatable rendering and collection
 are verified. No Avianca source or scheduled browser usage was enabled yet.
+
+## Avianca loading-state correction — 2026-10-08
+
+Using domcontentloaded plus a selector for the second date returned earlier than
+networkidle2, but exposed an inconsistent React loading state: both dates were
+present while the card still showed the outbound-only USD 165. The same page's
+round-trip minimum was USD 330. The parser now rejects a card priced below that
+explicit visible route minimum; it never turns the minimum itself into an offer.
+A regression test covers this observed partial state. Four tests and typecheck pass.
+
+A subsequent content action with domcontentloaded, the second-date selector and a
+two-second settling delay returned a complete card. The actual repository parser
+successfully extracted MIA–CLO November 7–14 2026 USD 330 from the real hosted
+browser response. This proves the parser against real rendered markup. The
+fixed delay alone is not a guarantee of readiness; the consistency guard remains
+necessary. Runtime collection/source integration is still pending.

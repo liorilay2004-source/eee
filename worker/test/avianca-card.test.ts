@@ -7,6 +7,11 @@ describe("Avianca complete rendered cash card",()=>{
  it("rejects partial outbound cards, expired dates, miles and malformed calendar dates",()=>{
   for(const text of [observed.replace('Sat, Nov 14, 2026','Select return'),observed.replace('USD','Miles'),observed.replace('Nov 07, 2026','Nov 07, 2025'),observed.replace('Nov 14, 2026','Nov 31, 2026'),observed.replace('>330<','>0<')])expect(parseAviancaCard(text,now)).toEqual([]);
  });
+ it("rejects the observed loading state with two dates but the outbound-only amount",()=>{
+  const header="<div>Round trip from 330 USD</div>";
+  expect(parseAviancaCard(header+observed.replace(">330<",">165<"),now)).toEqual([]);
+  expect(parseAviancaCard(header+observed,now)).toHaveLength(1);
+ });
  it("does not use headline, JSON-LD minima or script-generated fake markup",()=>{
   expect(parseAviancaCard('Round trip from 330 USD',now)).toEqual([]);
   expect(parseAviancaCard(`<script>${observed}</script>`,now)).toEqual([]);
