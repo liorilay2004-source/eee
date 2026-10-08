@@ -2,6 +2,7 @@
   "_comment": "Airlines that fly (or flew, before October 2023) scheduled or charter passenger flights at TLV and ETM, plus the sister AOCs that sell under the same brand (Wizz Air W4/W9, Ryanair RK/MW/LW, easyJet EC, Transavia TO). A code missing here is shown as the bare code, never a guessed name. Edit with care: worker/test/airlines.test.ts checks the shape.",
   "retrieved": "2026-09-29",
   "sources": [
+    "GOL name and airline source: https://www.voegol.com.br/en/flights-from-sao-paulo; low-cost operations: https://ri.voegol.com.br/en/esg/executive-officers-and-board-of-directors/ (checked 2026-10-08).",
     "Carrier list: English Wikipedia 'Ben Gurion Airport' (section 'Airlines and destinations', current revision and the revision of 2023-09-14) and 'Ramon Airport' (current revision). Wikipedia text is CC BY-SA 4.0. The IAA flight board (iaa.gov.il) is the primary source those tables cite.",
     "IATA codes: the infobox of each carrier's English Wikipedia article.",
     "nameHe with heSource 'hewiki': the title of the carrier's Hebrew Wikipedia article (interlanguage link), with disambiguation parentheses removed. heSource 'transliteration': no Hebrew article exists, the name is a plain Hebrew transliteration of the brand.",
@@ -10,6 +11,7 @@
     "NZ added for the Air New Zealand official published-fare adapter on 2026-10-08: code/English brand from the bundled OpenFlights airline reference; verified official fare page https://www.airnewzealand.com/flights/en-us/flights-from-los-angeles. Hebrew brand is a transliteration."
   ],
   "airlines": [
+    {"iata": "G3", "nameEn": "GOL", "nameHe": "גול", "lowCost": true, "heSource": "transliteration"},
     {"iata": "2S", "nameEn": "Southwind Airlines", "nameHe": "סאות'ווינד", "lowCost": false, "heSource": "transliteration"},
     {"iata": "4O", "nameEn": "Air Montenegro", "nameHe": "אייר מונטנגרו", "lowCost": false, "heSource": "transliteration"},
     {"iata": "5F", "nameEn": "FlyOne", "nameHe": "פליי וואן", "lowCost": true, "heSource": "hewiki"},
