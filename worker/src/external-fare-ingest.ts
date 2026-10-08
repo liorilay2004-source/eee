@@ -6,6 +6,7 @@ import {parseAirSerbiaCalendar} from "./airserbia-calendar";
 import {airSerbiaCalendarUrl} from "./sources/airserbia-direct";
 import {EXTERNAL_PUBLISHED_PAGES} from "./external-published-catalog";
 import {parsePublishedFares} from "./sources/published-fares";
+import {parseIberiaFares} from "./iberia-fares";
 import {cacheRequest,createPublicFareCache} from "./public-fare-cache";
 import type {Env} from "./types";
 const TTL=600000;
@@ -30,9 +31,9 @@ export async function ingestPublicFares(request:Request,env:Env,now=new Date()):
   const page=EXTERNAL_PUBLISHED_PAGES.find(p=>p.airline===v.airline&&p.sourceUrl===v.page);
   if(!page)return reply(400,{error:"unapproved_page"});
   if(!Number.isFinite(age)||age<0||age>120000)return reply(400,{error:"invalid_observation_time"});
-  if(!Array.isArray(v.records)||v.records.length>500)return reply(400,{error:"invalid_records"});
+  if(page.airline==="IB"?typeof v.html!=="string"||v.html.length>120000:!Array.isArray(v.records)||v.records.length>500)return reply(400,{error:"invalid_records"});
   let fares;
-  try{const data=JSON.stringify(v.records).replace(/</g,"\\u003c");fares=parsePublishedFares(`<script id="__NEXT_DATA__">${data}</script>`,{...page,now:new Date(at)});}catch{return reply(400,{error:"invalid_page_records"});}
+  try{if(page.airline==="IB")fares=parseIberiaFares(v.html as string,new Date(at));else{const data=JSON.stringify(v.records).replace(/</g,"\\u003c");fares=parsePublishedFares(`<script id="__NEXT_DATA__">${data}</script>`,{...page,now:new Date(at)});}}catch{return reply(400,{error:"invalid_page_records"});}
   if(!fares.length)return reply(422,{error:"no_valid_prices"});
   try{await env.PUBLIC_FARES.getByName(cacheRequest(page.sourceUrl).url).write(page.sourceUrl,JSON.stringify({storedAt:at,expires:at+TTL,fares}));}catch{return reply(503,{error:"storage_unavailable"});}
   return reply(200,{source:v.source,airline:page.airline,fares:fares.length,checkedAt:new Date(at).toISOString()});

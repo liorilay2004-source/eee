@@ -27,7 +27,8 @@ for(const page of pages.filter(page=>!selection||page.airline===selection)){cons
  const fares=page.airline==='IB'?parseIberiaFares(html,now):page.airline==='AY'?parseFinnairFares(html,now):parsePublishedFares(html,{...page,now});
  if(process.env.COLLECTOR_KEY&&!candidateMode){
   if(!/^[a-f0-9]{64}$/.test(process.env.COLLECTOR_KEY))throw new Error('Invalid collector configuration');
-  const payload=JSON.stringify({source:'published_page',airline:page.airline,page:page.sourceUrl,checkedAt:now.toISOString(),records:fareRecords(html)});
+  const content=page.airline==='IB'?{html:[...html.replace(/<script\b[\s\S]*?<\/script>/gi,'').replace(/<style\b[\s\S]*?<\/style>/gi,'').matchAll(/<article\b[^>]*>[\s\S]*?<\/article>/gi)].map(match=>match[0]).join('')}:{records:fareRecords(html)};
+  const payload=JSON.stringify({source:'published_page',airline:page.airline,page:page.sourceUrl,checkedAt:now.toISOString(),...content});
   if(Buffer.byteLength(payload)>128000)throw new Error('Ingest payload too large');
   const published=await fetch('https://eee-api.liorilay2004.workers.dev/api/internal/public-fares',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${process.env.COLLECTOR_KEY}`},body:payload,signal:AbortSignal.timeout(15000)});
   if(!published.ok){const rejected=await published.json().catch(()=>({}));throw new Error(`Ingestion HTTP ${published.status}: ${typeof rejected.error==='string'&&/^[a-z_]+$/.test(rejected.error)?rejected.error:'unknown'}`);}

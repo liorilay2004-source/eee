@@ -12,4 +12,5 @@ export const EXTERNAL_PUBLISHED_PAGES=[
  {airline:'ET',origin:'TLV',destination:'BKK',sourceUrl:'https://www.ethiopianairlines.com/en-il/',allDestinations:true},
  {airline:'CM',origin:'PTY',destination:'MCO',sourceUrl:'https://www.copaair.com/en/flights-from-panama-city',allDestinations:true},
  {airline:'AA',origin:'LAX',destination:'MEX',sourceUrl:'https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city'},
+ {airline:'IB',origin:'MAD',destination:'TLV',sourceUrl:'https://www.iberia.com/es/cheap-flights/Madrid-Tel-Aviv/'},
 ];
