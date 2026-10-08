@@ -41,3 +41,24 @@ and are rejected after 36 hours. Scheduled collection runs at 06/18 UTC inside t
 existing browser queue, which keeps its limit of two concurrent browser jobs.
 Future scheduled runs and a complete production search remain unverified while
 the production D1 daily read allowance is exhausted.
+
+## Tel Aviv coverage investigation
+
+On 2026-10-08, ordinary browser navigation verified the official outbound pages:
+
+- https://www.brusselsairlines.com/lhg/be/en/o-d/cy-cy/tel-aviv-brussels
+- https://www.brusselsairlines.com/lhg/il/en/o-d/cy-cy/tel-aviv-brussels
+
+Both displayed TLV–BRU schedules and an ordinary search form, but no dated price
+calendar or priced advertisement anchors. Switching to Israel used the page's
+visible Change country link; no market or currency was inferred from geography.
+Opening the date picker produced an ordinary two-month date selector, not prices.
+Attempting the site's Find flights flow led to a Security Check browser verification
+page. No challenge was solved or bypassed, and no security cookies were extracted.
+The search did not produce verified prices or verified selected dates. Thus neither
+outbound TLV–BRU fares nor the June 1–5 pair is enabled by this adapter. Reverse
+BRU–TLV marketing prices in a search index cannot supply outbound TLV–BRU fares.
+
+Next integration step for outbound coverage requires an ordinary booking flow that
+returns actual fare data, or an authorized distribution API. The BRU–ATH collector
+remains a separate verified source with its explicitly limited observed coverage.
