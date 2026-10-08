@@ -260,13 +260,16 @@ function baseIls(fx: FxRates, o: Offer): number {
 }
 
 /** Copy with the price multiplied to the whole party; derived fields reset so the copy is RAW. */
+const sourcePriceTags = (tags: unknown): string[] => Array.isArray(tags)
+  ? [...new Set(tags.filter((tag): tag is string => tag === "published_advertisement" || tag === "advertised_calendar_price"))]
+  : [];
 function scaledCopy(o: Offer, factor: number): Offer {
   return {
     ...cloneOffer(o),
     priceAmount: round2(o.priceAmount * factor),
     extrasAmountIls: 0,
     totalIls: null,
-    tags: [],
+    tags: sourcePriceTags(o.tags),
   };
 }
 
@@ -340,7 +343,7 @@ export function sanitizeOffers(raw: unknown, sources: readonly string[] = SOURCE
       ...vendorTimes(v.fareFoundAt, v.fareExpiresAt, "fareFoundAt", "fareExpiresAt"),
       extrasAmountIls: 0,
       totalIls: null,
-      tags: [],
+      tags: sourcePriceTags(v.tags),
     });
   }
   return out;

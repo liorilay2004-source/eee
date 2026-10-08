@@ -86,7 +86,7 @@ export function createRyanairDirectSource(now: Date, fetchFn: typeof fetch = fet
         ticketStructure: "split", outbound: leg(out), inbound: leg(back), includes: {},
         deeplink: "https://www.ryanair.com/", returnDeeplink: "https://www.ryanair.com/", verifyLink: null,
         checkedAt: out.checkedAt < back.checkedAt ? out.checkedAt : back.checkedAt,
-        totalIls: null, extrasAmountIls: 0, tags: ["advertised_calendar_price"] }];
+        totalIls: null, extrasAmountIls: 0, tags: ["published_advertisement", "advertised_calendar_price"] }];
     },
   };
 }

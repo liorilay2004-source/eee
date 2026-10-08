@@ -1103,6 +1103,10 @@ describe("price context and card metadata (SPEC §8)", () => {
 });
 
 describe("sanitizeOffers", () => {
+  it("preserves price provenance while removing derived and unknown tags", () => {
+    const out=sanitizeOffers([{...offer(100),tags:["published_advertisement","advertised_calendar_price","published_advertisement","bonus_checked_bag","arbitrary"]}]);
+    expect(out[0]?.tags).toEqual(["published_advertisement","advertised_calendar_price"]);
+  });
   it("keeps well-formed offers, resets derived fields and drops malformed ones", () => {
     const good = { ...offer(100), totalIls: 999, extrasAmountIls: 5, tags: ["bonus_checked_bag"] };
     const out = sanitizeOffers([good, null, 3, { ...offer(100), priceAmount: -1 }, { ...offer(100), source: "evil" }, { ...offer(100), outbound: null }, { ...offer(100), checkedAt: "nope" }]);
