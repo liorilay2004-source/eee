@@ -70,3 +70,6 @@ Commit65c8503 deployed as Worker fd8c5ccb-b005-4604-8ff8-c2b96706b1b3. Refresh37
 
 
 Observed official JetBlue page https://www.jetblue.com/en/flights-from-new-york returned HTTP200 with __NEXT_DATA__. Of32 Fare nodes,31 included airport/date fields; only one had explicitly recognized ECONOMY class (JFK–MCO November17 USD70 one-way), while30 carried unknown DN class and remain excluded until its meaning is verified. The parser now permits the official JetBlue host, with a focused test rejecting undated headlines and preserving observed JFK/LGA airport identity. Typecheck/test passed. Candidate-only collection is added; JetBlue is not yet enabled in production ingestion/search. Official Alaska SEA–LAX public page returned406 and LATAM observed São Paulo–Buenos Aires page timed out; neither supplies verified prices from this attempt.
+
+
+Further inspection of the JetBlue fare records established explicit metadata on DN nodes: farenetTravelClass ECONOMY and formattedTravelClass Main on the same record. The parser accepts DN only with both fields and absent/empty promo code. Two focused tests and typecheck passed; the captured official response produces21 unique dated economy one-way fares after deduplication. This supersedes the previous cabin-unknown note, without claiming production source integration or checkout confirmation.
