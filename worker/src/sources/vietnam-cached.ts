@@ -57,7 +57,7 @@ export function createVietnamCachedSource(now: Date, cache?: PublicFareCache): F
     return [...new Map(offers.map(offer => [JSON.stringify(offer), offer])).values()].slice(0, 20);
   }
   return {
-    name: 'vietnam', configured: true, quota: { period: 'monthly', cap: 0, allowance: 0 },
+    name: 'vietnam', configured: true, cacheOnly: true, quota: { period: 'monthly', cap: 0, allowance: 0 },
     callCount: () => 0, nextQuoteRequests: () => 0, quote,
     async validatesStoredOffer(offer) {
       if (offer.source !== 'vietnam' || offer.outbound.airlines.length || offer.inbound.airlines.length) return false;

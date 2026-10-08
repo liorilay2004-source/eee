@@ -15,7 +15,7 @@ export function createAirAstanaCachedSource(now:Date,cache?:PublicFareCache):Far
   return [...new Map(results.flatMap(r=>r.status==='fulfilled'?r.value:[]).map(f=>[JSON.stringify(f),f])).values()];
  }
  async function quote(q:QuoteQuery){return matchPublishedTrip(await fares(q),q,{airline:'KC',source:'air_astana'});}
- return {name:'air_astana',configured:true,quota:{period:'monthly',cap:0,allowance:0},callCount:()=>0,nextQuoteRequests:()=>0,quote,
+ return {name:'air_astana',configured:true, cacheOnly: true,quota:{period:'monthly',cap:0,allowance:0},callCount:()=>0,nextQuoteRequests:()=>0,quote,
   async validatesStoredOffer(offer){const current=await quote({origin:offer.origin,destination:offer.destination,departDate:offer.departDate,returnDate:offer.returnDate,party:{adults:1,children:0,infants:0}});return current.some(f=>f.priceAmount===offer.priceAmount&&f.priceCurrency===offer.priceCurrency&&f.checkedAt===offer.checkedAt&&f.deeplink===offer.deeplink&&f.returnDeeplink===offer.returnDeeplink);}
  };
 }

@@ -57,7 +57,7 @@ export function createEvaCachedSource(now: Date, cache?: PublicFareCache): FareQ
     return [...new Map(offers.map(offer => [JSON.stringify(offer), offer])).values()].slice(0, 20);
   }
   return {
-    name: 'eva', configured: true, quota: { period: 'monthly', cap: 0, allowance: 0 },
+    name: 'eva', configured: true, cacheOnly: true, quota: { period: 'monthly', cap: 0, allowance: 0 },
     callCount: () => 0, nextQuoteRequests: () => 0, quote,
     async validatesStoredOffer(offer) {
       if (offer.source !== 'eva' || offer.outbound.airlines.length || offer.inbound.airlines.length) return false;

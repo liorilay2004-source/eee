@@ -107,6 +107,8 @@ export interface FareQuoteSource {
   readonly name: QuoteSourceName;
   /** False without an API key (or with an unsafe quota spec): such a source is never called, never counted and not listed in meta.sources. */
   readonly configured: boolean;
+  /** Every quote reads stored public snapshots only, with no airline or price-vendor requests on any path. */
+  readonly cacheOnly?: true;
   readonly quota: QuotaSpec;
   /** Vendor requests issued so far by this instance (per search): counted after the unit is reserved, before the request. */
   callCount(): number;

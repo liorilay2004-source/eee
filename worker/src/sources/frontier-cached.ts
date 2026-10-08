@@ -18,7 +18,7 @@ export function createFrontierCachedSource(now:Date,cache?:PublicFareCache):Fare
   }));
   return [...new Map(results.flatMap(r=>r.status==='fulfilled'?r.value:[]).map(f=>[JSON.stringify(f),f])).values()];
  }
- return {name:'frontier',configured:true,quota:{period:'monthly',cap:0,allowance:0},callCount:()=>0,nextQuoteRequests:()=>0,
+ return {name:'frontier',configured:true, cacheOnly: true,quota:{period:'monthly',cap:0,allowance:0},callCount:()=>0,nextQuoteRequests:()=>0,
   async validatesStoredOffer(offer){
    const q={origin:offer.origin,destination:offer.destination,departDate:offer.departDate,returnDate:offer.returnDate,party:{adults:1,children:0,infants:0}};
    const current=matchPublishedTrip(await fares(q),q,{airline:'F9',source:'frontier'});

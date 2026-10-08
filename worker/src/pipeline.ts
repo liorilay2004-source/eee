@@ -946,15 +946,17 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
     return copies;
   };
 
-  // Step 5: live quotes for the cheapest date pairs of the primary airport pair. Complete fresh scans only: a cache hit
-  // makes zero external calls (SPEC §16) and ranks the quotes the scan stored with its cache row (carriedQuotes) plus the
-  // stored history rows (step 6); a failed or partial scan is not cached, so every repeat would ask the vendors again.
+  // Step 5: externally refreshed public snapshots can change independently of the Travelpayouts cache.
+  // Cache hits refresh only explicitly cache-only readers; vendors that make upstream requests remain untouched.
+  // Valid carried quotes and Travelpayouts fares remain candidates alongside these newly read observations.
   // Failures here never fail the search.
   const quoters = (deps.quoteSources ?? []).filter((s) => s.configured);
+  const cacheHitQuoters = quoters.filter((source) => source.cacheOnly === true && source.nextQuoteRequests?.() === 0);
   const primary = pairs[0];
-  const emptyCachedAnswer = fromCache && working.length === 0 && carriedQuotes.length === 0;
-  const canAskQuotes = quoters.length > 0 && primary && (scanComplete || emptyCachedAnswer || tpUnavailable && quoters.some((s) => isPublishedSource(s.name)));
-  const cachedDates = scanComplete && canAskQuotes && primary ? pickQuotePairs(working, primary) : [];
+  if (fromCache) working.push(...rankable(carriedQuotes));
+  const canAskQuotes = primary && (fromCache ? cacheHitQuoters.length > 0
+    : quoters.length > 0 && (scanComplete || tpUnavailable && quoters.some((s) => isPublishedSource(s.name))));
+  const cachedDates = (scanComplete || fromCache) && canAskQuotes && primary ? pickQuotePairs(working, primary) : [];
   const dates = canAskQuotes ? (cachedDates.length > 0 ? cachedDates : fallbackQuotePairs(req)) : [];
   let scanStored: Promise<void> | null = null; // the scan's own write, when it was made before the quote phase
   let quotesTotal = 0; // match_audit only: live quotes this search's quote phase considered...
@@ -965,9 +967,12 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
     // its context (below), and what depends on the quotes (their history, their health, the cache row's quotes) after the phase.
     scanStored = persist(jobOf({ cache: cacheRow([]), health: scanHealth }));
     await write(scanStored);
-    // A vendor whose stored quote for a pair is still live (step 6) is not asked for that pair again: the pair is already confirmed.
-    const covered = new Set(fromDb.filter((o) => isQuoteSource(o.source)).map((o) => coverKey(o.source, o.origin, o.destination, o.departDate, o.returnDate)));
-    const run = await attempt(() => runQuotes(tpUnavailable ? quoters.filter((s) => isPublishedSource(s.name)) : quoters, primary, dates, party, covered));
+    // A vendor with a live stored quote need not spend another request on that pair. Cache-only readers on a cache hit
+    // still reload the pair: their snapshot may contain an additional cheaper offer alongside a still-valid stored offer.
+    const covered = new Set((fromCache ? [] : fromDb).filter((o) => isQuoteSource(o.source))
+      .map((o) => coverKey(o.source, o.origin, o.destination, o.departDate, o.returnDate)));
+    const selected = fromCache ? cacheHitQuoters : tpUnavailable ? quoters.filter((s) => isPublishedSource(s.name)) : quoters;
+    const run = await attempt(() => runQuotes(selected, primary, dates, party, covered));
     if (run) {
       quoteStats = run.stats;
       const raw = run.offers.filter((o) => pairOk(req, o.departDate, o.returnDate)).map((o) => scaledCopy(o, pax)); // per adult -> party, like every raw fare
@@ -990,8 +995,6 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
       quotedRaw = raw.filter((_, i) => believable[i]);
       working.push(...ranked.filter((_, i) => believable[i]));
     }
-  } else if (fromCache) {
-    working.push(...rankable(carriedQuotes));
   }
   // A live price replaces the cached one for the same flight; the same flight seen by two sources counts once.
   const ranking = mergeQuoted(working);

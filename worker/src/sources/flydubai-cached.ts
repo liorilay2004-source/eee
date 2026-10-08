@@ -75,7 +75,7 @@ export function createFlydubaiCachedSource(now: Date, cache?: PublicFareCache): 
   }
 
   return {
-    name: 'flydubai', configured: true, quota: {period: 'monthly', cap: 0, allowance: 0},
+    name: 'flydubai', configured: true, cacheOnly: true, quota: {period: 'monthly', cap: 0, allowance: 0},
     callCount: () => 0, nextQuoteRequests: () => 0, quote,
     async validatesStoredOffer(offer) {
       if (offer.source !== 'flydubai') return false;
