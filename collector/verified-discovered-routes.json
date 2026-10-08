@@ -46,5 +46,165 @@
     "sourceUrl": "https://www.aircanada.com/en-ca/flights-from-tel-aviv-to-orlando",
     "observedOn": "https://www.aircanada.com/en-ca/flights-from-tel-aviv",
     "checkedAt": "2026-10-08T07:10:56.834Z"
+  },
+  {
+    "airline": "TP",
+    "origin": "TLV",
+    "destination": "JFK",
+    "sourceUrl": "https://www.flytap.com/en_il/flights-from-tel-aviv-to-new-york",
+    "observedOn": "https://www.flytap.com/en_il/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:15:54.493Z"
+  },
+  {
+    "airline": "TP",
+    "origin": "TLV",
+    "destination": "EWR",
+    "sourceUrl": "https://www.flytap.com/en_il/flights-from-tel-aviv-to-new-york",
+    "observedOn": "https://www.flytap.com/en_il/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:15:54.493Z"
+  },
+  {
+    "airline": "TP",
+    "origin": "TLV",
+    "destination": "LIS",
+    "sourceUrl": "https://www.flytap.com/en_il/flights-from-tel-aviv-to-lisbon",
+    "observedOn": "https://www.flytap.com/en_il/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:15:54.917Z"
+  },
+  {
+    "airline": "TP",
+    "origin": "TLV",
+    "destination": "FNC",
+    "sourceUrl": "https://www.flytap.com/en_il/flights-from-tel-aviv-to-funchal",
+    "observedOn": "https://www.flytap.com/en_il/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:15:56.547Z"
+  },
+  {
+    "airline": "TP",
+    "origin": "TLV",
+    "destination": "MIA",
+    "sourceUrl": "https://www.flytap.com/en_il/flights-from-tel-aviv-to-miami",
+    "observedOn": "https://www.flytap.com/en_il/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:15:56.725Z"
+  },
+  {
+    "airline": "TP",
+    "origin": "TLV",
+    "destination": "PDL",
+    "sourceUrl": "https://www.flytap.com/en_il/flights-from-tel-aviv-to-ponta-delgada",
+    "observedOn": "https://www.flytap.com/en_il/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:16:00.386Z"
+  },
+  {
+    "airline": "TP",
+    "origin": "TLV",
+    "destination": "OPO",
+    "sourceUrl": "https://www.flytap.com/en_il/flights-from-tel-aviv-to-porto",
+    "observedOn": "https://www.flytap.com/en_il/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:16:09.053Z"
+  },
+  {
+    "airline": "TP",
+    "origin": "TLV",
+    "destination": "IBZ",
+    "sourceUrl": "https://www.flytap.com/en_il/flights-from-tel-aviv-to-ibiza",
+    "observedOn": "https://www.flytap.com/en_il/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:16:40.774Z"
+  },
+  {
+    "airline": "VS",
+    "origin": "TLV",
+    "destination": "JFK",
+    "sourceUrl": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv-to-new-york",
+    "observedOn": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:15:59.532Z"
+  },
+  {
+    "airline": "VS",
+    "origin": "TLV",
+    "destination": "LAS",
+    "sourceUrl": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv-to-las-vegas",
+    "observedOn": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:16:01.513Z"
+  },
+  {
+    "airline": "VS",
+    "origin": "TLV",
+    "destination": "MIA",
+    "sourceUrl": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv-to-miami",
+    "observedOn": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:16:03.503Z"
+  },
+  {
+    "airline": "VS",
+    "origin": "TLV",
+    "destination": "YYZ",
+    "sourceUrl": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv-to-toronto",
+    "observedOn": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:16:05.389Z"
+  },
+  {
+    "airline": "VS",
+    "origin": "TLV",
+    "destination": "IAD",
+    "sourceUrl": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv-to-washington-dc",
+    "observedOn": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:16:07.387Z"
+  },
+  {
+    "airline": "VS",
+    "origin": "TLV",
+    "destination": "LAX",
+    "sourceUrl": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv-to-los-angeles",
+    "observedOn": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:16:09.354Z"
+  },
+  {
+    "airline": "VS",
+    "origin": "TLV",
+    "destination": "ATL",
+    "sourceUrl": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv-to-atlanta",
+    "observedOn": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:16:19.135Z"
+  },
+  {
+    "airline": "VS",
+    "origin": "TLV",
+    "destination": "SEA",
+    "sourceUrl": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv-to-seattle",
+    "observedOn": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:16:22.932Z"
+  },
+  {
+    "airline": "VS",
+    "origin": "TLV",
+    "destination": "MCO",
+    "sourceUrl": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv-to-orlando",
+    "observedOn": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:16:25.166Z"
+  },
+  {
+    "airline": "VS",
+    "origin": "TLV",
+    "destination": "EWR",
+    "sourceUrl": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv-to-newark",
+    "observedOn": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:16:34.647Z"
+  },
+  {
+    "airline": "VS",
+    "origin": "TLV",
+    "destination": "BOS",
+    "sourceUrl": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv-to-boston",
+    "observedOn": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:16:36.504Z"
+  },
+  {
+    "airline": "VS",
+    "origin": "TLV",
+    "destination": "SFO",
+    "sourceUrl": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv-to-san-francisco",
+    "observedOn": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:16:40.404Z"
   }
 ]
