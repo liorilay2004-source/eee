@@ -4,6 +4,8 @@ import {EXTERNAL_FARE_PAGES} from "./external-fare-catalog";
 import {parseRyanairCalendar,ryanairCalendarUrl} from "./sources/ryanair-direct";
 import {parseAirSerbiaCalendar} from "./airserbia-calendar";
 import {airSerbiaCalendarUrl} from "./sources/airserbia-direct";
+import {EXTERNAL_PUBLISHED_PAGES} from "./external-published-catalog";
+import {parsePublishedFares} from "./sources/published-fares";
 import {cacheRequest,createPublicFareCache} from "./public-fare-cache";
 import type {Env} from "./types";
 const TTL=600000;
@@ -24,6 +26,15 @@ export async function ingestPublicFares(request:Request,env:Env,now=new Date()):
  if(!raw||typeof raw!=="object"||Array.isArray(raw))return reply(400,{error:"invalid_payload"});
  const v=raw as Record<string,unknown>,entry=EXTERNAL_FARE_PAGES.find(p=>p.source===v.source&&p.page===v.page);
  const at=typeof v.checkedAt==="string"?Date.parse(v.checkedAt):NaN,age=now.getTime()-at;
+ if(v.source==="published_page"){
+  const page=EXTERNAL_PUBLISHED_PAGES.find(p=>p.airline===v.airline&&p.sourceUrl===v.page);
+  if(!page||!Number.isFinite(age)||age<0||age>120000||!Array.isArray(v.records)||v.records.length>500)return reply(400,{error:"invalid_payload"});
+  let fares;
+  try{const data=JSON.stringify(v.records).replace(/</g,"\\u003c");fares=parsePublishedFares(`<script id="__NEXT_DATA__">${data}</script>`,{...page,now:new Date(at)});}catch{return reply(400,{error:"invalid_payload"});}
+  if(!fares.length)return reply(422,{error:"no_valid_prices"});
+  try{await env.PUBLIC_FARES.getByName(cacheRequest(page.sourceUrl).url).write(page.sourceUrl,JSON.stringify({storedAt:at,expires:at+TTL,fares}));}catch{return reply(503,{error:"storage_unavailable"});}
+  return reply(200,{source:v.source,airline:page.airline,fares:fares.length,checkedAt:new Date(at).toISOString()});
+ }
  if(v.source==="ryanair"||v.source==="air_serbia"){
   if(!Number.isFinite(age)||age<0||age>120000||typeof v.origin!=="string"||typeof v.destination!=="string"||typeof v.month!=="string"||!/^\d{4}-(0[1-9]|1[0-2])$/.test(v.month))return reply(400,{error:"invalid_payload"});
   let page:string,fares:unknown[];
