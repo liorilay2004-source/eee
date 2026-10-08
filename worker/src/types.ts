@@ -51,6 +51,8 @@ export interface Offer {
    * did not say (every Travelpayouts v3 row today). Never filled with our own scan time: that is `checkedAt`.
    */
   fareFoundAt?: string | null;
+  /** Source-stated rounded relative age at our original capture; never an exact timestamp. */
+  upstreamPriceAge?: {value:number;unit:"minutes"|"hours"|"days"};
   /** ADDITIVE: when the SOURCE says the fare expires (Travelpayouts `expires_at`). An expired fare is never ranked. */
   fareExpiresAt?: string | null;
   // Filled by the pipeline (SPEC §7 step 7):

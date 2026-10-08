@@ -18,6 +18,7 @@ export function matchPublishedTrip(fares: readonly PublishedFare[], q: QuoteQuer
     ticketStructure: split ? "split" : "roundtrip", outbound: leg(), inbound: leg(), includes: {},
     deeplink: fare.sourceUrl, ...(back ? { returnDeeplink: back.sourceUrl } : {}), verifyLink: null,
     checkedAt: back && back.checkedAt < fare.checkedAt ? back.checkedAt : fare.checkedAt,
+    ...(!split && fare.upstreamPriceAge ? {upstreamPriceAge:fare.upstreamPriceAge} : {}),
     extrasAmountIls: 0, totalIls: null, tags: ["published_advertisement"],
   });
   const outward = fares.filter((f) => f.airline === config.airline && f.origin === q.origin && f.destination === q.destination && f.departDate === q.departDate);

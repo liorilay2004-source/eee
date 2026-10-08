@@ -182,6 +182,12 @@ export function fareFreshness(o: Offer, now: Date): FareFreshness {
     };
   }
 
+  const reported=o.upstreamPriceAge;
+  if(reported && Number.isSafeInteger(reported.value) && reported.value>=0 && reported.value<=36500 && ["minutes","hours","days"].includes(reported.unit)){
+    const units={minutes:"דקות",hours:"שעות",days:"ימים"};
+    return unknown("quote_unknown_age", `בזמן האיסוף מקור המחיר ציין גיל של ${reported.value} ${units[reported.unit]}. הנתונים נאספו ${hebrewAgo(scanAgeMinutes)}; זה אינו אימות מחיר להזמנה כעת.`);
+  }
+
   // 4. A search API that states nothing about the fare's age: our search time only.
   if (UNSTATED_AGE_QUOTE_SOURCES.includes(o.source) || bound !== undefined) {
     return unknown("quote_unknown_age", `מחיר מחיפוש שבוצע ${hebrewAgo(scanAgeMinutes)}. מקור הנתונים אינו מציין מתי נמצא המחיר עצמו.`);
