@@ -1,6 +1,6 @@
 import type {BrusselsAdvertisement,LhgAdvertisement} from "./brussels-advertisements";
-export type LhgSnapshotSource="lufthansa"|"brussels_airlines"|"swiss";
-const route=(source:LhgSnapshotSource)=>source==="swiss"?{origin:"ZRH",destination:"TLV"}:source==="lufthansa"?{origin:"ATH",destination:"TLV"}:{origin:"BRU",destination:"ATH"};
+export type LhgSnapshotSource="lufthansa"|"brussels_airlines"|"austrian"|"swiss";
+const route=(source:LhgSnapshotSource)=>source==="austrian"?{origin:"VIE",destination:"TLV"}:source==="swiss"?{origin:"ZRH",destination:"TLV"}:source==="lufthansa"?{origin:"ATH",destination:"TLV"}:{origin:"BRU",destination:"ATH"};
 const MAX_BYTES=100_000;
 /** One current row per month, rather than indexed price history for every advertisement. */
 export async function saveLhgSnapshots(db:D1Database,source:LhgSnapshotSource,fares:readonly LhgAdvertisement<"EUR"|"CHF">[],now:Date):Promise<number> {
@@ -23,7 +23,7 @@ export async function saveLhgSnapshots(db:D1Database,source:LhgSnapshotSource,fa
 }
 /** Caller validates every advertisement's dates, currency, amount and official link before use. */
 export function readLhgSnapshot(db:D1Database,source:"swiss",month:string,now:Date):Promise<LhgAdvertisement<"CHF">[]>;
-export function readLhgSnapshot(db:D1Database,source:"lufthansa"|"brussels_airlines",month:string,now:Date):Promise<BrusselsAdvertisement[]>;
+export function readLhgSnapshot(db:D1Database,source:"lufthansa"|"brussels_airlines"|"austrian",month:string,now:Date):Promise<BrusselsAdvertisement[]>;
 export async function readLhgSnapshot(db:D1Database,source:LhgSnapshotSource,month:string,now:Date):Promise<LhgAdvertisement<"EUR"|"CHF">[]> {
  if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))return [];
  const expected=route(source);

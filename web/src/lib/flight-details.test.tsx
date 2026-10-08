@@ -76,6 +76,13 @@ describe("flight details and official airline handoff", () => {
     card.offer.deeplink+="?untrusted=1";
     expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("untrusted");
   });
+  it("opens only the observed Austrian dated official booking link",()=>{
+    const {card}=fixture();card.offer.source="austrian";
+    card.offer.deeplink="https://www.austrian.com/aircore/deeplink/redirect/en/at/VIE/TLV/05.06.2027/19.06.2027/RT";
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).toContain(card.offer.deeplink);
+    card.offer.deeplink+="?untrusted=1";
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("untrusted");
+  });
   it("opens only the observed official Icelandair fare page", () => {
     const {card}=fixture();card.offer.source="icelandair";card.offer.outbound.airlines=["FI"];card.offer.inbound.airlines=["FI"];
     card.offer.deeplink="https://www.icelandair.com/en-gb/flights/flights-from-london-to-iceland";

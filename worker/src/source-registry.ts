@@ -334,7 +334,7 @@ export const SOURCE_REGISTRY: readonly SourceRegistryEntry[] = Object.freeze([
   entry("easyjet", "easyJet", "manual-link", 71, ["EU"], "מקור לואו קוסט לשילובים באירופה."),
   { ...entry("lufthansa", "Lufthansa", "manual-link", 70, ["IL", "EU", "US", "Asia"], "מחירים מפורסמים מתוארכים מאתונה לתל אביב וקישור רשמי להזמנה. יש לאמת זמינות ומחיר סופי באתר החברה."), capabilities: { ...manual, cachedPrice: true } },
   { ...entry("swiss", "SWISS", "manual-link", 69, ["IL", "EU", "US", "Asia"], "מחירים מפורסמים מתוארכים מציריך לתל אביב. יש לאמת זמינות ומחיר סופי באתר החברה."), capabilities: { ...manual, cachedPrice: true } },
-  entry("austrian", "Austrian Airlines", "manual-link", 68, ["IL", "EU", "US", "Asia"], "קישור חיפוש ישיר מתוכנן."),
+  { ...entry("austrian", "Austrian Airlines", "manual-link", 68, ["IL", "EU", "US", "Asia"], "מחירים מפורסמים מתוארכים מווינה לתל אביב. יש לאמת מחיר וזמינות באתר החברה."), capabilities: { ...manual, cachedPrice: true } },
   entry("airfrance", "Air France", "manual-link", 67, ["IL", "EU", "US", "Asia"], "קישור חיפוש ישיר מתוכנן."),
   { ...entry("klm", "KLM", "manual-link", 66, ["IL", "EU", "US", "Asia"], "מחירי הלוך וחזור מתוארכים נאספים ברקע מהעמוד הרשמי בתל אביב. החיפוש משתמש בנתונים שמורים; יש לאמת מחיר סופי."), capabilities: { ...manual, cachedPrice: true } },
   entry("emirates", "Emirates", "manual-link", 65, ["IL", "ME", "Asia", "Oceania"], "מקור עדיפות גבוהה לאסיה ואוקיאניה."),

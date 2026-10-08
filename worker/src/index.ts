@@ -75,6 +75,8 @@ import { runCollectionQueue } from "./collection-queue";
 import { collectRenderedKlm } from "./rendered-collection";
 import { collectRenderedFinnair } from "./finnair-rendered";
 import { createFinnairCachedSource } from "./sources/finnair-cached";
+import {collectRenderedAustrian} from "./austrian-rendered";
+import {createAustrianCachedSource} from "./sources/austrian-cached";
 import {collectRenderedSwiss} from "./swiss-rendered";
 import {createSwissCachedSource} from "./sources/swiss-cached";
 import { collectRenderedLufthansa } from "./lufthansa-rendered";
@@ -276,6 +278,7 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
   const hasData = secret(env.HASDATA_API_KEY);
   const providers = [
     env.FINNAIR_RENDERED_ENABLED === "true" ? createFinnairCachedSource(publicCache, env.DB, now) : null,
+    env.AUSTRIAN_RENDERED_ENABLED === "true" ? createAustrianCachedSource(now, publicCache, env.DB) : null,
     env.SWISS_RENDERED_ENABLED === "true" ? createSwissCachedSource(now, publicCache, env.DB) : null,
     env.LUFTHANSA_RENDERED_ENABLED === "true" ? createLufthansaCachedSource(now, publicCache, env.DB) : null,
     env.BRUSSELS_RENDERED_ENABLED === "true" ? createBrusselsCachedSource(now, publicCache, env.DB) : null,
@@ -671,6 +674,7 @@ export default {
       const [origin, destination] = pickSnapshotRoute(now);
       const browserJobs: Array<() => Promise<unknown>> = [];
       if (now.getUTCHours() % 6 === 4) browserJobs.push(() => collectRenderedEurowings({env, now, destination: now.getUTCHours() % 12 === 4 ? "DUS" : "ATH", cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined}).then(result => console.log("Eurowings collection:", JSON.stringify(result))));
+      if (env.AUSTRIAN_RENDERED_ENABLED === "true" && now.getUTCHours() % 12 === 11) browserJobs.push(() => collectRenderedAustrian({env,now,cache:typeof caches !== "undefined" ? createPublicFareCache(caches.default,now,BACKGROUND_FARE_TTL_MS) : undefined}).then(result => console.log("Austrian collection:",JSON.stringify(result))));
       if (env.SWISS_RENDERED_ENABLED === "true" && now.getUTCHours() % 12 === 9) browserJobs.push(() => collectRenderedSwiss({env,now,cache:typeof caches !== "undefined" ? createPublicFareCache(caches.default,now,BACKGROUND_FARE_TTL_MS) : undefined}).then(result => console.log("SWISS collection:",JSON.stringify(result))));
       if (now.getUTCHours() % 12 === 7) browserJobs.push(() => collectRenderedLufthansa({ env, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Lufthansa collection:", JSON.stringify(result))));
       if (now.getUTCHours() % 12 === 6) browserJobs.push(() => collectRenderedBrussels({ env, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Brussels collection:", JSON.stringify(result))));

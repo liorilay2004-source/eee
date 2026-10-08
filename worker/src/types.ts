@@ -10,7 +10,7 @@
  */
 
 export type TicketStructure = "roundtrip" | "split";
-export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "ryanair" | "aegean" | "air_canada" | "tap" | "ethiopian" | "air_europa" | "philippine" | "virgin_atlantic" | "air_new_zealand" | "air_baltic" | "sky_express" | "gol" | "aeromexico" | "copa" | "brussels_airlines" | "lufthansa" | "swiss" | "icelandair" | "eurowings" | "finnair" | "norwegian" | "iberia" | "avianca" | "klm" | "american" | "aer_lingus" | "air_serbia" | "elal" | "direct_combination";
+export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "ryanair" | "aegean" | "air_canada" | "tap" | "ethiopian" | "air_europa" | "philippine" | "virgin_atlantic" | "air_new_zealand" | "air_baltic" | "sky_express" | "gol" | "aeromexico" | "copa" | "brussels_airlines" | "lufthansa" | "swiss" | "austrian" | "icelandair" | "eurowings" | "finnair" | "norwegian" | "iberia" | "avianca" | "klm" | "american" | "aer_lingus" | "air_serbia" | "elal" | "direct_combination";
 export type Cabin = "economy" | "premium-economy" | "business" | "first";
 export type RecKind = "cheapest" | "best_value" | "my_times";
 
@@ -580,6 +580,7 @@ export interface Env {
   IBERIA_RENDERED_ENABLED?: string;
   LUFTHANSA_RENDERED_ENABLED?: string;
   SWISS_RENDERED_ENABLED?: string;
+  AUSTRIAN_RENDERED_ENABLED?: string;
   BRUSSELS_RENDERED_ENABLED?: string;
   ICELANDAIR_RENDERED_ENABLED?: string;
   EUROWINGS_RENDERED_ENABLED?: string;

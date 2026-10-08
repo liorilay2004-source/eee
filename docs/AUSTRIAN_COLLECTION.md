@@ -20,8 +20,7 @@ The parser validates the original EUR, direction, both real dates, exact officia
 host and Austrian market. It never derives carrier, stops, baggage or flight times
 from unrelated schedules, nor reverses a round trip into a TLV departure.
 
-A Cloudflare Browser Run probe failed at the rendering response on 2026-10-08.
-Automatic collection through Cloudflare has not been proven. No source, schedule
-or production feature flag is enabled for Austrian. Cache/storage integration,
-search-provider integration and checkout-price verification remain incomplete.
+An initial Cloudflare rendering probe failed; a subsequent ordinary Browser Run request succeeded. At 2026-10-08T04:19:57.168Z the bounded renderer returned 25 advertisements, including the June EUR252 and July EUR377 pairs, and excluded the contradictory September pair. Direct public HTTP retrieval returned 403 and is not used as a collection fallback.
 No passenger details, reservation, account sign-in or payment were submitted.
+
+The integrated collector caches public fares before optional monthly D1 snapshot writes. A probe at 2026-10-08T04:22:16.419Z used a deliberately unavailable D1 stub and still cached 25 advertisements. The provider returned EUR252 for VIE–TLV June5–19 2027, rejected June20 return and reverse direction, and used zero airline calls. Three adapter queries took 18ms; this is not full production search latency. The source/UI and twice-daily schedule (11/23 UTC) are implemented. Production cron execution, D1 persistence after quota reset, full arbitrary-date coverage and checkout-price verification remain unproven.

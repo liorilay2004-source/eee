@@ -8,6 +8,16 @@ const storage = () => {
   return { rows, match: async (request: RequestInfo) => rows.get((request as Request).url)?.clone(), put: async (request: RequestInfo, response: Response) => { rows.set((request as Request).url, response.clone()); } };
 };
 describe("shared public fare data", () => {
+  it("stores only the verified Austrian public route page",async()=>{
+    const db=storage();const cache=createPublicFareCache(db as unknown as Cache,now,BACKGROUND_FARE_TTL_MS);
+    const key="https://www.austrian.com/lhg/at/en/o-d/cy-cy/vienna-tel-aviv";
+    const fares=[{amount:252,currency:"EUR",checkedAt:now.toISOString()}];
+    await cache.put(key,fares);
+    expect(await cache.get(key)).toEqual({fares,expires:now.getTime()+BACKGROUND_FARE_TTL_MS});
+    await cache.put(`${key}?token=secret`,fares);
+    await cache.put(key.replace("vienna-tel-aviv","tel-aviv-vienna"),fares);
+    expect(db.rows.size).toBe(1);
+  });
   it("stores only the verified Swiss public page and preserves CHF",async()=>{
     const db=storage();const cache=createPublicFareCache(db as unknown as Cache,now,BACKGROUND_FARE_TTL_MS);
     const key="https://www.swiss.com/lhg/ch/en/o-d/cy-cy/zurich-tel-aviv";
