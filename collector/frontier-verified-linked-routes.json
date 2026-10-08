@@ -1,0 +1,542 @@
+[
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "PHX",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-phoenix",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-phoenix",
+    "checkedAt": "2026-10-08T09:05:57.777Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "PHX",
+    "destination": "DEN",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-phoenix-to-denver",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-phoenix-to-denver",
+    "checkedAt": "2026-10-08T09:05:58.347Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "LAS",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-las-vegas",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-las-vegas",
+    "checkedAt": "2026-10-08T09:05:58.667Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "DEN",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-denver",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-denver",
+    "checkedAt": "2026-10-08T09:05:58.787Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "MCO",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-orlando",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-orlando",
+    "checkedAt": "2026-10-08T09:05:58.902Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "ATL",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-atlanta",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-atlanta",
+    "checkedAt": "2026-10-08T09:05:59.016Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "LGA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-new-york",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-new-york",
+    "checkedAt": "2026-10-08T09:05:59.141Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "LAX",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-los-angeles",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-los-angeles",
+    "checkedAt": "2026-10-08T09:05:59.251Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "ORD",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-chicago",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-chicago",
+    "checkedAt": "2026-10-08T09:05:59.366Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "PHX",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-phoenix",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-phoenix",
+    "checkedAt": "2026-10-08T09:05:59.487Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "PHL",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-philadelphia",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-philadelphia",
+    "checkedAt": "2026-10-08T09:06:00.997Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "DTW",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-detroit",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-detroit",
+    "checkedAt": "2026-10-08T09:06:01.105Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "MIA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-miami",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-miami",
+    "checkedAt": "2026-10-08T09:06:01.222Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "SFO",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-san-francisco",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-san-francisco",
+    "checkedAt": "2026-10-08T09:06:01.340Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "ONT",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-ontario-ca",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-ontario-ca",
+    "checkedAt": "2026-10-08T09:06:01.450Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "EWR",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-newark",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-newark",
+    "checkedAt": "2026-10-08T09:06:01.563Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "TPA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-tampa",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-tampa",
+    "checkedAt": "2026-10-08T09:06:01.673Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "CUN",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-cancun",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-cancun",
+    "checkedAt": "2026-10-08T09:06:01.786Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "SAN",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-san-diego",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-san-diego",
+    "checkedAt": "2026-10-08T09:06:01.896Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "RDU",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-raleigh",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-raleigh",
+    "checkedAt": "2026-10-08T09:06:02.007Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "SJU",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-san-juan",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-san-juan",
+    "checkedAt": "2026-10-08T09:06:02.118Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "MSP",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-minneapolis",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-minneapolis",
+    "checkedAt": "2026-10-08T09:06:02.242Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "MSY",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-new-orleans",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-new-orleans",
+    "checkedAt": "2026-10-08T09:06:02.346Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "CVG",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-cincinnati",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-cincinnati",
+    "checkedAt": "2026-10-08T09:06:02.470Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "SNA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-orange-county",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-orange-county",
+    "checkedAt": "2026-10-08T09:06:02.576Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "IAD",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-washington",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-washington",
+    "checkedAt": "2026-10-08T09:06:02.699Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "SLC",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-salt-lake-city",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-salt-lake-city",
+    "checkedAt": "2026-10-08T09:06:02.819Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "BNA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-nashville",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-nashville",
+    "checkedAt": "2026-10-08T09:06:02.937Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "SEA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-seattle",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-seattle",
+    "checkedAt": "2026-10-08T09:06:03.056Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "IND",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-indianapolis",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-indianapolis",
+    "checkedAt": "2026-10-08T09:06:03.156Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "STL",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-st-louis",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-st-louis",
+    "checkedAt": "2026-10-08T09:06:03.267Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "SMF",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-sacramento",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-sacramento",
+    "checkedAt": "2026-10-08T09:06:03.373Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "PDX",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-portland",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-portland",
+    "checkedAt": "2026-10-08T09:06:03.476Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "JAX",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-jacksonville",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-jacksonville",
+    "checkedAt": "2026-10-08T09:06:03.598Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "IAH",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-houston",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-houston",
+    "checkedAt": "2026-10-08T09:06:03.706Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "ELP",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-el-paso",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-el-paso",
+    "checkedAt": "2026-10-08T09:06:03.814Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "ORF",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-norfolk",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-norfolk",
+    "checkedAt": "2026-10-08T09:06:05.449Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "GUA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-guatemala-city",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-guatemala-city",
+    "checkedAt": "2026-10-08T09:06:05.554Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "SJC",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-san-jose",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-san-jose",
+    "checkedAt": "2026-10-08T09:06:06.961Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "SAT",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-san-antonio",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-san-antonio",
+    "checkedAt": "2026-10-08T09:06:07.075Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "SAL",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-san-salvador",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-san-salvador",
+    "checkedAt": "2026-10-08T09:06:07.185Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "PIT",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-pittsburgh",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-pittsburgh",
+    "checkedAt": "2026-10-08T09:06:08.678Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "OAK",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-oakland",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-oakland",
+    "checkedAt": "2026-10-08T09:06:08.794Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "MCI",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-kansas-city",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-kansas-city",
+    "checkedAt": "2026-10-08T09:06:08.903Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "ISP",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-long-island",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-long-island",
+    "checkedAt": "2026-10-08T09:06:09.011Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "PNS",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-pensacola",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-pensacola",
+    "checkedAt": "2026-10-08T09:06:09.112Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "RNO",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-reno",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-reno",
+    "checkedAt": "2026-10-08T09:06:09.225Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "SYR",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-syracuse",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-syracuse",
+    "checkedAt": "2026-10-08T09:06:10.569Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "OMA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-omaha",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-omaha",
+    "checkedAt": "2026-10-08T09:06:10.680Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "MKE",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-milwaukee",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-milwaukee",
+    "checkedAt": "2026-10-08T09:06:10.796Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DFW",
+    "destination": "PUJ",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-dallas-to-punta-cana",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-dallas-to-punta-cana",
+    "checkedAt": "2026-10-08T09:06:10.908Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "LAS",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-las-vegas",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-las-vegas",
+    "checkedAt": "2026-10-08T09:06:11.019Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "MCO",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-orlando",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-orlando",
+    "checkedAt": "2026-10-08T09:06:11.134Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "DFW",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-dallas",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-dallas",
+    "checkedAt": "2026-10-08T09:06:11.242Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "LAX",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-los-angeles",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-los-angeles",
+    "checkedAt": "2026-10-08T09:06:11.350Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "TPA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-tampa",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-tampa",
+    "checkedAt": "2026-10-08T09:06:11.456Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "IAD",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-washington",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-washington",
+    "checkedAt": "2026-10-08T09:06:11.594Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "SFO",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-san-francisco",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-san-francisco",
+    "checkedAt": "2026-10-08T09:06:11.703Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "ATL",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-atlanta",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-atlanta",
+    "checkedAt": "2026-10-08T09:06:11.807Z",
+    "structure": "oneway"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "SAN",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-san-diego",
+    "observedOn": "https://flights.flyfrontier.com/en/flights-from-denver-to-san-diego",
+    "checkedAt": "2026-10-08T09:06:11.943Z",
+    "structure": "oneway"
+  }
+]
