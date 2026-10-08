@@ -63,6 +63,7 @@ import { createPhilippinePublishedSource } from "./sources/philippine-published"
 import { createAirBalticPublishedSource } from "./sources/airbaltic-published";
 import { createSkyExpressPublishedSource } from "./sources/skyexpress-published";
 import { createAirSerbiaDirectSource } from "./sources/airserbia-direct";
+import { createAmericanPublishedSource } from "./sources/american-published";
 import { createAerLingusPublishedSource } from "./sources/aerlingus-published";
 import { createGolPublishedSource } from "./sources/gol-published";
 import { createAirNzPublishedSource } from "./sources/airnz-published";
@@ -261,6 +262,7 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
     env.SKYEXPRESS_PUBLISHED_ENABLED === "true" ? createSkyExpressPublishedSource(now, fetchFn, publicCache) : null,
     env.GOL_PUBLISHED_ENABLED === "true" ? createGolPublishedSource(now, fetchFn, publicCache) : null,
     env.AERLINGUS_PUBLISHED_ENABLED === "true" ? createAerLingusPublishedSource(now, fetchFn, publicCache) : null,
+    env.AMERICAN_PUBLISHED_ENABLED === "true" ? createAmericanPublishedSource(now, fetchFn, publicCache) : null,
     env.AIRSERBIA_DIRECT_ENABLED === "true" ? createAirSerbiaDirectSource(now, fetchFn, publicCache) : null,
     ignav ? createIgnavSource({ ...shared, apiKey: ignav, marker }) : null,
     wego ? createWegoSource({ ...shared, apiKey: wego }) : null,

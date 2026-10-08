@@ -14,6 +14,7 @@ interface Page {
 }
 // Only pages already used and validated by production source adapters.
 export const COLLECTION_PAGES: readonly Page[] = [
+  { source: "american", airline: "AA", origin: "LAX", destination: "MEX", sourceUrl: "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city", flag: "AMERICAN_PUBLISHED_ENABLED" },
   { source: "aer_lingus", airline: "EI", origin: "DUB", destination: "AMS", sourceUrl: "https://www.aerlingus.com/en-ie/flights-from-dublin", flag: "AERLINGUS_PUBLISHED_ENABLED" },
   { source: "gol", airline: "G3", origin: "GRU", destination: "GIG", origins: ["GRU", "CGH", "SAO"], sourceUrl: "https://www.voegol.com.br/en/flights-from-sao-paulo", flag: "GOL_PUBLISHED_ENABLED" },
   { source: "sky_express", airline: "GQ", origin: "ATH", destination: "FCO", sourceUrl: "https://www.skyexpress.gr/en/flights-from-athens", flag: "SKYEXPRESS_PUBLISHED_ENABLED" },
