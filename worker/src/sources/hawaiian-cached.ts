@@ -22,5 +22,7 @@ export function createHawaiianCachedSource(now:Date,cache?:PublicFareCache):Fare
   for(const f of out.filter(f=>f.structure==='oneway'))for(const b of back)if(f.currency===b.currency)offers.push(build(f,b));
   return offers;
  }
- return {name:'hawaiian',configured:true,quota:{period:'monthly',cap:0,allowance:0},callCount:()=>0,nextQuoteRequests:()=>0,quote};
+ return {name:'hawaiian',configured:true,quota:{period:'monthly',cap:0,allowance:0},callCount:()=>0,nextQuoteRequests:()=>0,quote,
+  async validatesStoredOffer(offer){const current=await quote({origin:offer.origin,destination:offer.destination,departDate:offer.departDate,returnDate:offer.returnDate,party:{adults:1,children:0,infants:0}});return current.some(f=>f.priceAmount===offer.priceAmount&&f.priceCurrency===offer.priceCurrency&&f.checkedAt===offer.checkedAt&&f.deeplink===offer.deeplink&&f.returnDeeplink===offer.returnDeeplink);}
+ };
 }
