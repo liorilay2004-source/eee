@@ -33,6 +33,7 @@
     {"iata": "BT", "nameEn": "airBaltic", "nameHe": "אייר בלטיק", "lowCost": false, "heSource": "hewiki"},
     {"iata": "BZ", "nameEn": "Bluebird Airways", "nameHe": "בלו בירד איירווייז", "lowCost": false, "heSource": "hewiki"},
     {"iata": "C6", "nameEn": "Centrum Air", "nameHe": "צנטרום אייר", "lowCost": false, "heSource": "hewiki"},
+    {"iata": "CM", "nameEn": "Copa Airlines", "nameHe": "קופה איירליינס", "lowCost": false, "heSource": "transliteration"},
     {"iata": "CX", "nameEn": "Cathay Pacific", "nameHe": "קת'אי פסיפיק", "lowCost": false, "heSource": "hewiki"},
     {"iata": "CY", "nameEn": "Cyprus Airways", "nameHe": "סייפרוס איירווייז", "lowCost": false, "heSource": "hewiki"},
     {"iata": "DE", "nameEn": "Condor", "nameHe": "קונדור איירליינס", "lowCost": false, "heSource": "hewiki"},
@@ -107,4 +108,3 @@
     {"iata": "XZ", "nameEn": "Aeroitalia", "nameHe": "אירואיטליה", "lowCost": true, "heSource": "transliteration"}
   ]
 }
-

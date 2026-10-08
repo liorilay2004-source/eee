@@ -71,6 +71,8 @@ import { createVirginPublishedSource } from "./sources/virgin-published";
 import { createDirectCombinationSource } from "./sources/direct-combination";
 import { createPublicFareCache } from "./public-fare-cache";
 import { collectRenderedKlm } from "./rendered-collection";
+import { collectRenderedCopa } from "./copa-rendered";
+import { createCopaCachedSource } from "./sources/copa-cached";
 import { collectRenderedAeromexico } from "./aeromexico-rendered";
 import { createAeromexicoCachedSource } from "./sources/aeromexico-cached";
 import { createKlmCachedSource } from "./sources/klm-cached";
@@ -253,6 +255,7 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
   const duffel = secret(env.DUFFEL_API_TOKEN);
   const hasData = secret(env.HASDATA_API_KEY);
   const providers = [
+    env.COPA_RENDERED_ENABLED === "true" ? createCopaCachedSource(publicCache) : null,
     env.AEROMEXICO_RENDERED_ENABLED === "true" ? createAeromexicoCachedSource(publicCache) : null,
     env.KLM_RENDERED_ENABLED === "true" ? createKlmCachedSource(publicCache) : null,
     env.RYANAIR_DIRECT_ENABLED === "true" ? createRyanairDirectSource(now, fetchFn, publicCache) : null,
@@ -636,6 +639,7 @@ export default {
         marketFor: (origin) => marketForCountry(defaultResolver.countryOfAirport(origin)),
       });
       const [origin, destination] = pickSnapshotRoute(now);
+      if (now.getUTCHours() % 4 === 0) ctx.waitUntil(collectRenderedCopa({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("Copa collection:", JSON.stringify(result))));
       ctx.waitUntil(collectRenderedAeromexico({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("Aeromexico collection:", JSON.stringify(result))));
       ctx.waitUntil(collectRenderedKlm({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("rendered collection:", JSON.stringify(result))));
       ctx.waitUntil(collectPublishedPages({ env, repo, now, fetchFn,
@@ -709,4 +713,3 @@ export default {
     }
   },
 } satisfies ExportedHandler<Env>;
-

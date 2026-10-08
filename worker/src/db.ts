@@ -91,7 +91,7 @@ const INSERT_PRICE =
   "ticket_structure, airlines_json, legs_json, includes_json, deeplink, verify_link, checked_at) " +
   "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-const SOURCES: readonly string[] = ["travelpayouts", "google_flights", "ignav", "wego", "searchapi", "serpapi", "duffel", "hasdata", "ryanair", "aegean", "air_canada", "tap", "ethiopian", "air_europa", "philippine", "virgin_atlantic", "air_new_zealand", "air_baltic", "sky_express", "gol", "aeromexico", "klm", "american", "aer_lingus", "air_serbia", "elal", "direct_combination"];
+const SOURCES: readonly string[] = ["travelpayouts", "google_flights", "ignav", "wego", "searchapi", "serpapi", "duffel", "hasdata", "ryanair", "aegean", "air_canada", "tap", "ethiopian", "air_europa", "philippine", "virgin_atlantic", "air_new_zealand", "air_baltic", "sky_express", "gol", "aeromexico", "copa", "klm", "american", "aer_lingus", "air_serbia", "elal", "direct_combination"];
 const STRUCTURES: readonly string[] = ["roundtrip", "split"];
 
 function serializeLeg(leg: Leg | undefined): Leg {
@@ -727,4 +727,3 @@ export async function pruneHistory(db: D1Database, now: Date): Promise<PruneResu
   const changed = (i: number): number => results[i]?.meta.changes ?? 0;
   return { prices: changed(0), searches: changed(1), search_cache: changed(2), rate_limits: changed(3) };
 }
-
