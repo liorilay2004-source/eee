@@ -8434,5 +8434,474 @@ export const FRONTIER_PUBLISHED_PAGES:{airline:string;origin:string;destination:
     "destination": "SAT",
     "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-fargo-to-san-antonio",
     "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "OMA",
+    "destination": "DEN",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-omaha-to-denver",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "OMA",
+    "destination": "PHX",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-omaha-to-phoenix",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "OMA",
+    "destination": "MCO",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-omaha-to-orlando",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "OMA",
+    "destination": "LAS",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-omaha-to-las-vegas",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "OMA",
+    "destination": "SAN",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-omaha-to-san-diego",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "OMA",
+    "destination": "SLC",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-omaha-to-salt-lake-city",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "OMA",
+    "destination": "SFO",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-omaha-to-san-francisco",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "OMA",
+    "destination": "ONT",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-omaha-to-ontario-ca",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "OMA",
+    "destination": "TPA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-omaha-to-tampa",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "OMA",
+    "destination": "SEA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-omaha-to-seattle",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "OMA",
+    "destination": "SAT",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-omaha-to-san-antonio",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "OMA",
+    "destination": "PDX",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-omaha-to-portland",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "OMA",
+    "destination": "RDU",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-omaha-to-raleigh",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "OMA",
+    "destination": "PHL",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-omaha-to-philadelphia",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "OMA",
+    "destination": "PNS",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-omaha-to-pensacola",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "MCO",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-orlando",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "SJU",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-san-juan",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "RDU",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-raleigh",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "DFW",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-dallas",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "MIA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-miami",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "DEN",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-denver",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "TPA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-tampa",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "CLT",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-charlotte",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "ORD",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-chicago",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "LAS",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-las-vegas",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "IAH",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-houston",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "MSY",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-new-orleans",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "IND",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-indianapolis",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "CVG",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-cincinnati",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "CMH",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-columbus",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "PHX",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-phoenix",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "PUJ",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-punta-cana",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "SDQ",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-santo-domingo",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "CUN",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-cancun",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "MSP",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-minneapolis",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "GUA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-guatemala-city",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "MCI",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-kansas-city",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "SAT",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-san-antonio",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "STL",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-st-louis",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "MEM",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-memphis",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "GRR",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-grand-rapids",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "BOS",
+    "destination": "MKE",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-boston-to-milwaukee",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "GRR",
+    "destination": "MCO",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-grand-rapids-to-orlando",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "GRR",
+    "destination": "DEN",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-grand-rapids-to-denver",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "GRR",
+    "destination": "TPA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-grand-rapids-to-tampa",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "GRR",
+    "destination": "PHX",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-grand-rapids-to-phoenix",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "GRR",
+    "destination": "LAS",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-grand-rapids-to-las-vegas",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "GRR",
+    "destination": "MIA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-grand-rapids-to-miami",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "GRR",
+    "destination": "RSW",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-grand-rapids-to-fort-myers",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "GRR",
+    "destination": "IAH",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-grand-rapids-to-houston",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "GRR",
+    "destination": "LAX",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-grand-rapids-to-los-angeles",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "GRR",
+    "destination": "SJU",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-grand-rapids-to-san-juan",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "GRR",
+    "destination": "RDU",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-grand-rapids-to-raleigh",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "GRR",
+    "destination": "MSY",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-grand-rapids-to-new-orleans",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "GRR",
+    "destination": "SAT",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-grand-rapids-to-san-antonio",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "GRR",
+    "destination": "PNS",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-grand-rapids-to-pensacola",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "GRR",
+    "destination": "SAN",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-grand-rapids-to-san-diego",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "GRR",
+    "destination": "SFO",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-grand-rapids-to-san-francisco",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "GRR",
+    "destination": "SLC",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-grand-rapids-to-salt-lake-city",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "GRR",
+    "destination": "SNA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-grand-rapids-to-orange-county",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "GRR",
+    "destination": "LGA",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-grand-rapids-to-new-york",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "GRR",
+    "destination": "MCI",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-grand-rapids-to-kansas-city",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "GRR",
+    "destination": "MEM",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-grand-rapids-to-memphis",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "XNA",
+    "destination": "DEN",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-fayetteville-to-denver",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "XNA",
+    "destination": "LAS",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-fayetteville-to-las-vegas",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "XNA",
+    "destination": "MCO",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-fayetteville-to-orlando",
+    "collector": "frontier"
+  },
+  {
+    "airline": "F9",
+    "origin": "DEN",
+    "destination": "LAS",
+    "sourceUrl": "https://flights.flyfrontier.com/en/flights-from-denver-to-las-vegas#",
+    "collector": "frontier"
   }
 ];
