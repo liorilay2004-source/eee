@@ -4,6 +4,13 @@ const query = { airline: "A3", origin: "TLV", destination: "ATH", sourceUrl: "ht
 const fare = { __typename: "Fare", originAirportCode: "TLV", destinationAirportCode: "ATH", departureDate: "2027-08-29", returnDate: "", totalPrice: 58.63, currencyCode: "EUR", flightType: "ONE_WAY" };
 const html = (nodes: unknown[]) => `<script type="application/json" id="__NEXT_DATA__">${JSON.stringify({ props: { pageProps: { fares: nodes } } })}</script>`;
 describe("published official airline page data", () => {
+  it("preserves upstream price age separately from our collection time",()=>{
+    const [parsed]=parsePublishedFares(html([{...fare,priceLastSeen:{value:'19',unit:'hours'}}]),query);
+    expect(parsed).toMatchObject({checkedAt:query.now.toISOString(),upstreamPriceAge:{value:19,unit:'hours'}});
+    for(const age of [{value:'-1',unit:'hours'},{value:'19',unit:'unknown'},{value:'NaN',unit:'days'}]){
+      expect(parsePublishedFares(html([{...fare,priceLastSeen:age}]),query)[0]?.upstreamPriceAge).toBeUndefined();
+    }
+  });
   it("extracts the observed dated Aegean fare rather than a cheaper headline for another route", () => {
     expect(parsePublishedFares(html([{ ...fare, originAirportCode: "AXD", totalPrice: 22.3 }, fare]), query)).toEqual([expect.objectContaining({ amount: 58.63, departDate: "2027-08-29", origin: "TLV", destination: "ATH", pricing: "published_advertisement", returnDate: null })]);
   });

@@ -12,6 +12,8 @@ export interface PublishedFare {
   structure: "oneway" | "roundtrip";
   sourceUrl: string;
   checkedAt: string;
+  /** Upstream's relative price age; fetching the page does not reset this age. */
+  upstreamPriceAge?: { value: number; unit: "minutes" | "hours" | "days" };
   pricing: "published_advertisement";
 }
 const officialHosts: Readonly<Record<string, string>> = { F9: "flights.flyfrontier.com", B6: "www.jetblue.com", A3: "flights.aegeanair.com", AC: "www.aircanada.com", TP: "www.flytap.com", ET: "www.ethiopianairlines.com", UX: "www.aireuropa.com", PR: "flights.philippineairlines.com", VS: "flights.virginatlantic.com", NZ: "www.airnewzealand.com", BT: "www.airbaltic.com", GQ: "www.skyexpress.gr", G3: "www.voegol.com.br", EI: "www.aerlingus.com", AA: "www.aa.com", KL: "www.klm.co.il", AM: "www.aeromexico.com", CM: "www.copaair.com", FI: "www.icelandair.com", TK: "www.turkishairlines.com" };
@@ -66,6 +68,11 @@ export function parsePublishedFares(html: string, query: { airline: string; orig
           departDate: node.departureDate, returnDate: isRoundTrip ? node.returnDate as string : null,
           amount: node.totalPrice, currency: node.currencyCode, structure: isOneWay ? "oneway" : "roundtrip",
           sourceUrl: query.sourceUrl, checkedAt: query.now.toISOString(), pricing: "published_advertisement" };
+        if(record(node.priceLastSeen)){
+          const value=typeof node.priceLastSeen.value==='string'&&/^\d+$/.test(node.priceLastSeen.value)?Number(node.priceLastSeen.value):node.priceLastSeen.value;
+          const unit=node.priceLastSeen.unit;
+          if(typeof value==='number'&&Number.isSafeInteger(value)&&value>=0&&value<=36500&&(unit==='minutes'||unit==='hours'||unit==='days'))fare.upstreamPriceAge={value,unit};
+        }
         const key = JSON.stringify([fare.origin, fare.destination, fare.departDate, fare.returnDate, fare.currency, fare.amount]);
         if (!seen.has(key)) { seen.add(key); fares.push(fare); }
       }
