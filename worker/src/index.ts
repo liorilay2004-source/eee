@@ -384,6 +384,10 @@ async function handleSearch(request: Request, env: Env, ctx: ExecutionContext): 
     fetchFn,
     marketFor: (origin) => marketForCountry(defaultResolver.countryOfAirport(origin)),
   });
+  const searchCurrencies = [
+    ...(env.TURKISH_RENDERED_ENABLED === "true" && parsed.req.origin === "IST" && parsed.req.destination === "ATH" ? ["TRY"] : []),
+    ...(env.SINGAPORE_PUBLISHED_ENABLED === "true" && parsed.req.origin === "SIN" && ["HND","NRT","TYO"].includes(parsed.req.destination) ? ["SGD"] : []),
+  ];
   try {
     const result = await runSearch(
       {
@@ -391,11 +395,11 @@ async function handleSearch(request: Request, env: Env, ctx: ExecutionContext): 
         tp,
         fxCached: async () => {
           const rates = await readFxCache(typeof caches !== "undefined" ? caches.default : undefined, now);
-          return rates && env.TURKISH_RENDERED_ENABLED === "true" && parsed.req.origin === "IST" && parsed.req.destination === "ATH" ? supplementFx(rates,["TRY"],fetchFn,now,typeof caches !== "undefined" ? caches.default : undefined) : rates;
+          return rates ? supplementFx(rates,searchCurrencies,fetchFn,now,typeof caches !== "undefined" ? caches.default : undefined) : rates;
         },
         fx: async () => {
           const rates = await getFxRates(repo, fetchFn, now, typeof caches !== "undefined" ? caches.default : undefined);
-          return env.TURKISH_RENDERED_ENABLED === "true" && parsed.req.origin === "IST" && parsed.req.destination === "ATH" ? supplementFx(rates,["TRY"],fetchFn,now,typeof caches !== "undefined" ? caches.default : undefined) : rates;
+          return supplementFx(rates,searchCurrencies,fetchFn,now,typeof caches !== "undefined" ? caches.default : undefined);
         },
         now,
         resolver: defaultResolver,

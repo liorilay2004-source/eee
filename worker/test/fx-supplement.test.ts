@@ -35,3 +35,8 @@ it("uses a separate ECB cache namespace",async()=>{
  expect(fx.ratesToIls.TRY).toBe(.06);expect(fetcher).not.toHaveBeenCalled();
  expect(await readFxCache(storage,now)).toEqual(base);
 });
+it("adds SGD for Singapore prices while preserving the primary exchange rates",async()=>{
+ const fetcher=vi.fn(async()=>new Response("<Cube time='2026-10-08'><Cube currency='USD' rate='1.1'/><Cube currency='ILS' rate='4'/><Cube currency='SGD' rate='1.5'/></Cube>")) as unknown as typeof fetch;
+ const fx=await supplementFx(base,["SGD"],fetcher,now);
+ expect(fx.ratesToIls.SGD).toBeCloseTo(4/1.5,10);expect(fx.ratesToIls.USD).toBe(3.5);expect(fx.source).toBe("bank_of_israel+ecb");
+});
