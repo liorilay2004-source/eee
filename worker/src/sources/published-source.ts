@@ -2,6 +2,7 @@ import { QuoteError, type FareQuoteSource, type QuoteQuery } from "../quotes";
 import type { Leg, Offer } from "../types";
 import { fetchPublishedFares, type PublishedFare } from "./published-fares";
 import type { PublicFareCache } from "../public-fare-cache";
+import {EXTERNAL_PUBLISHED_PAGES} from "../external-published-catalog";
 
 const cache = new Map<string, { expires: number; fares: PublishedFare[] }>();
 
@@ -61,7 +62,7 @@ export function createPublishedSource(config: PublishedSourceConfig, now: Date, 
     pending.set(sourceUrl, work);
     return work;
   }
-  return {
+  const source:FareQuoteSource = {
     name: config.source, configured: true, quota: { period: "monthly", cap: 0, allowance: 0 },
     callCount: () => calls,
     nextQuoteRequests: (q) => {
@@ -87,4 +88,17 @@ export function createPublishedSource(config: PublishedSourceConfig, now: Date, 
       return matchPublishedTrip((await Promise.all(pages.map(load))).flat(), q, config);
     },
   };
+  if(!sharedCache||!["TP","VS"].includes(config.airline))return source;
+  const additional=async(q:QuoteQuery)=>{
+    if(q.party.adults!==1||q.party.children||q.party.infants)return [];
+    const pages=EXTERNAL_PUBLISHED_PAGES.filter(page=>page.airline===config.airline&&page.origin===q.origin&&page.destination===q.destination&&!page.allDestinations);
+    const values=await Promise.allSettled([...new Set(pages.map(page=>page.sourceUrl))].map(url=>sharedCache.get<PublishedFare>(url)));
+    return values.flatMap(value=>value.status==="fulfilled"?value.value?.fares??[]:[]);
+  };
+  return {...source,async quote(q){
+    const [base,extra]=await Promise.allSettled([source.quote(q),additional(q)]);
+    const expanded=extra.status==="fulfilled"?matchPublishedTrip(extra.value,q,config):[];
+    if(base.status==="rejected"&&!expanded.length)throw base.reason;
+    return [...new Map([...(base.status==="fulfilled"?base.value:[]),...expanded].map(offer=>[JSON.stringify(offer),offer])).values()].sort((a,b)=>a.priceAmount-b.priceAmount).slice(0,20);
+  }};
 }

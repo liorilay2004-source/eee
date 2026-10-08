@@ -28,12 +28,12 @@ export async function ingestPublicFares(request:Request,env:Env,now=new Date()):
  const v=raw as Record<string,unknown>,entry=EXTERNAL_FARE_PAGES.find(p=>p.source===v.source&&p.page===v.page);
  const at=typeof v.checkedAt==="string"?Date.parse(v.checkedAt):NaN,age=now.getTime()-at;
  if(v.source==="published_page"){
-  const page=EXTERNAL_PUBLISHED_PAGES.find(p=>p.airline===v.airline&&p.sourceUrl===v.page);
+  const pages=EXTERNAL_PUBLISHED_PAGES.filter(p=>p.airline===v.airline&&p.sourceUrl===v.page),page=pages[0];
   if(!page)return reply(400,{error:"unapproved_page"});
   if(!Number.isFinite(age)||age<0||age>120000)return reply(400,{error:"invalid_observation_time"});
   if(page.airline==="IB"?typeof v.html!=="string"||v.html.length>120000:!Array.isArray(v.records)||v.records.length>500)return reply(400,{error:"invalid_records"});
   let fares;
-  try{if(page.airline==="IB")fares=parseIberiaFares(v.html as string,new Date(at));else{const data=JSON.stringify(v.records).replace(/</g,"\\u003c");fares=parsePublishedFares(`<script id="__NEXT_DATA__">${data}</script>`,{...page,now:new Date(at)});}}catch{return reply(400,{error:"invalid_page_records"});}
+  try{if(page.airline==="IB")fares=parseIberiaFares(v.html as string,new Date(at));else{const data=JSON.stringify(v.records).replace(/</g,"\\u003c");fares=pages.flatMap(config=>parsePublishedFares(`<script id="__NEXT_DATA__">${data}</script>`,{...config,now:new Date(at)}));fares=[...new Map(fares.map(fare=>[JSON.stringify(fare),fare])).values()];}}catch{return reply(400,{error:"invalid_page_records"});}
   if(!fares.length)return reply(422,{error:"no_valid_prices"});
   try{await env.PUBLIC_FARES.getByName(cacheRequest(page.sourceUrl).url).write(page.sourceUrl,JSON.stringify({storedAt:at,expires:at+TTL,fares}));}catch{return reply(503,{error:"storage_unavailable"});}
   return reply(200,{source:v.source,airline:page.airline,fares:fares.length,checkedAt:new Date(at).toISOString()});

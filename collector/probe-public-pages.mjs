@@ -23,7 +23,7 @@ const pages=candidateMode?[
 const results=[];
 const selection=process.env.PROBE_AIRLINE;
 if(selection&&(!candidateMode||!pages.some(page=>page.airline===selection)))throw new Error('Invalid candidate selection');
-for(const page of pages.filter(page=>!selection||page.airline===selection)){const now=new Date();try{
+for(const page of [...new Map(pages.filter(page=>!selection||page.airline===selection).map(page=>[page.sourceUrl,page])).values()]){const now=new Date();try{
  const response=await fetch(page.sourceUrl,{redirect:'manual',signal:AbortSignal.timeout(15000)});
  if(response.status!==200)throw new Error(`HTTP ${response.status}`);
  const reader=response.body.getReader();const chunks=[];let size=0;

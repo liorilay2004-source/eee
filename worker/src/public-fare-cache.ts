@@ -17,6 +17,7 @@ export function cacheRequest(key: string): Request {
     return new Request(`https://eee-api.liorilay2004.workers.dev/__public_fares/v1/${encodeURIComponent(key)}`);
   }
   if (url.protocol !== "https:" || !hosts.has(url.hostname) || url.username || url.password || url.port || url.hash) throw new Error("Unsupported public fare source");
+  if(EXTERNAL_PUBLISHED_PAGES.some(page=>page.sourceUrl===key))return new Request(`https://eee-api.liorilay2004.workers.dev/__public_fares/${url.hostname==="flights.aegeanair.com"?"v2":"v1"}/${encodeURIComponent(key)}`);
   if (url.hostname === "www.turkishairlines.com") {
     if (url.search || url.pathname !== "/en/flights-from-istanbul-to-athens") throw new Error("Unsupported Turkish public fare page");
   } else if (url.hostname === "www.eurowings.com") {

@@ -7,6 +7,11 @@ const fare = { __typename: "Fare", originAirportCode: "TLV", destinationAirportC
 const html = (nodes: unknown[]) => `<script id="__NEXT_DATA__">${JSON.stringify({ props: { fares: nodes } })}</script>`;
 const q = { origin: "TLV", destination: "JFK", departDate: fare.departureDate, returnDate: fare.returnDate, party: { adults: 1, children: 0, infants: 0 } };
 describe("Virgin Atlantic public dated fares", () => {
+  it("uses additional verified route snapshots even when origin collection fails",async()=>{
+    const route="https://flights.virginatlantic.com/en-il/flights-from-tel-aviv-to-seattle",row={airline:"VS",origin:"TLV",destination:"SEA",departDate:"2027-06-01",returnDate:"2027-06-05",amount:900,currency:"USD",structure:"roundtrip",sourceUrl:route,checkedAt:now.toISOString(),pricing:"published_advertisement"};
+    const source=createVirginPublishedSource(new Date(now.getTime()+3600000),(async()=>{throw new Error("upstream unavailable");}) as typeof fetch,{get:async<T>(url:string)=>url===route?{fares:[row] as T[],expires:now.getTime()+7200000}:null,put:async()=>{}});
+    expect(await source.quote({...q,destination:"SEA",departDate:row.departDate,returnDate:row.returnDate})).toMatchObject([{priceAmount:900,priceCurrency:"USD",deeplink:route,outbound:{stops:null,departTime:null}}]);
+  });
   it("reads the observed February round trip and keeps its original currency", async () => {
     const source = createVirginPublishedSource(now, (async () => new Response(html([fare]))) as typeof fetch);
     const offers = await source.quote(q);
