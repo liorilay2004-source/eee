@@ -29,3 +29,20 @@ export async function loadRenderedFinnair(browser: NonNullable<Env["BROWSER"]>, 
   return parseFinnairFares(envelope.result, now);
 }
 
+import type { Repo } from "./types";
+import type { PublicFareCache } from "./public-fare-cache";
+import { matchPublishedTrip } from "./sources/published-source";
+import { finnairCacheKey } from "./sources/finnair-cached";
+export async function collectRenderedFinnair(deps:{env:Env;repo:Pick<Repo,"savePrices">;now:Date;cache?:PublicFareCache}){
+ const empty={source:"finnair",ok:true,fares:0,saved:0};
+ if(deps.env.FINNAIR_RENDERED_ENABLED!=="true"||!deps.env.BROWSER)return {...empty,skipped:true};
+ let saved=0;
+ try {
+ const fares=await loadRenderedFinnair(deps.env.BROWSER,deps.now);
+ const destinations=new Set(fares.map(f=>f.destination));
+ for(const destination of destinations){const route=fares.filter(f=>f.destination===destination);for(let i=0;i<route.length;i+=500)await deps.cache?.put(finnairCacheKey(destination,i/500),route.slice(i,i+500));}
+ const offers=fares.flatMap(f=>f.returnDate?matchPublishedTrip([f],{origin:f.origin,destination:f.destination,departDate:f.departDate,returnDate:f.returnDate,party:{adults:1,children:0,infants:0}},{airline:"AY",source:"finnair"}):[]);
+ for(let i=0;i<offers.length;i+=100){const chunk=offers.slice(i,i+100);await deps.repo.savePrices(chunk,{skipUnchangedSince:new Date(deps.now.getTime()-86400000).toISOString()});saved+=chunk.length;}
+ return {...empty,ok:offers.length>0,fares:fares.length,saved};
+ }catch{return {...empty,ok:false,saved};}
+}

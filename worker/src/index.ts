@@ -71,6 +71,8 @@ import { createVirginPublishedSource } from "./sources/virgin-published";
 import { createDirectCombinationSource } from "./sources/direct-combination";
 import { createPublicFareCache } from "./public-fare-cache";
 import { collectRenderedKlm } from "./rendered-collection";
+import { collectRenderedFinnair } from "./finnair-rendered";
+import { createFinnairCachedSource } from "./sources/finnair-cached";
 import { collectRenderedAvianca } from "./avianca-rendered";
 import { createAviancaCachedSource } from "./sources/avianca-cached";
 import { collectRenderedCopa } from "./copa-rendered";
@@ -257,6 +259,7 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
   const duffel = secret(env.DUFFEL_API_TOKEN);
   const hasData = secret(env.HASDATA_API_KEY);
   const providers = [
+    env.FINNAIR_RENDERED_ENABLED === "true" ? createFinnairCachedSource(publicCache) : null,
     env.AVIANCA_RENDERED_ENABLED === "true" ? createAviancaCachedSource(publicCache) : null,
     env.COPA_RENDERED_ENABLED === "true" ? createCopaCachedSource(publicCache) : null,
     env.AEROMEXICO_RENDERED_ENABLED === "true" ? createAeromexicoCachedSource(publicCache) : null,
@@ -642,6 +645,7 @@ export default {
         marketFor: (origin) => marketForCountry(defaultResolver.countryOfAirport(origin)),
       });
       const [origin, destination] = pickSnapshotRoute(now);
+      if (now.getUTCHours() === 1) ctx.waitUntil(collectRenderedFinnair({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("Finnair collection:", JSON.stringify(result))));
       if (now.getUTCHours() % 6 === 0) ctx.waitUntil(collectRenderedAvianca({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("Avianca collection:", JSON.stringify(result))));
       if (now.getUTCHours() % 4 === 0) ctx.waitUntil(collectRenderedCopa({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("Copa collection:", JSON.stringify(result))));
       if (now.getUTCHours() % 2 === 0) ctx.waitUntil(collectRenderedAeromexico({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("Aeromexico collection:", JSON.stringify(result))));

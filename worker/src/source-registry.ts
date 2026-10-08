@@ -347,7 +347,7 @@ export const SOURCE_REGISTRY: readonly SourceRegistryEntry[] = Object.freeze([
   entry("vueling", "Vueling", "planned", 54, ["EU"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("lot", "LOT Polish Airlines", "planned", 54, ["EU", "Asia", "US"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("sas", "SAS", "planned", 53, ["EU", "US"], "מתוכנן כקישור/אדפטר עתידי."),
-  entry("finnair", "Finnair", "planned", 53, ["EU", "Asia"], "מתוכנן כקישור/אדפטר עתידי."),
+  { ...entry("finnair", "Finnair", "manual-link", 53, ["EU", "Asia"], "מחירי הלוך וחזור מתוארכים מהלסינקי נאספים ברקע. נדרש אימות זמינות ומחיר סופי באתר החברה."), capabilities: { ...manual, cachedPrice: true } },
   entry("norwegian", "Norwegian", "planned", 52, ["EU"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("icelandair", "Icelandair", "planned", 52, ["EU", "US"], "מתוכנן כקישור/אדפטר עתידי."),
   { ...entry("aer_lingus", "Aer Lingus", "manual-link", 52, ["EU", "US"], "מחירי כיוון אחד מתוארכים מהאתר הרשמי בדבלין, לחיבור עם טיסת חזור מתומחרת. המחירים החלקיים של הלוך וחזור אינם מוצגים."), capabilities: { ...manual, cachedPrice: true, combinations: true } },
