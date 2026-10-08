@@ -283,3 +283,23 @@ Payload reading stops above four million bytes before JSON parsing. Six targeted
 tests and Worker typecheck pass. No user-provided URL or browser cookies are used.
 This validates the real loader but does not yet connect Avianca to D1, the source
 registry, scheduled collection or production search. Those steps remain pending.
+
+## Avianca production integration — 2026-10-08
+
+The actual collector's first production-D1 attempt failed and saved nothing;
+one explicit repeat succeeded and saved the complete USD 330 MIA–CLO November
+7–14 2026 record. The source now has fixed-route cache-only search integration,
+D1 persistence, registry metadata and UI advertisement labeling. The real deployed
+search returned enabled true, ok true, zero upstream calls, one Avianca offer,
+and the selected USD 330 / ILS 1014.42 card with both exact dates.
+All 2179 tests across 78 files passed, as did typecheck and the web build.
+Worker SHA 3b870fc5b7b8, version 2926ae59-0b46-4ce2-88b5-10df16517186;
+Pages https://0a9d52cb.eee-web-bly.pages.dev.
+
+Avianca is scheduled every six hours at minute 43. KLM and Aeromexico now run
+every two hours; Copa every four. These timings reduce browser usage as sources
+expand, but do not constitute a guarantee of free quota or successful future renders.
+The new scheduled Avianca execution has not yet been observed. Runtime can fail
+or show partial markup; invalid cards are excluded. Coverage is the one fixed
+MIA–CLO page's selected dated advertisement, not arbitrary route/date search or
+checkout confirmation. The all-airline cheapest-price objective remains incomplete.
