@@ -1,4 +1,5 @@
 import type { Env } from "./types";
+import {parseNorwegianCalendarHtml} from "./norwegian-calendar";
 export const NORWEGIAN_PAGE = "https://www.norwegian.com/en/low-fare-calendar/Athens-OsloGardermoen";
 /** Observed official month parameters, fixed route, background only. */
 export async function loadRenderedNorwegian(browser: NonNullable<Env["BROWSER"]>, month: string): Promise<string> {
@@ -19,4 +20,15 @@ export async function loadRenderedNorwegian(browser: NonNullable<Env["BROWSER"]>
   const expected=`D_City=ATH&amp;A_City=OSL&amp;D_Month=${value}&amp;R_Month=${value}&amp;AdultCount=1&amp;CurrencyCode=EUR`;
   if(!envelope.result.includes(expected))throw new Error("Calendar route or month mismatch");
   return envelope.result;
+}
+
+/** Persist one complete monthly snapshot; failed/empty renders never overwrite valid data. */
+export async function collectNorwegianMonth(env: Pick<Env,"BROWSER"|"DB">, month:string, now:Date) {
+  if(!env.BROWSER)return {ok:false,fares:0};
+  const html=await loadRenderedNorwegian(env.BROWSER,month);
+  const fares=parseNorwegianCalendarHtml(html,month,now);
+  if(!fares.length)return {ok:false,fares:0};
+  await env.DB.prepare("INSERT INTO public_calendar_snapshots (source,origin,destination,month,fares_json,checked_at) VALUES (?,?,?,?,?,?) ON CONFLICT(source,origin,destination,month) DO UPDATE SET fares_json=excluded.fares_json,checked_at=excluded.checked_at")
+    .bind("norwegian","ATH","OSL",month,JSON.stringify(fares),now.toISOString()).run();
+  return {ok:true,fares:fares.length};
 }
