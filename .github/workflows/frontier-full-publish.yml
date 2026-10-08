@@ -1,0 +1,51 @@
+name: Refresh all approved Frontier fare pages
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: frontier-full-publication
+  cancel-in-progress: false
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      offsets: ${{ steps.inventory.outputs.offsets }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - id: inventory
+        run: |
+          node --input-type=module <<'JS'
+          import {appendFile} from 'node:fs/promises';
+          import {FRONTIER_PUBLISHED_PAGES} from './worker/src/frontier-published-catalog.ts';
+          import {frontierBatch} from './collector/frontier-batch.mjs';
+          const pages=[...new Set(FRONTIER_PUBLISHED_PAGES.map(p=>p.sourceUrl))].sort().map(url=>({url}));
+          frontierBatch(pages);
+          const offsets=Array.from({length:Math.ceil(pages.length/60)},(_,i)=>i*60);
+          await appendFile(process.env.GITHUB_OUTPUT,`offsets=${JSON.stringify(offsets)}\n`);
+          console.log(JSON.stringify({approvedPages:pages.length,batches:offsets.length}));
+          JS
+  publish:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        offset: ${{ fromJSON(needs.plan.outputs.offsets) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node --test collector/frontier-batch.test.mjs
+      - run: node collector/publish-frontier-page.mjs
+        env:
+          COLLECTOR_KEY: ${{ secrets.COLLECTOR_KEY }}
+          FRONTIER_BATCH: 'true'
+          FRONTIER_OFFSET: ${{ matrix.offset }}
+          FRONTIER_LIMIT: '60'
