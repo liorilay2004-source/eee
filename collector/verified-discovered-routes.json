@@ -206,5 +206,405 @@
     "sourceUrl": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv-to-san-francisco",
     "observedOn": "https://flights.virginatlantic.com/en-il/flights-from-tel-aviv",
     "checkedAt": "2026-10-08T07:16:40.404Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "SKG",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-thessaloniki",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:16.832Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "HER",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-heraklion",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:17.364Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "CDG",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-paris",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:19.177Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "CHQ",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-chania",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:19.387Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "LGW",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-london",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:21.198Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "AMS",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-amsterdam",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:22.903Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "RHO",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-rhodes",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:23.071Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "LCA",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-larnaca",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:24.700Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "FCO",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-rome",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:24.909Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "BCN",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-barcelona",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:26.633Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "MXP",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-milan",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:26.815Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "VIE",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-vienna",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:27.007Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "MUC",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-munich",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:28.429Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "PRG",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-prague",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:30.122Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "BRU",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-brussels",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:31.827Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "WAW",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-warsaw",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:32.038Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "IST",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-istanbul",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:33.552Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "MAD",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-madrid",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:35.135Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "DUS",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-dusseldorf",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:36.744Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "FRA",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-frankfurt",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:38.550Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "LIS",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-lisbon",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:38.756Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "JTR",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-santorini",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:38.941Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "BER",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-berlin",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:40.746Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "MJT",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-mytilene",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:42.285Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "AXD",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-alexandroupoli",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:43.863Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "TBS",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-tbilisi",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:45.503Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "JKH",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-chios",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:47.134Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "HAM",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-hamburg",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:48.766Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "KGS",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-kos",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:50.339Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "CFU",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-corfu",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:50.497Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "TLV",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-tel-aviv",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:50.664Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "LYS",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-lyon",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:52.220Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "PAS",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-paros",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:53.980Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "CAI",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-cairo",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:54.156Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "JMK",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-mykonos",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:55.837Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "JNX",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-naxos",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:56.031Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "TIA",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-tirana",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:56.212Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "SOF",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-sofia",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:57.892Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "SMI",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-samos",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:58.066Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "JIK",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-ikaria",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:58.241Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "LXS",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-lemnos",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:24:59.816Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "EFL",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-kefalonia",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:25:01.590Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "ZTH",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-zakynthos",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:25:03.355Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "AOK",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-karpathos",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:25:04.862Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "JSI",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-skiathos",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:25:06.346Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "MLO",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-milos",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:25:08.081Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "JTY",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-astypalaia",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:25:09.733Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "JSY",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-syros",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:25:11.234Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "JKL",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-kalymnos",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:25:12.799Z"
+  },
+  {
+    "airline": "GQ",
+    "origin": "ATH",
+    "destination": "KZI",
+    "sourceUrl": "https://www.skyexpress.gr/en/flights-from-athens-to-kozani",
+    "observedOn": "https://www.skyexpress.gr/en/flights-from-athens",
+    "checkedAt": "2026-10-08T07:25:12.971Z"
   }
 ]

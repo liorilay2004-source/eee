@@ -17,5 +17,6 @@ for(const target of targets){const checkedAt=new Date();try{
  const html=Buffer.concat(chunks).toString('utf8'),records=fareRecords(html);
  const fares=observedPairs(records).flatMap(pair=>parsePublishedFares(html,{...pair,airline,sourceUrl:url.href,now:checkedAt}));
  results.push({...target,checkedAt:checkedAt.toISOString(),fares});console.log(JSON.stringify({airline,url:url.href,fares:fares.length}));
-}catch(error){results.push({...target,error:error.message});console.log(JSON.stringify({airline,url:target.url,error:error.message}));}}
+}catch(error){results.push({...target,error:error.message});console.log(JSON.stringify({airline,url:target.url,error:error.message}));}
+await writeFile('discovered-route-prices.json',JSON.stringify(results,null,2));}
 await writeFile('discovered-route-prices.json',JSON.stringify(results,null,2));
