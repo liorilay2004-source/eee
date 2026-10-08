@@ -1,10 +1,11 @@
 import {readFile,writeFile} from 'node:fs/promises';
 import {fareRecords} from './fare-records.mjs';
 import {parsePublishedFares} from '../worker/src/sources/published-fares.ts';
-const pages=JSON.parse(await readFile(new URL('./frontier-discovered-routes.json',import.meta.url),'utf8'));
+const inventory=process.env.FRONTIER_PAGE_KIND==='origins'?'./frontier-origin-pages.json':'./frontier-discovered-routes.json';
+const pages=JSON.parse(await readFile(new URL(inventory,import.meta.url),'utf8'));
 if(!Array.isArray(pages)||pages.length>50)throw new Error('Invalid route inventory');
 const results=[],started=Date.now();
-const allowed=url=>url.protocol==='https:'&&url.hostname==='flights.flyfrontier.com'&&!url.username&&!url.password&&!url.port&&!url.search&&!url.hash&&/^\/(?:en\/)?flights-from-[a-z-]+-to-[a-z-]+\/?$/.test(url.pathname);
+const allowed=url=>url.protocol==='https:'&&url.hostname==='flights.flyfrontier.com'&&!url.username&&!url.password&&!url.port&&!url.search&&!url.hash&&(/^\/(?:en\/)?flights-from-[a-z-]+-to-[a-z-]+\/?$/.test(url.pathname)||/^\/en\/flights-from-[a-z-]+\/?$/.test(url.pathname));
 for(const page of pages){
  if(Date.now()-started>240000){results.push({page:page.url,error:'collection_deadline'});continue;}
  const checkedAt=new Date().toISOString();let url=new URL(page.url);const redirects=[];

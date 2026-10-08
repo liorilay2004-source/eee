@@ -17,6 +17,8 @@ jobs:
           node-version: 24
       - run: node --test collector/route-links.test.mjs
       - run: node collector/probe-frontier-routes.mjs
+        env:
+          FRONTIER_PAGE_KIND: origins
       - uses: actions/upload-artifact@v4
         if: always()
         with:
