@@ -16,8 +16,13 @@ export async function collectRenderedBrussels(deps: { env: Env; now: Date; cache
 
 /** Reads public rendered anchors only. No account, passenger data or session tokens are retained. */
 export async function loadRenderedBrussels(browser: NonNullable<Env["BROWSER"]>, now: Date): Promise<BrusselsAdvertisement[]> {
+  return parseBrusselsAdvertisements(await loadRenderedLhgAnchors(browser, BRUSSELS_ATHENS_PAGE), { origin: "BRU", destination: "ATH" }, now);
+}
+
+export async function loadRenderedLhgAnchors(browser: NonNullable<Env["BROWSER"]>, page: string): Promise<{text:string;url:string}[]> {
+  if (![BRUSSELS_ATHENS_PAGE,"https://www.lufthansa.com/lhg/gr/en/o-d/cy-cy/athens-tel-aviv"].includes(page)) throw new Error("Unsupported official fare page");
   const response = await browser.quickAction("content", {
-    url: BRUSSELS_ATHENS_PAGE, gotoOptions: { waitUntil: "domcontentloaded", timeout: 15000 },
+    url: page, gotoOptions: { waitUntil: "domcontentloaded", timeout: 15000 },
     waitForTimeout: 2000, rejectResourceTypes: ["image", "font", "media"],
   });
   if (!response.ok || !response.body) throw new Error("Official rendering failed");
@@ -44,5 +49,5 @@ export async function loadRenderedBrussels(browser: NonNullable<Env["BROWSER"]>,
     text(chunk) { if (current) { current.text += chunk.text; if (current.text.length > 2000) throw new Error("Fare label too large"); } },
   }).transform(new Response(envelope.result));
   await transformed.text();
-  return parseBrusselsAdvertisements(anchors, { origin: "BRU", destination: "ATH" }, now);
+  return anchors;
 }
