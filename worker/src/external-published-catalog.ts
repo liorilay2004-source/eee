@@ -10,5 +10,4 @@ export const EXTERNAL_PUBLISHED_PAGES=[
  {airline:'GQ',origin:'ATH',destination:'FCO',sourceUrl:'https://www.skyexpress.gr/en/flights-from-athens',allDestinations:true},
  {airline:'G3',origin:'CGH',destination:'GIG',sourceUrl:'https://www.voegol.com.br/en/flights-from-sao-paulo',allDestinations:true,origins:['CGH','GRU','SAO']},
  {airline:'ET',origin:'TLV',destination:'BKK',sourceUrl:'https://www.ethiopianairlines.com/en-il/',allDestinations:true},
- {airline:'UX',origin:'TLV',destination:'MAD',sourceUrl:'https://www.aireuropa.com/en-il/flight-deals-from-tel-aviv-to-spain',allDestinations:true},
 ];
