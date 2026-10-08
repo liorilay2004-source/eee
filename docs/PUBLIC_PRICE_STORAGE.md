@@ -31,7 +31,9 @@ The cached adapter reads actual collected ATH–OSL calendar records and combine
 requested outbound and inbound dates, including trips spanning two months. Both legs must
 exist and be positive EUR prices for one adult. Operating carrier, times and baggage stay
 unknown. The result is an advertised sum of two directional prices, not a verified checkout
-or reserved booking. Its official link opens the observed calendar page; dates still need
+or reserved booking. The observed calendar request used a return-trip search, so the
+adapter does not claim these are two independently bookable one-way tickets.
+Its official link opens the observed calendar page; dates still need
 selection on that page. Source metadata and UI labeling state this limitation.
 
 Hourly background collection rotates the thirteen months in the one-year search horizon.
@@ -40,6 +42,15 @@ untouched, subject to the 36-hour freshness limit. Future scheduled runs and all
 availability must be verified separately; the verified initial snapshot was June 2027.
 
 ## Outstanding requirements
+
+Live verification subsequently hit D1's daily **read** allowance too. The independent
+monthly read returned its metadata once, but the subsequent cached-adapter query returned
+no offers; a direct CLI read then explicitly failed with the daily row-read limit. This
+does not prove the production Norwegian search works today. Background public cache
+entries now retain their original collection timestamps for up to 36 hours; active
+Ryanair, Air Serbia and Aegean calendars keep the ten-minute limit. Norwegian checks
+that public cache before D1. Local tests prove the cached path survives unavailable D1;
+production cache population and the next scheduled collection still require observation.
 
 The current daily write allowance cannot be restored by deploying code. A write-dependent
 operation may remain unavailable until the allowance resets. No paid upgrade was activated.

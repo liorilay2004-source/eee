@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createPublicFareCache } from "../src/public-fare-cache";
+import { BACKGROUND_FARE_TTL_MS, createPublicFareCache } from "../src/public-fare-cache";
 import { createRyanairDirectSource, parseRyanairCalendar, ryanairCalendarUrl } from "../src/sources/ryanair-direct";
 const now = new Date("2026-10-12T00:00:00Z");
 const url = ryanairCalendarUrl("STN", "DUB", "2027-06");
@@ -8,6 +8,18 @@ const storage = () => {
   return { rows, match: async (request: RequestInfo) => rows.get((request as Request).url)?.clone(), put: async (request: RequestInfo, response: Response) => { rows.set((request as Request).url, response.clone()); } };
 };
 describe("shared public fare data", () => {
+  it("keeps background advertisements between daily collections without extending live calendar freshness", async () => {
+    const db=storage();const writer=createPublicFareCache(db as unknown as Cache,now,BACKGROUND_FARE_TTL_MS);
+    const key="https://www.norwegian.com/en/low-fare-calendar/Athens-OsloGardermoen?month=2027-06";
+    const fares=[{amount:56.44,checkedAt:now.toISOString()}];
+    await writer.put(key,fares);await writer.put(url,fares);
+    const reader=createPublicFareCache(db as unknown as Cache,new Date(now.getTime()+12*3600000));
+    expect(await reader.get(key)).toEqual({fares,expires:now.getTime()+BACKGROUND_FARE_TTL_MS});
+    expect(await reader.get(url)).toBeNull();
+    expect(await createPublicFareCache(db as unknown as Cache,new Date(now.getTime()+BACKGROUND_FARE_TTL_MS+1)).get(key)).toBeNull();
+    await writer.put(`${key}&api_key=secret`,fares);
+    expect(db.rows.size).toBe(2);
+  });
   it("preserves timestamps and original expiry across independent cache readers", async () => {
     const db = storage();
     const first = createPublicFareCache(db as unknown as Cache, now);

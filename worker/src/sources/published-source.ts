@@ -48,7 +48,7 @@ export function createPublishedSource(config: PublishedSourceConfig, now: Date, 
     let expires = now.getTime() + 600_000;
     const work = (async () => {
       const shared = await sharedCache?.get<PublishedFare>(sourceUrl);
-      if (shared) { expires = shared.expires; return shared.fares; }
+      if (shared) { expires = Math.min(shared.expires, now.getTime() + 600_000); return shared.fares; }
       calls++;
       const fares = await fetchPublishedFares({ ...page, airline: config.airline, now }, fetchFn);
       await sharedCache?.put(sourceUrl, fares);

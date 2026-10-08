@@ -1,14 +1,16 @@
 import type { FareQuoteSource } from "../quotes";
 import type { Leg } from "../types";
 import type { NorwegianCalendarFare } from "../norwegian-calendar";
-import { NORWEGIAN_PAGE } from "../norwegian-rendered";
+import { NORWEGIAN_PAGE, norwegianCacheKey } from "../norwegian-rendered";
+import type { PublicFareCache } from "../public-fare-cache";
 
 /** One observed public route. No operating carrier, baggage or departure time is inferred. */
-export function createNorwegianCachedSource(db: D1Database, now: Date): FareQuoteSource {
+export function createNorwegianCachedSource(db: D1Database, now: Date, cache?: PublicFareCache): FareQuoteSource {
   const pending = new Map<string, Promise<NorwegianCalendarFare[]>>();
   const load = (month: string) => {
     if (!pending.has(month)) pending.set(month, (async () => {
-      const row = await db.prepare("SELECT fares_json,checked_at FROM public_calendar_snapshots WHERE source=? AND origin=? AND destination=? AND month=?")
+      const hot = await cache?.get<NorwegianCalendarFare>(norwegianCacheKey(month));
+      const row = hot?.fares.length ? {fares_json:JSON.stringify(hot.fares),checked_at:hot.fares[0]!.checkedAt} : await db.prepare("SELECT fares_json,checked_at FROM public_calendar_snapshots WHERE source=? AND origin=? AND destination=? AND month=?")
         .bind("norwegian", "ATH", "OSL", month).first<{fares_json:string;checked_at:string}>();
       if (!row || typeof row.fares_json !== "string" || row.fares_json.length > 100_000) return [];
       const age = now.getTime() - Date.parse(row.checked_at);
@@ -35,8 +37,8 @@ export function createNorwegianCachedSource(db: D1Database, now: Date): FareQuot
       const back = rows.find(f=>f.origin===q.destination && f.destination===q.origin && f.date===q.returnDate);
       if (!out || !back) return [];
       return [{origin:q.origin,destination:q.destination,departDate:q.departDate,returnDate:q.returnDate,source:"norwegian",
-        priceAmount:Math.round((out.amount+back.amount)*100)/100,priceCurrency:"EUR",ticketStructure:"split",outbound:leg(out),inbound:leg(back),
-        includes:{},deeplink:NORWEGIAN_PAGE,returnDeeplink:NORWEGIAN_PAGE,verifyLink:null,checkedAt:out.checkedAt<back.checkedAt?out.checkedAt:back.checkedAt,
+        priceAmount:Math.round((out.amount+back.amount)*100)/100,priceCurrency:"EUR",ticketStructure:"roundtrip",outbound:leg(out),inbound:leg(back),
+        includes:{},deeplink:NORWEGIAN_PAGE,verifyLink:null,checkedAt:out.checkedAt<back.checkedAt?out.checkedAt:back.checkedAt,
         totalIls:null,extrasAmountIls:0,tags:["published_advertisement","advertised_calendar_price"]}];
     }
   };

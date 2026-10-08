@@ -4,12 +4,15 @@ export interface PublicFareCache {
   put<T>(key: string, fares: T[]): Promise<void>;
 }
 const TTL_MS = 10 * 60_000;
+export const BACKGROUND_FARE_TTL_MS = 36 * 3_600_000;
 const MAX_BYTES = 500_000;
-const hosts = new Set(["services-api.ryanair.com", "flights.aegeanair.com", "www.aircanada.com", "www.flytap.com", "www.ethiopianairlines.com", "www.aireuropa.com", "flights.philippineairlines.com", "flights.virginatlantic.com", "www.airnewzealand.com", "www.airbaltic.com", "www.skyexpress.gr", "www.voegol.com.br", "www.finnair.com", "www.iberia.com", "www.avianca.com", "www.copaair.com", "www.aeromexico.com", "www.klm.co.il", "www.aa.com", "www.aerlingus.com", "www.airserbia.com"]);
+const hosts = new Set(["services-api.ryanair.com", "flights.aegeanair.com", "www.aircanada.com", "www.flytap.com", "www.ethiopianairlines.com", "www.aireuropa.com", "flights.philippineairlines.com", "flights.virginatlantic.com", "www.airnewzealand.com", "www.airbaltic.com", "www.skyexpress.gr", "www.voegol.com.br", "www.finnair.com", "www.iberia.com", "www.avianca.com", "www.copaair.com", "www.aeromexico.com", "www.klm.co.il", "www.aa.com", "www.aerlingus.com", "www.airserbia.com", "www.norwegian.com"]);
 function cacheRequest(key: string): Request {
   const url = new URL(key);
   if (url.protocol !== "https:" || !hosts.has(url.hostname) || url.username || url.password || url.port || url.hash) throw new Error("Unsupported public fare source");
-  if (url.hostname === "www.airserbia.com") {
+  if (url.hostname === "www.norwegian.com") {
+    if (url.pathname !== "/en/low-fare-calendar/Athens-OsloGardermoen" || [...url.searchParams.keys()].length !== 1 || !/^\d{4}-(0[1-9]|1[0-2])$/.test(url.searchParams.get("month") ?? "")) throw new Error("Unsupported Norwegian calendar cache");
+  } else if (url.hostname === "www.airserbia.com") {
     if (!/^\/api\/destination\/flight-prices\/(BEG\/ATH|ATH\/BEG)$/.test(url.pathname) || [...url.searchParams.keys()].length !== 3 || !/^\d{4}$/.test(url.searchParams.get("year") ?? "") || !/^(?:[1-9]|1[0-2])$/.test(url.searchParams.get("month") ?? "") || url.searchParams.get("pos") !== "GLOBAL" || [...url.searchParams.keys()].some(k => !["year", "month", "pos"].includes(k))) throw new Error("Unsupported Air Serbia calendar");
   } else if (url.hostname === "services-api.ryanair.com") {
     if (!/^\/farfnd\/v4\/oneWayFares\/[A-Z]{3}\/[A-Z]{3}\/cheapestPerDay$/.test(url.pathname) || [...url.searchParams.keys()].some((name) => name !== "outboundMonthOfDate" && name !== "currency") || url.searchParams.get("currency") !== "EUR" || !/^\d{4}-(0[1-9]|1[0-2])-01$/.test(url.searchParams.get("outboundMonthOfDate") ?? "")) throw new Error("Unsupported public calendar");
@@ -55,7 +58,9 @@ function cacheRequest(key: string): Request {
   const version = url.hostname === "flights.aegeanair.com" ? "v2" : "v1";
   return new Request(`https://eee-api.liorilay2004.workers.dev/__public_fares/${version}/${encodeURIComponent(key)}`);
 }
-export function createPublicFareCache(storage: Pick<Cache, "match" | "put">, now: Date): PublicFareCache {
+export function createPublicFareCache(storage: Pick<Cache, "match" | "put">, now: Date, ttlMs = TTL_MS): PublicFareCache {
+  if (!Number.isFinite(ttlMs) || ttlMs < TTL_MS || ttlMs > BACKGROUND_FARE_TTL_MS) throw new Error("Invalid public cache lifetime");
+  const maximum = (key: string) => ["services-api.ryanair.com", "www.airserbia.com", "flights.aegeanair.com"].includes(new URL(key).hostname) ? TTL_MS : BACKGROUND_FARE_TTL_MS;
   return {
     async get<T>(key: string): Promise<{ fares: T[]; expires: number } | null> {
       try {
@@ -63,17 +68,20 @@ export function createPublicFareCache(storage: Pick<Cache, "match" | "put">, now
         if (!response) return null;
         const text = await response.text();
         if (text.length > MAX_BYTES) return null;
-        const data = JSON.parse(text) as { expires?: unknown; fares?: unknown };
-        if (typeof data.expires !== "number" || data.expires <= now.getTime() || data.expires > now.getTime() + TTL_MS || !Array.isArray(data.fares) || data.fares.length > 500) return null;
+        const data = JSON.parse(text) as { expires?: unknown; storedAt?: unknown; fares?: unknown };
+        const storedAt = typeof data.storedAt === "number" ? data.storedAt : now.getTime();
+        const lifetime = data.storedAt === undefined ? TTL_MS : maximum(key);
+        if (!Number.isFinite(storedAt) || storedAt > now.getTime() || typeof data.expires !== "number" || !Number.isFinite(data.expires) || data.expires <= now.getTime() || data.expires > storedAt + lifetime || !Array.isArray(data.fares) || data.fares.length > 500) return null;
         return { fares: data.fares as T[], expires: data.expires };
       } catch { return null; }
     },
     async put<T>(key: string, fares: T[]): Promise<void> {
       try {
         if (fares.length > 500) return;
-        const body = JSON.stringify({ expires: now.getTime() + TTL_MS, fares });
+        const lifetime = Math.min(ttlMs, maximum(key));
+        const body = JSON.stringify({ expires: now.getTime() + lifetime, storedAt: now.getTime(), fares });
         if (body.length > MAX_BYTES) return;
-        await storage.put(cacheRequest(key), new Response(body, { headers: { "content-type": "application/json", "cache-control": "public, max-age=600" } }));
+        await storage.put(cacheRequest(key), new Response(body, { headers: { "content-type": "application/json", "cache-control": `public, max-age=${Math.floor(lifetime / 1000)}` } }));
       } catch { /* Cache failures never turn a valid source response into a search failure. */ }
     },
   };

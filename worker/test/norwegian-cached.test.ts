@@ -9,10 +9,17 @@ async function seed(db:D1Database,rows:unknown[],month="2027-06"){
   .bind("norwegian","ATH","OSL",month,JSON.stringify(rows),now.toISOString()).run();
 }
 describe("Norwegian exact calendar pairs",()=>{
+ it("serves collected public data even when D1 is unavailable, without changing its timestamp",async()=>{
+  const db=createTestD1();const prepare=vi.spyOn(db,"prepare").mockImplementation(()=>{throw new Error("storage unavailable");});
+  const rows=[fare("ATH","OSL","2027-06-05",56.44),fare("OSL","ATH","2027-06-09",114.83)];
+  const cache={get:async<T>()=>({fares:rows as T[],expires:now.getTime()+3600000}),put:async()=>{}};
+  expect(await createNorwegianCachedSource(db,now,cache).quote(query)).toMatchObject([{priceAmount:171.27,checkedAt:now.toISOString()}]);
+  expect(prepare).not.toHaveBeenCalled();
+ });
  it("combines only both requested dates, preserves cents, timestamp and unknown operating carrier",async()=>{
   const db=createTestD1();await seed(db,[fare("ATH","OSL","2027-06-05",56.44),fare("OSL","ATH","2027-06-09",70.44)]);
   const prepare=vi.spyOn(db,"prepare");const source=createNorwegianCachedSource(db,now);
-  expect(await source.quote(query)).toMatchObject([{source:"norwegian",priceAmount:126.88,ticketStructure:"split",checkedAt:now.toISOString(),outbound:{stops:0,airlines:[]},inbound:{stops:0,airlines:[]}}]);
+  expect(await source.quote(query)).toMatchObject([{source:"norwegian",priceAmount:126.88,ticketStructure:"roundtrip",checkedAt:now.toISOString(),outbound:{stops:0,airlines:[]},inbound:{stops:0,airlines:[]}}]);
   expect(await source.quote({...query,returnDate:"2027-06-10"})).toEqual([]);
   expect(prepare).toHaveBeenCalledTimes(1);expect(source.callCount()).toBe(0);
   expect(await source.quote({...query,party:{adults:2,children:0,infants:0}})).toEqual([]);

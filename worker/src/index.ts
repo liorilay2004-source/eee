@@ -69,7 +69,7 @@ import { createGolPublishedSource } from "./sources/gol-published";
 import { createAirNzPublishedSource } from "./sources/airnz-published";
 import { createVirginPublishedSource } from "./sources/virgin-published";
 import { createDirectCombinationSource } from "./sources/direct-combination";
-import { createPublicFareCache } from "./public-fare-cache";
+import { BACKGROUND_FARE_TTL_MS, createPublicFareCache } from "./public-fare-cache";
 import { runCollectionQueue } from "./collection-queue";
 import { collectRenderedKlm } from "./rendered-collection";
 import { collectRenderedFinnair } from "./finnair-rendered";
@@ -265,7 +265,7 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
   const hasData = secret(env.HASDATA_API_KEY);
   const providers = [
     env.FINNAIR_RENDERED_ENABLED === "true" ? createFinnairCachedSource(publicCache, env.DB, now) : null,
-    env.NORWEGIAN_RENDERED_ENABLED === "true" ? createNorwegianCachedSource(env.DB, now) : null,
+    env.NORWEGIAN_RENDERED_ENABLED === "true" ? createNorwegianCachedSource(env.DB, now, publicCache) : null,
     env.IBERIA_RENDERED_ENABLED === "true" ? createIberiaCachedSource(publicCache) : null,
     env.AVIANCA_RENDERED_ENABLED === "true" ? createAviancaCachedSource(publicCache) : null,
     env.COPA_RENDERED_ENABLED === "true" ? createCopaCachedSource(publicCache) : null,
@@ -653,16 +653,16 @@ export default {
       });
       const [origin, destination] = pickSnapshotRoute(now);
       const browserJobs: Array<() => Promise<unknown>> = [];
-      if (env.NORWEGIAN_RENDERED_ENABLED === "true") browserJobs.push(() => collectNorwegianMonth(env, norwegianCollectionMonth(now), now).then(result => console.log("Norwegian collection:", JSON.stringify(result))).catch(() => console.error("Norwegian collection unavailable")));
-      if (now.getUTCHours() === 3) browserJobs.push(() => collectRenderedIberia({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("Iberia collection:", JSON.stringify(result))));
-      if (now.getUTCHours() === 1) browserJobs.push(() => collectRenderedFinnair({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("Finnair collection:", JSON.stringify(result))));
-      if (now.getUTCHours() % 6 === 0) browserJobs.push(() => collectRenderedAvianca({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("Avianca collection:", JSON.stringify(result))));
-      if (now.getUTCHours() % 4 === 0) browserJobs.push(() => collectRenderedCopa({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("Copa collection:", JSON.stringify(result))));
-      if (now.getUTCHours() % 2 === 0) browserJobs.push(() => collectRenderedAeromexico({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("Aeromexico collection:", JSON.stringify(result))));
-      if (now.getUTCHours() % 2 === 0) browserJobs.push(() => collectRenderedKlm({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("rendered collection:", JSON.stringify(result))));
+      if (env.NORWEGIAN_RENDERED_ENABLED === "true") browserJobs.push(() => collectNorwegianMonth(env, norwegianCollectionMonth(now), now, typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined).then(result => console.log("Norwegian collection:", JSON.stringify(result))).catch(() => console.error("Norwegian collection unavailable")));
+      if (now.getUTCHours() === 3) browserJobs.push(() => collectRenderedIberia({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Iberia collection:", JSON.stringify(result))));
+      if (now.getUTCHours() === 1) browserJobs.push(() => collectRenderedFinnair({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Finnair collection:", JSON.stringify(result))));
+      if (now.getUTCHours() % 6 === 0) browserJobs.push(() => collectRenderedAvianca({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Avianca collection:", JSON.stringify(result))));
+      if (now.getUTCHours() % 4 === 0) browserJobs.push(() => collectRenderedCopa({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Copa collection:", JSON.stringify(result))));
+      if (now.getUTCHours() % 2 === 0) browserJobs.push(() => collectRenderedAeromexico({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Aeromexico collection:", JSON.stringify(result))));
+      if (now.getUTCHours() % 2 === 0) browserJobs.push(() => collectRenderedKlm({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("rendered collection:", JSON.stringify(result))));
       ctx.waitUntil(runCollectionQueue(browserJobs));
       ctx.waitUntil(collectPublishedPages({ env, repo, now, fetchFn,
-        cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined,
+        cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined,
       }).then(result => {
         console.log("published collection:", JSON.stringify(result));
       }));
