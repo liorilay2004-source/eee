@@ -42,10 +42,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: node --test collector/frontier-batch.test.mjs
+      - run: node --test collector/frontier-batch.test.mjs collector/publish-pages.test.mjs
       - run: node collector/publish-frontier-page.mjs
         env:
           COLLECTOR_KEY: ${{ secrets.COLLECTOR_KEY }}
           FRONTIER_BATCH: 'true'
           FRONTIER_OFFSET: ${{ matrix.offset }}
           FRONTIER_LIMIT: '60'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontier-publication-${{ matrix.offset }}
+          path: frontier-publication-receipts.json
+          retention-days: 3
