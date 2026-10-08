@@ -23,3 +23,9 @@ it("retains the observed Air Astana official price page",()=>{
  const card={offer:{source:"air_astana",deeplink:url,ticketStructure:"roundtrip",origin:"ALA",destination:"LHR",departDate:"2026-12-04",returnDate:"2026-12-06"}} as any;
  expect(renderToStaticMarkup(<BookingActions card={card}/>)).toContain(`href="${url}"`);
 });
+
+it("keeps the observed Kenya Airways official price page",()=>{
+ const url="https://www.kenya-airways.com/en_gb/flights-from-london-to-nairobi/";
+ const card={offer:{source:"kenya",deeplink:url,ticketStructure:"roundtrip",origin:"LHR",destination:"NBO",departDate:"2026-11-27",returnDate:"2026-12-04"}} as any;
+ expect(renderToStaticMarkup(<BookingActions card={card}/>)).toContain(`href="${url}"`);
+});

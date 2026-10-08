@@ -1,3 +1,4 @@
+import {createKenyaCachedSource} from './sources/kenya-cached';
 import {usesExternalPublishedCollector} from "./external-collection";
 import {ingestPublicFares,externalLhgCache} from "./external-fare-ingest";
 import {getOrCollectAegean} from "./aegean-on-demand";
@@ -321,6 +322,7 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
     env.AIRBALTIC_PUBLISHED_ENABLED === "true" ? createAirBalticPublishedSource(now, fetchFn, publicCache) : null,
     env.SKYEXPRESS_PUBLISHED_ENABLED === "true" ? createSkyExpressPublishedSource(now, fetchFn, publicCache) : null,
     env.GOL_PUBLISHED_ENABLED === "true" ? createGolPublishedSource(now, fetchFn, publicCache) : null,
+    env.KENYA_PUBLISHED_ENABLED === "true" ? createKenyaCachedSource(now,publicCache) : null,
     env.AIRASTANA_PUBLISHED_ENABLED === "true" ? createAirAstanaCachedSource(now,publicCache) : null,
     env.HAWAIIAN_PUBLISHED_ENABLED === "true" ? createHawaiianCachedSource(now,publicCache) : null,
     env.FRONTIER_PUBLISHED_ENABLED === "true" ? createFrontierCachedSource(now,publicCache) : null,
