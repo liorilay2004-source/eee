@@ -1,3 +1,4 @@
+import {createJetBluePublishedSource} from "../src/sources/jetblue-published";
 import {expect,it} from "vitest";
 import {parsePublishedFares} from "../src/sources/published-fares";
 it("parses observed JetBlue airport/date fares without using an undated headline",()=>{
@@ -13,4 +14,13 @@ it("accepts JetBlue DN only with the observed explicit economy and Main metadata
  const html=`<script id="__NEXT_DATA__">${JSON.stringify({fares:[row,{...row,farenetTravelClass:null},{...row,farenetTravelClass:"BUSINESS"},{...row,promoCode:"PRIVATE"}]})}</script>`;
  const fares=parsePublishedFares(html,{airline:"B6",origin:"JFK",destination:"STI",sourceUrl:"https://www.jetblue.com/en/flights-from-new-york",now:new Date("2026-10-08T00:00:00Z")});
  expect(fares).toHaveLength(1);expect(fares[0]).toMatchObject({amount:131,structure:"oneway"});
+});
+
+it("reads shared JetBlue one-way fares without inventing a round trip or group price",async()=>{
+ const now=new Date("2026-10-08T00:00:00Z"),url="https://www.jetblue.com/en/flights-from-new-york";
+ const row={airline:"B6",origin:"JFK",destination:"MCO",departDate:"2026-11-17",returnDate:null,amount:70,currency:"USD",structure:"oneway",sourceUrl:url,checkedAt:now.toISOString(),pricing:"published_advertisement"};
+ const source=createJetBluePublishedSource(now,(async()=>{throw new Error("must use shared snapshot");}) as typeof fetch,{get:async<T>()=>({fares:[row] as T[],expires:now.getTime()+600000}),put:async()=>{}});
+ const q={origin:"JFK",destination:"MCO",departDate:row.departDate,returnDate:"2026-11-21",party:{adults:1,children:0,infants:0}};
+ expect(await source.oneWays!(q)).toMatchObject([{source:"jetblue",amount:70}]);expect(await source.quote(q)).toEqual([]);expect(source.callCount()).toBe(0);
+ expect(await source.oneWays!({...q,party:{adults:2,children:0,infants:0}})).toEqual([]);
 });

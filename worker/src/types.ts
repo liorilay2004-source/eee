@@ -10,7 +10,7 @@
  */
 
 export type TicketStructure = "roundtrip" | "split";
-export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "ryanair" | "aegean" | "air_canada" | "tap" | "ethiopian" | "air_europa" | "philippine" | "virgin_atlantic" | "air_new_zealand" | "air_baltic" | "sky_express" | "gol" | "aeromexico" | "copa" | "brussels_airlines" | "turkish" | "lufthansa" | "swiss" | "austrian" | "icelandair" | "eurowings" | "finnair" | "norwegian" | "iberia" | "avianca" | "klm" | "american" | "aer_lingus" | "air_serbia" | "elal" | "direct_combination";
+export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "ryanair" | "aegean" | "air_canada" | "tap" | "ethiopian" | "air_europa" | "philippine" | "virgin_atlantic" | "air_new_zealand" | "air_baltic" | "sky_express" | "gol" | "aeromexico" | "copa" | "brussels_airlines" | "turkish" | "lufthansa" | "swiss" | "austrian" | "icelandair" | "eurowings" | "finnair" | "norwegian" | "iberia" | "avianca" | "klm" | "american" | "aer_lingus" | "jetblue" | "air_serbia" | "elal" | "direct_combination";
 export type Cabin = "economy" | "premium-economy" | "business" | "first";
 export type RecKind = "cheapest" | "best_value" | "my_times";
 
@@ -615,6 +615,7 @@ export interface Env {
   SKYEXPRESS_PUBLISHED_ENABLED?: string;
   GOL_PUBLISHED_ENABLED?: string;
   AERLINGUS_PUBLISHED_ENABLED?: string;
+  JETBLUE_PUBLISHED_ENABLED?: string;
   AMERICAN_PUBLISHED_ENABLED?: string;
   AIRSERBIA_DIRECT_ENABLED?: string;
   HASDATA_API_KEY?: string;
