@@ -322,7 +322,11 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
     env.AEROMEXICO_RENDERED_ENABLED === "true" ? createAeromexicoCachedSource(publicCache) : null,
     env.KLM_RENDERED_ENABLED === "true" ? createKlmCachedSource(publicCache) : null,
     env.RYANAIR_DIRECT_ENABLED === "true" ? createRyanairDirectSource(now, fetchFn, publicCache) : null,
-    env.AEGEAN_PUBLISHED_ENABLED === "true" ? createAegeanPublishedSource(now, fetchFn, publicCache,env.DB,env.AEGEAN_ON_DEMAND_ENABLED==="true"&&env.PUBLIC_FARES?trip=>getOrCollectAegean(env.PUBLIC_FARES!,trip,onPending):undefined,()=>new Date(),async trip=>{if(await hasPendingAegean(env.PUBLIC_FARES,trip))onPending?.();}) : null,
+    env.AEGEAN_PUBLISHED_ENABLED === "true" ? createAegeanPublishedSource(now, fetchFn, publicCache, env.DB,
+      env.AEGEAN_ON_DEMAND_ENABLED === "true" && env.PUBLIC_FARES ? trip => getOrCollectAegean(env.PUBLIC_FARES!, trip, onPending) : undefined,
+      () => new Date(),
+      env.AEGEAN_ON_DEMAND_ENABLED === "true" ? async trip => { if (await hasPendingAegean(env.PUBLIC_FARES, trip)) onPending?.(); } : undefined,
+    ) : null,
     env.AIRCANADA_PUBLISHED_ENABLED === "true" ? createAirCanadaPublishedSource(now, fetchFn, publicCache) : null,
     env.TAP_PUBLISHED_ENABLED === "true" ? createTapPublishedSource(now, fetchFn, publicCache) : null,
     env.ETHIOPIAN_PUBLISHED_ENABLED === "true" ? createEthiopianPublishedSource(now, fetchFn, publicCache) : null,
@@ -748,12 +752,16 @@ export default {
       if (!usesExternalPublishedCollector(env,"copa") && now.getUTCHours() % 4 === 0) browserJobs.push(() => collectRenderedCopa({ env, repo, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Copa collection:", JSON.stringify(result))));
       if (now.getUTCHours() % 2 === 0) browserJobs.push(() => collectRenderedAeromexico({ env, repo, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Aeromexico collection:", JSON.stringify(result))));
       if (now.getUTCHours() % 2 === 0) browserJobs.push(() => collectRenderedKlm({ env, repo, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("rendered collection:", JSON.stringify(result))));
-      ctx.waitUntil(runCollectionQueue(browserJobs));
-      ctx.waitUntil(collectPublishedPages({ env, repo, now, fetchFn,
-        cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined,
-      }).then(result => {
-        console.log("published collection:", JSON.stringify(result));
-      }));
+      // Airline pages do not expose a general fare-change push feed. Do not scrape them on a timer by default;
+      // enable this only for a source with an explicit feed/collection agreement. User-initiated searches remain separate.
+      if (env.AIRLINE_BACKGROUND_COLLECTION_ENABLED === "true") {
+        ctx.waitUntil(runCollectionQueue(browserJobs));
+        ctx.waitUntil(collectPublishedPages({ env, repo, now, fetchFn,
+          cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined,
+        }).then(result => {
+          console.log("published collection:", JSON.stringify(result));
+        }));
+      }
       // Then the route's deal report, as of AFTER the scan (a fresh Date, not the scheduled time: see detectDeals).
       // Only D1 reads and one upsert; it runs even when the scan was skipped or failed (user searches add history too).
       ctx.waitUntil(

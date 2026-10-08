@@ -579,6 +579,8 @@ export interface Env {
   LOCAL_COLLECTOR_KEY?: string;
   EXTERNAL_LHG_COLLECTOR?: string;
   EXTERNAL_PUBLISHED_COLLECTOR?: string;
+  /** Opt-in only: scheduled collection of airline pages is disabled unless a feed contract requires it. */
+  AIRLINE_BACKGROUND_COLLECTION_ENABLED?: string;
   PUBLIC_FARES?: import("./shared-fare-cache").FareStoreNamespace;
   DB: D1Database;
   BROWSER?: { quickAction(action: "content", options: { url: string; gotoOptions: { waitUntil: "networkidle2" | "domcontentloaded"; timeout: number }; waitForSelector?: { selector: string; timeout: number }; waitForTimeout?: number; rejectResourceTypes: string[] }): Promise<Response> };

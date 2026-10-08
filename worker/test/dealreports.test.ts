@@ -308,6 +308,16 @@ describe("GET /api/deals and the snapshot cron", () => {
     expect(body.routes.find((r) => r.origin === o && r.destination === d)?.status).toBe("deals");
   });
 
+  it("does not fetch airline pages on the hourly timer unless background collection is explicitly enabled", async () => {
+    const fetchFn = vi.fn(async () => new Response("unexpected outbound request", { status: 500 }));
+    vi.stubGlobal("fetch", fetchFn);
+    const env = { DB: createTestD1(), TAP_PUBLISHED_ENABLED: "true", AIRLINE_BACKGROUND_COLLECTION_ENABLED: "false" } as Env;
+    const pending: Promise<unknown>[] = [];
+    await worker.scheduled({ scheduledTime: NOW.getTime(), cron: "43 * * * *", noRetry() {} } as ScheduledController, env, ctxOf(pending));
+    await Promise.all(pending);
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
   it("the daily retention cron does not compute reports", async () => {
     const env = { DB: createTestD1() } as Env;
     const pending: Promise<unknown>[] = [];
