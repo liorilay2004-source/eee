@@ -61,3 +61,6 @@ Run 37743737249 completed: 51 SKY express pages produced 80 fares with no SKY fa
 
 
 Copa observed-route discovery 37744511631 completed: fifty fetched pages, all carrying valid dated fares, 242 observations and no failures. Fifty actual airport-pair/source-page rows were added to the verified registry; these additional Copa routes still require production catalog and cached-provider integration. Aer Lingus discovery 37744557322 also completed; artifact inspection is recorded separately from job status.
+
+
+Expanded discovery completed without HTTP failures: Aer Lingus seven priced pages/45 fares, GOL39 priced pages out of50/80 fares, American50 priced pages/400 fares. Their actual IATA pairs were merged into the verified registry. 156 additional CM/EI/G3/AA catalog rows connect observed pages to authenticated collection; supplemental shared quotes cover EI/G3/AA and Copa reads its matching verified route snapshots even if the origin snapshot fails. Typecheck and291 focused tests passed before adding the explicit Copa route fallback test. Complete inventory and checkout validation remain unproven.

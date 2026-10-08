@@ -6,6 +6,16 @@ const now = new Date("2026-10-08T00:00:00Z");
 const fare = { __typename:"Fare", originAirportCode:"PTY", destinationAirportCode:"MCO", departureDate:"2027-03-15", returnDate:"2027-03-19", totalPrice:619.99, currencyCode:"USD", travelClass:"Economy", flightType:"ROUND_TRIP" };
 const html = `<script id="__NEXT_DATA__">${JSON.stringify({ fares:[fare] })}</script>`;
 describe("background Copa rendering", () => {
+  it("uses an observed route snapshot despite failure of the origin snapshot", async () => {
+    const url="https://www.copaair.com/en/flights-from-panama-city-to-miami";
+    const row={airline:"CM",origin:"PTY",destination:"MIA",departDate:fare.departureDate,returnDate:fare.returnDate,amount:619.99,currency:"USD",structure:"roundtrip",sourceUrl:url,checkedAt:now.toISOString(),pricing:"published_advertisement"};
+    const source=createCopaCachedSource({put:vi.fn(),get:vi.fn(async(key:string)=>{if(key===url)return {fares:[row],expires:now.getTime()+600000};throw new Error("unavailable");}) as any});
+    const q={origin:"PTY",destination:"MIA",departDate:fare.departureDate,returnDate:fare.returnDate,party:{adults:1,children:0,infants:0}};
+    expect(await source.quote(q)).toMatchObject([{source:"copa",priceAmount:619.99,deeplink:url}]);
+    expect(await source.quote({...q,party:{adults:2,children:0,infants:0}})).toEqual([]);
+    expect(source.callCount()).toBe(0);
+  });
+
   it("unwraps actual HTML and persists exact fares with one bounded render", async () => {
     const quickAction = vi.fn(async () => Response.json({success:true,result:html}));
     const savePrices = vi.fn(); const put = vi.fn();

@@ -1190,5 +1190,853 @@
     "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-porlamar-isla-margarita",
     "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
     "checkedAt": "2026-10-08T07:37:50.652Z"
+  },
+  {
+    "airline": "EI",
+    "origin": "DUB",
+    "destination": "EDI",
+    "sourceUrl": "https://www.aerlingus.com/en-ie/flights-from-dublin-to-edinburgh",
+    "observedOn": "https://www.aerlingus.com/en-ie/flights-from-dublin",
+    "checkedAt": "2026-10-08T07:37:22.125Z"
+  },
+  {
+    "airline": "EI",
+    "origin": "DUB",
+    "destination": "LON",
+    "sourceUrl": "https://www.aerlingus.com/en-ie/flights-from-dublin-to-london",
+    "observedOn": "https://www.aerlingus.com/en-ie/flights-from-dublin",
+    "checkedAt": "2026-10-08T07:37:22.533Z"
+  },
+  {
+    "airline": "EI",
+    "origin": "DUB",
+    "destination": "LHR",
+    "sourceUrl": "https://www.aerlingus.com/en-ie/flights-from-dublin-to-london",
+    "observedOn": "https://www.aerlingus.com/en-ie/flights-from-dublin",
+    "checkedAt": "2026-10-08T07:37:22.533Z"
+  },
+  {
+    "airline": "EI",
+    "origin": "DUB",
+    "destination": "CDG",
+    "sourceUrl": "https://www.aerlingus.com/en-ie/flights-from-dublin-to-paris",
+    "observedOn": "https://www.aerlingus.com/en-ie/flights-from-dublin",
+    "checkedAt": "2026-10-08T07:37:22.683Z"
+  },
+  {
+    "airline": "EI",
+    "origin": "DUB",
+    "destination": "AGP",
+    "sourceUrl": "https://www.aerlingus.com/en-ie/flights-from-dublin-to-malaga",
+    "observedOn": "https://www.aerlingus.com/en-ie/flights-from-dublin",
+    "checkedAt": "2026-10-08T07:37:22.803Z"
+  },
+  {
+    "airline": "EI",
+    "origin": "DUB",
+    "destination": "MAD",
+    "sourceUrl": "https://www.aerlingus.com/en-ie/flights-from-dublin-to-madrid",
+    "observedOn": "https://www.aerlingus.com/en-ie/flights-from-dublin",
+    "checkedAt": "2026-10-08T07:37:22.923Z"
+  },
+  {
+    "airline": "EI",
+    "origin": "DUB",
+    "destination": "FCO",
+    "sourceUrl": "https://www.aerlingus.com/en-ie/flights-from-dublin-to-rome",
+    "observedOn": "https://www.aerlingus.com/en-ie/flights-from-dublin",
+    "checkedAt": "2026-10-08T07:37:24.843Z"
+  },
+  {
+    "airline": "EI",
+    "origin": "DUB",
+    "destination": "MAN",
+    "sourceUrl": "https://www.aerlingus.com/en-ie/flights-from-dublin-to-manchester",
+    "observedOn": "https://www.aerlingus.com/en-ie/flights-from-dublin",
+    "checkedAt": "2026-10-08T07:37:26.604Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "CGH",
+    "destination": "SSA",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-salvador",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:23.442Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "SAO",
+    "destination": "SSA",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-salvador",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:23.442Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "CGH",
+    "destination": "SDU",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-rio-de-janeiro",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:24.287Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "RIO",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-rio-de-janeiro",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:24.287Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "REC",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-recife",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:24.434Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "BSB",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-brasilia",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:24.664Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "CGH",
+    "destination": "BSB",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-brasilia",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:24.664Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "JDO",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-juazeiro-do-norte",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:25.948Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "SAO",
+    "destination": "FOR",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-fortaleza",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:27.355Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "MCZ",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-maceio",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:28.557Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "FLN",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-florianopolis",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:29.883Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "CGH",
+    "destination": "CNF",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-belo-horizonte",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:30.157Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "SAO",
+    "destination": "BHZ",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-belo-horizonte",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:30.157Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "JPA",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-joao-pessoa",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:31.469Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "CGH",
+    "destination": "POA",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-porto-alegre",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:31.691Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "POA",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-porto-alegre",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:31.691Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "AJU",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-aracaju",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:32.994Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "CGH",
+    "destination": "CWB",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-curitiba",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:34.531Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "CGH",
+    "destination": "NAT",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-natal",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:35.840Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "NAT",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-natal",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:35.840Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "CGH",
+    "destination": "NVT",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-navegantes",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:37.057Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "THE",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-teresina",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:38.262Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "SAO",
+    "destination": "THE",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-teresina",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:38.262Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "GYN",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-goiania",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:39.759Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "AEP",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-buenos-aires",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:39.930Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "SAO",
+    "destination": "BUE",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-buenos-aires",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:39.930Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "VIX",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-vitoria",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:40.060Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "VDC",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-vitoria-da-conquista",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:42.828Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "BEL",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-belem",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:44.089Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "SLZ",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-sao-luis",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:45.472Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "BPS",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-porto-seguro",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:46.971Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "CGH",
+    "destination": "IGU",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-iguazu-falls",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:48.734Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "SAO",
+    "destination": "IGU",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-iguazu-falls",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:48.734Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "CGH",
+    "destination": "SJP",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-sao-jose-do-rio-preto",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:50.326Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "CGH",
+    "destination": "PPB",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-presidente-prudente",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:51.519Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "MVD",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-montevideo",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:52.733Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "SAO",
+    "destination": "MCO",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-orlando",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:55.423Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "CGH",
+    "destination": "JOI",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-joinville",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:57.014Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "LIS",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-lisbon",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:57.140Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "CGR",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-campo-grande",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:58.851Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "SAO",
+    "destination": "IOS",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-ilheus",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:37:59.120Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "PUJ",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-punta-cana",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:38:00.317Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "CAC",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-cascavel",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:38:01.754Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "JJD",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-jericoacoara",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:38:03.173Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "CGH",
+    "destination": "MOC",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-montes-claros",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:38:04.243Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "CCS",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-caracas",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:38:09.096Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "GRU",
+    "destination": "XAP",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-chapeco",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:38:10.402Z"
+  },
+  {
+    "airline": "G3",
+    "origin": "CGH",
+    "destination": "ARU",
+    "sourceUrl": "https://www.voegol.com.br/en/flights-from-sao-paulo-to-aracatuba",
+    "observedOn": "https://www.voegol.com.br/en/flights-from-sao-paulo",
+    "checkedAt": "2026-10-08T07:38:12.939Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "DFW",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-dallas-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:37:25.981Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "MIA",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-miami-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:37:26.557Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "PHX",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-phoenix-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:37:28.623Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "ORD",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-chicago-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:37:28.889Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "CLT",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-charlotte-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:37:29.189Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "JFK",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-new-york-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:37:29.473Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "SFO",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-san-francisco-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:37:31.752Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "BOS",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-boston-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:37:32.082Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "PHL",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-philadelphia-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:37:34.181Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "SEA",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-seattle-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:37:34.511Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "ATL",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-atlanta-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:37:36.296Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "PDX",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-portland-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:37:38.407Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "RDU",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-raleigh-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:37:40.853Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "CMH",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-columbus-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:37:42.962Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "AUS",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-austin-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:37:43.330Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "MCI",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-kansas-city-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:37:45.511Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "BNA",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-nashville-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:37:45.791Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "DCA",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-washington-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:37:47.729Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "EWR",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-newark-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:37:48.023Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "FAT",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-fresno-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:37:50.728Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "LAS",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-las-vegas-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:37:53.059Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "IND",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-indianapolis-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:37:55.111Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "PIT",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-pittsburgh-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:37:55.404Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "MCO",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-orlando-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:37:57.551Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "SAT",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-san-antonio-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:37:59.526Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "STL",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-st-louis-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:38:01.409Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "TUL",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-tulsa-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:38:01.627Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "OMA",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-omaha-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:38:03.388Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "MSP",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-minneapolis-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:38:04.988Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "BWI",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-baltimore-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:38:07.058Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "SMF",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-sacramento-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:38:08.905Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "DEN",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-denver-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:38:10.894Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "MEM",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-memphis-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:38:11.297Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "BDL",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-hartford-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:38:13.432Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "OKC",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-oklahoma-city-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:38:15.958Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "IAH",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-houston-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:38:18.045Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "ONT",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-ontario-ca-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:38:20.561Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "SAN",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-san-diego-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:38:22.830Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "SJC",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-san-jose-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:38:25.288Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "CLE",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-cleveland-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:38:27.437Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "SLC",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-salt-lake-city-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:38:29.493Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "CVG",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-cincinnati-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:38:29.791Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "FLL",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-fort-lauderdale-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:38:31.930Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "MSY",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-new-orleans-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:38:33.698Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "ABQ",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-albuquerque-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:38:35.911Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "TUS",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-tucson-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:38:36.196Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "BOI",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-boise-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:38:38.161Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "LEX",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-lexington-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:38:40.527Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "AMA",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-amarillo-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:38:42.363Z"
+  },
+  {
+    "airline": "AA",
+    "origin": "SNA",
+    "destination": "MEX",
+    "sourceUrl": "https://www.aa.com/en-us/flights-from-orange-county-to-mexico-city",
+    "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
+    "checkedAt": "2026-10-08T07:38:44.326Z"
   }
 ]
