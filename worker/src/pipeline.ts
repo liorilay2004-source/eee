@@ -341,12 +341,20 @@ export function sanitizeOffers(raw: unknown, sources: readonly string[] = SOURCE
       verifyLink: strOrNull(v.verifyLink),
       checkedAt: v.checkedAt,
       ...vendorTimes(v.fareFoundAt, v.fareExpiresAt, "fareFoundAt", "fareExpiresAt"),
+      ...parseReportedAge(v.upstreamPriceAge),
       extrasAmountIls: 0,
       totalIls: null,
       tags: sourcePriceTags(v.tags),
     });
   }
   return out;
+}
+
+function parseReportedAge(raw:unknown):Pick<Offer,"upstreamPriceAge">{
+ if(!raw||typeof raw!=="object")return {};
+ const v=raw as Record<string,unknown>;
+ if(typeof v.value!=="number"||!Number.isSafeInteger(v.value)||v.value<0||v.value>36500||!["minutes","hours","days"].includes(String(v.unit)))return {};
+ return {upstreamPriceAge:{value:v.value,unit:v.unit as "minutes"|"hours"|"days"}};
 }
 
 function parseFare(v: unknown): OneWayFare | null {
