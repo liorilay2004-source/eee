@@ -8,3 +8,7 @@ Scope: public official HTTP pages. No authentication, payment, reservation, or c
 - Saudia https://www.saudia.com/ returned HTTP 200 with 6,183 characters. No price inventory demonstrated.
 
 These observations do not establish working production price adapters. Raw capture evidence is kept outside the repository. Kenya Airways already provides explicit dated public fares through observed official pages; other sources still require separate research and integration.
+
+## Royal Jordanian public search validation
+
+A public round-trip search AMM–LHR, 2026-11-08 to 2026-11-13, one adult, succeeded after using the form's observed economy cabin value E (not Y). The website requires its own freshly issued anti-forgery context and cookies; these were obtained normally from the public home page and were not logged or committed. HTTP 200 returned an auto-submitting form to https://booking.rj.com/plnext/royaljordanianB2CDX/Override.action. This proves a search handoff, not fare retrieval or a reservation. Next step: submit that search form within its original session and inspect the price response. Do not present the handoff alone as a working price adapter.
