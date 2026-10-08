@@ -65,6 +65,7 @@ import { createAirNzPublishedSource } from "./sources/airnz-published";
 import { createVirginPublishedSource } from "./sources/virgin-published";
 import { createDirectCombinationSource } from "./sources/direct-combination";
 import { createPublicFareCache } from "./public-fare-cache";
+import { collectPublishedPages } from "./published-collection";
 import { createWegoSource } from "./sources/wego";
 import { pickSnapshotRoute, runSnapshot } from "./snapshots";
 import { secretMatches, telegramConfig } from "./telegram";
@@ -619,6 +620,11 @@ export default {
         marketFor: (origin) => marketForCountry(defaultResolver.countryOfAirport(origin)),
       });
       const [origin, destination] = pickSnapshotRoute(now);
+      ctx.waitUntil(collectPublishedPages({ env, repo, now, fetchFn,
+        cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined,
+      }).then(result => {
+        console.log("published collection:", JSON.stringify(result));
+      }));
       // Then the route's deal report, as of AFTER the scan (a fresh Date, not the scheduled time: see detectDeals).
       // Only D1 reads and one upsert; it runs even when the scan was skipped or failed (user searches add history too).
       ctx.waitUntil(
