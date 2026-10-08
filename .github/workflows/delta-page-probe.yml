@@ -1,0 +1,24 @@
+name: Observed Delta public website data probe
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node --test collector/delta-observations.test.mjs
+      - run: node collector/probe-delta-pages.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: delta-official-observations
+          path: |
+            delta-page-observations.json
+            delta-upstream-*.json
+          retention-days: 1
