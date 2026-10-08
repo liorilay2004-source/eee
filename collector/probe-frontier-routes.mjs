@@ -3,7 +3,7 @@ import {fareRecords} from './fare-records.mjs';
 import {parsePublishedFares} from '../worker/src/sources/published-fares.ts';
 const inventory=process.env.FRONTIER_PAGE_KIND==='origins'?'./frontier-origin-pages.json':'./frontier-discovered-routes.json';
 const pages=JSON.parse(await readFile(new URL(inventory,import.meta.url),'utf8'));
-if(!Array.isArray(pages)||pages.length>50)throw new Error('Invalid route inventory');
+if(!Array.isArray(pages)||pages.length>60)throw new Error('Invalid route inventory');
 const results=[],started=Date.now();
 const allowed=url=>url.protocol==='https:'&&url.hostname==='flights.flyfrontier.com'&&!url.username&&!url.password&&!url.port&&!url.search&&!url.hash&&(/^\/(?:en\/)?flights-from-[a-z-]+-to-[a-z-]+\/?$/.test(url.pathname)||/^\/en\/flights-from-[a-z-]+\/?$/.test(url.pathname));
 for(const page of pages){
