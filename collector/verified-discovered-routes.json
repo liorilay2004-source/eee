@@ -1,0 +1,50 @@
+[
+  {
+    "airline": "AC",
+    "origin": "TLV",
+    "destination": "YYZ",
+    "sourceUrl": "https://www.aircanada.com/en-ca/flights-from-tel-aviv-to-toronto",
+    "observedOn": "https://www.aircanada.com/en-ca/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:10:17.291Z"
+  },
+  {
+    "airline": "AC",
+    "origin": "TLV",
+    "destination": "EWR",
+    "sourceUrl": "https://www.aircanada.com/en-ca/flights-from-tel-aviv-to-newark",
+    "observedOn": "https://www.aircanada.com/en-ca/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:10:19.964Z"
+  },
+  {
+    "airline": "AC",
+    "origin": "TLV",
+    "destination": "YUL",
+    "sourceUrl": "https://www.aircanada.com/en-ca/flights-from-tel-aviv-to-montreal",
+    "observedOn": "https://www.aircanada.com/en-ca/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:10:21.956Z"
+  },
+  {
+    "airline": "AC",
+    "origin": "TLV",
+    "destination": "YVR",
+    "sourceUrl": "https://www.aircanada.com/en-ca/flights-from-tel-aviv-to-vancouver",
+    "observedOn": "https://www.aircanada.com/en-ca/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:10:28.798Z"
+  },
+  {
+    "airline": "AC",
+    "origin": "TLV",
+    "destination": "ORD",
+    "sourceUrl": "https://www.aircanada.com/en-ca/flights-from-tel-aviv-to-chicago",
+    "observedOn": "https://www.aircanada.com/en-ca/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:10:33.338Z"
+  },
+  {
+    "airline": "AC",
+    "origin": "TLV",
+    "destination": "MCO",
+    "sourceUrl": "https://www.aircanada.com/en-ca/flights-from-tel-aviv-to-orlando",
+    "observedOn": "https://www.aircanada.com/en-ca/flights-from-tel-aviv",
+    "checkedAt": "2026-10-08T07:10:56.834Z"
+  }
+]
