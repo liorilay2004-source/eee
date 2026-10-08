@@ -6,8 +6,7 @@ import {frontierBatch} from './frontier-batch.mjs';
 const kind=process.env.FRONTIER_PAGE_KIND??'origins';
 const inventory=kind==='origins'?'./frontier-origin-pages.json':kind==='linked'?'./frontier-linked-routes.json':kind==='legacy'?'./frontier-discovered-routes.json':null;
 if(!inventory)throw new Error('Invalid inventory kind');
-const pages=JSON.parse(await readFile(new URL(inventory,import.meta.url),'utf8'));
-if(!Array.isArray(pages)||pages.length>60)throw new Error('Invalid route inventory');
+const pages=frontierBatch(JSON.parse(await readFile(new URL(inventory,import.meta.url),'utf8')),Number(process.env.FRONTIER_OFFSET??0),Number(process.env.FRONTIER_LIMIT??60));
 const results=[],started=Date.now();
 const allowed=url=>url.protocol==='https:'&&url.hostname==='flights.flyfrontier.com'&&!url.username&&!url.password&&!url.port&&!url.search&&!url.hash&&(/^\/(?:en\/)?flights-from-[a-z-]+-to-[a-z-]+\/?$/.test(url.pathname)||/^\/en\/flights-from-[a-z-]+\/?$/.test(url.pathname));
 for(const page of pages){
