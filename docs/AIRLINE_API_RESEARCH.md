@@ -206,3 +206,16 @@ Coverage is only the published LAX-origin dated fares, not all airline routes or
   collected within 48 hours, not guaranteed checkout prices. Parser host support
   and exact-date fixtures are added. Scheduled collection and production search
   integration remain outstanding. Same-day round-trip records remain excluded.
+
+## Copa production integration — 2026-10-08
+
+Collector run against the real Cloudflare browser and production D1 saved 15 valid
+dated round-trip advertisements. The source is deployed and scheduled every four
+hours at minute 43; the scheduled execution itself has not yet been observed.
+The real production PTY–MCO March 15–19 2027 search returned one Copa offer,
+USD 619.99 / ILS 1905.85, with enabled true, ok true and zero upstream calls.
+The Copa offer was the selected card with both exact dates and carrier metadata.
+This proves stored source integration, not final checkout availability or all Copa routes.
+All 2171 Worker tests across 76 files passed with two workers; typecheck and web
+build passed. Worker deployment 91049210aaad / 2cff6057-9004-4055-b929-6e1dd3fe39e6.
+Pages deployment https://2a8b46ee.eee-web-bly.pages.dev.
