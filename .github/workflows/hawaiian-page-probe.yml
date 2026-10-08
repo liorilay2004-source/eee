@@ -12,6 +12,10 @@ on:
       limit:
         type: number
         default: 20
+      pages:
+        type: string
+        default: ''
+        description: Optional JSON array of observed pages to retry
   schedule:
     - cron: '2,12,22,32,42,52 * * * *'
 permissions:
@@ -29,10 +33,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: node --test collector/fare-records.test.mjs collector/hawaiian-fares.test.mjs collector/hawaiian-trips.test.mjs collector/publish-hawaiian-observation.test.mjs
+      - run: node --test collector/fare-records.test.mjs collector/hawaiian-fares.test.mjs collector/hawaiian-trips.test.mjs collector/publish-hawaiian-observation.test.mjs collector/hawaiian-selection.test.mjs
       - run: node collector/probe-hawaiian-pages.mjs
         env:
           COLLECTOR_KEY: ${{ secrets.COLLECTOR_KEY }}
+          HAWAIIAN_PAGES: ${{ inputs.pages }}
           HAWAIIAN_ORIGINS: ${{ github.event_name == 'schedule' || inputs.origins || false }}
           HAWAIIAN_OFFSET: ${{ inputs.offset || 0 }}
           HAWAIIAN_LIMIT: ${{ github.event_name == 'schedule' && 49 || inputs.limit || 20 }}
