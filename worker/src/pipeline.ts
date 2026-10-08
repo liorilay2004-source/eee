@@ -607,7 +607,7 @@ function historyRows(live: Offer[], fx: FxRates, pax: number, now: Date): Offer[
 
 /** Local retention is distinct from a vendor promise of fare freshness. */
 export function storedQuoteWithinAge(o:Pick<Offer,"source"|"checkedAt">,now:Date):boolean {
-  if(!["turkish","aegean","lufthansa","swiss","austrian","brussels_airlines","ryanair","air_serbia","air_canada","tap","philippine","aer_lingus", "jetblue", "hawaiian", "frontier", "singapore","virgin_atlantic","air_new_zealand","air_baltic","sky_express","gol","ethiopian","copa","american","iberia"].includes(o.source))return ageHours(o.checkedAt,now)<=QUOTE_MAX_AGE_HOURS;
+  if(!["turkish","aegean","lufthansa","swiss","austrian","brussels_airlines","ryanair","air_serbia","air_canada","tap","philippine","aer_lingus", "jetblue", "air_astana", "hawaiian", "frontier", "singapore","virgin_atlantic","air_new_zealand","air_baltic","sky_express","gol","ethiopian","copa","american","iberia"].includes(o.source))return ageHours(o.checkedAt,now)<=QUOTE_MAX_AGE_HOURS;
   const age=now.getTime()-Date.parse(o.checkedAt);
   return Number.isFinite(age)&&age>=0&&age<(o.source==="turkish"?3600000:10*60_000);
 }

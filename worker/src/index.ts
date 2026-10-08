@@ -3,6 +3,9 @@ import {ingestPublicFares,externalLhgCache} from "./external-fare-ingest";
 import {getOrCollectAegean} from "./aegean-on-demand";
 export {FareStore} from "./fare-store";
 import {createSharedFareCache} from "./shared-fare-cache";
+import {supplementKztFx} from './kzt-fx-supplement';
+import airAstanaPages from './airastana-published-catalog.json';
+import {createAirAstanaCachedSource} from './sources/airastana-cached';
 import {supplementFx} from "./fx-supplement";
 import {collectTurkishFares} from "./turkish-cache";
 import {createTurkishCachedSource} from "./sources/turkish-cached";
@@ -318,6 +321,7 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
     env.AIRBALTIC_PUBLISHED_ENABLED === "true" ? createAirBalticPublishedSource(now, fetchFn, publicCache) : null,
     env.SKYEXPRESS_PUBLISHED_ENABLED === "true" ? createSkyExpressPublishedSource(now, fetchFn, publicCache) : null,
     env.GOL_PUBLISHED_ENABLED === "true" ? createGolPublishedSource(now, fetchFn, publicCache) : null,
+    env.AIRASTANA_PUBLISHED_ENABLED === "true" ? createAirAstanaCachedSource(now,publicCache) : null,
     env.HAWAIIAN_PUBLISHED_ENABLED === "true" ? createHawaiianCachedSource(now,publicCache) : null,
     env.FRONTIER_PUBLISHED_ENABLED === "true" ? createFrontierCachedSource(now,publicCache) : null,
     env.SINGAPORE_PUBLISHED_ENABLED === "true" ? createSingaporeCachedSource(publicCache) : null,
@@ -389,6 +393,7 @@ async function handleSearch(request: Request, env: Env, ctx: ExecutionContext): 
     marketFor: (origin) => marketForCountry(defaultResolver.countryOfAirport(origin)),
   });
   const searchCurrencies = [
+    ...(env.AIRASTANA_PUBLISHED_ENABLED === "true" && airAstanaPages.some(p=>p.origin===parsed.req.origin&&p.destination===parsed.req.destination||p.origin===parsed.req.destination&&p.destination===parsed.req.origin) ? ["KZT"] : []),
     ...(env.TURKISH_RENDERED_ENABLED === "true" && parsed.req.origin === "IST" && parsed.req.destination === "ATH" ? ["TRY"] : []),
     ...(env.SINGAPORE_PUBLISHED_ENABLED === "true" && parsed.req.origin === "SIN" && ["HND","NRT","TYO"].includes(parsed.req.destination) ? ["SGD"] : []),
   ];
@@ -399,11 +404,11 @@ async function handleSearch(request: Request, env: Env, ctx: ExecutionContext): 
         tp,
         fxCached: async () => {
           const rates = await readFxCache(typeof caches !== "undefined" ? caches.default : undefined, now);
-          return rates ? supplementFx(rates,searchCurrencies,fetchFn,now,typeof caches !== "undefined" ? caches.default : undefined) : rates;
+          return rates ? supplementKztFx(await supplementFx(rates,searchCurrencies,fetchFn,now,typeof caches !== "undefined" ? caches.default : undefined),searchCurrencies,fetchFn,now,typeof caches !== "undefined" ? caches.default : undefined) : rates;
         },
         fx: async () => {
           const rates = await getFxRates(repo, fetchFn, now, typeof caches !== "undefined" ? caches.default : undefined);
-          return supplementFx(rates,searchCurrencies,fetchFn,now,typeof caches !== "undefined" ? caches.default : undefined);
+          return supplementKztFx(await supplementFx(rates,searchCurrencies,fetchFn,now,typeof caches !== "undefined" ? caches.default : undefined),searchCurrencies,fetchFn,now,typeof caches !== "undefined" ? caches.default : undefined);
         },
         now,
         resolver: defaultResolver,
