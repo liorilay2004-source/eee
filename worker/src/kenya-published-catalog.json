@@ -1,0 +1,261 @@
+[
+  {
+    "airline": "KQ",
+    "origin": "LGW",
+    "destination": "NBO",
+    "sourceUrl": "https://www.kenya-airways.com/en_gb/flights-from-london-gatwick-to-nairobi/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "LHR",
+    "destination": "NBO",
+    "sourceUrl": "https://www.kenya-airways.com/en_gb/flights-from-london-to-nairobi/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "CDG",
+    "destination": "NBO",
+    "sourceUrl": "https://www.kenya-airways.com/en_fr/flights-from-paris-to-nairobi/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "AMS",
+    "destination": "NBO",
+    "sourceUrl": "https://www.kenya-airways.com/en_nl/flights-from-amsterdam-to-nairobi/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "JFK",
+    "destination": "NBO",
+    "sourceUrl": "https://www.kenya-airways.com/en_us/flights-from-new-york-to-nairobi/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "MBA",
+    "destination": "NBO",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-nairobi/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "MBA",
+    "destination": "LHR",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-london/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "NBO",
+    "destination": "LHR",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-london/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "KIS",
+    "destination": "LHR",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-london/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "MBA",
+    "destination": "JNB",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-johannesburg/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "NBO",
+    "destination": "JNB",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-johannesburg/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "KIS",
+    "destination": "JNB",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-johannesburg/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "MBA",
+    "destination": "DXB",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-dubai/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "NBO",
+    "destination": "DXB",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-dubai/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "KIS",
+    "destination": "DXB",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-dubai/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "MBA",
+    "destination": "BKK",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-bangkok/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "NBO",
+    "destination": "BKK",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-bangkok/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "KIS",
+    "destination": "BKK",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-bangkok/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "MBA",
+    "destination": "JFK",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-new-york/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "NBO",
+    "destination": "JFK",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-new-york/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "KIS",
+    "destination": "JFK",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-new-york/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "MBA",
+    "destination": "CAN",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-guangzhou/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "KIS",
+    "destination": "CAN",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-guangzhou/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "NBO",
+    "destination": "CAN",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-guangzhou/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "MBA",
+    "destination": "CDG",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-paris/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "NBO",
+    "destination": "CDG",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-paris/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "KIS",
+    "destination": "CDG",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-paris/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "MBA",
+    "destination": "AMS",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-amsterdam/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "NBO",
+    "destination": "AMS",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-amsterdam/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "KIS",
+    "destination": "AMS",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-amsterdam/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "MBA",
+    "destination": "MRU",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-mauritius/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "NBO",
+    "destination": "MRU",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-mauritius/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "KIS",
+    "destination": "MRU",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-mauritius/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "NBO",
+    "destination": "LGW",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-london-gatwick/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "KIS",
+    "destination": "CPT",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-cape-town/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "MBA",
+    "destination": "CPT",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-cape-town/",
+    "collector": "kenya"
+  },
+  {
+    "airline": "KQ",
+    "origin": "NBO",
+    "destination": "CPT",
+    "sourceUrl": "https://www.kenya-airways.com/en_ke/flights-to-cape-town/",
+    "collector": "kenya"
+  }
+]
