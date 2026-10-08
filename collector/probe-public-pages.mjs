@@ -14,6 +14,10 @@ const pages=candidateMode?[
  {airline:'TK',origin:'IST',destination:'ATH',sourceUrl:'https://www.turkishairlines.com/en/flights-from-istanbul-to-athens'},
  {airline:'IB',origin:'MAD',destination:'TLV',sourceUrl:'https://www.iberia.com/es/cheap-flights/Madrid-Tel-Aviv/'},
  {airline:'AY',origin:'HEL',destination:'ATH',sourceUrl:'https://www.finnair.com/en/flights/from/hel/flights-from-Helsinki'},
+ {airline:'A3',origin:'TLV',destination:'ATH',sourceUrl:'https://flights.aegeanair.com/en/flights-from-tel-aviv-to-athens'},
+ {airline:'A3',origin:'ATH',destination:'TLV',sourceUrl:'https://flights.aegeanair.com/en/flights-from-athens-to-tel-aviv'},
+ {airline:'A3',origin:'ATH',destination:'FCO',sourceUrl:'https://flights.aegeanair.com/en/flights-from-athens-to-rome'},
+ {airline:'A3',origin:'FCO',destination:'ATH',sourceUrl:'https://flights.aegeanair.com/en/flights-from-rome-to-athens'},
 ]:EXTERNAL_PUBLISHED_PAGES;
 const results=[];
 const selection=process.env.PROBE_AIRLINE;
