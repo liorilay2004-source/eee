@@ -12,6 +12,9 @@ on:
         default: ''
   schedule:
     - cron: '6,16,26,36,46,56 * * * *'
+concurrency:
+  group: official-published-fares-${{ inputs.candidates || false }}-${{ inputs.airline || 'all' }}
+  cancel-in-progress: false
 permissions:
   contents: read
 jobs:

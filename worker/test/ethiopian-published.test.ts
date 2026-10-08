@@ -7,6 +7,18 @@ const fare = { __typename: "Fare", originAirportCode: "TLV", destinationAirportC
 const html = (nodes: unknown[]) => `<script id="__NEXT_DATA__">${JSON.stringify({ props: { fares: nodes } })}</script>`;
 const q = { origin: "TLV", destination: "BKK", departDate: fare.departureDate, returnDate: fare.returnDate, party: { adults: 1, children: 0, infants: 0 } };
 describe("Ethiopian multi-destination official fares", () => {
+  it("uses an independently collected route snapshot when the origin page fails", async () => {
+    const url = "https://www.ethiopianairlines.com/en-il/flights-from-tel-aviv-to-bangkok";
+    const row = { airline: "ET", origin: "TLV", destination: "BKK", departDate: q.departDate, returnDate: q.returnDate, amount: 950.38, currency: "USD", structure: "roundtrip", sourceUrl: url, checkedAt: now.toISOString(), pricing: "published_advertisement" };
+    const source = createEthiopianPublishedSource(now, (async () => { throw new Error("origin unavailable"); }) as typeof fetch, {
+      get: async<T>(key: string) => key === url ? { fares: [row] as T[], expires: now.getTime() + 600000 } : null,
+      put: async () => {},
+    });
+    expect(await source.quote(q)).toMatchObject([{ source: "ethiopian", priceAmount: 950.38, deeplink: url, tags: ["published_advertisement"] }]);
+    await expect(source.oneWays!(q)).rejects.toThrow("response");
+    expect(await source.quote({ ...q, party: { adults: 2, children: 0, infants: 0 } })).toEqual([]);
+  });
+
   it("reads one origin page once and selects separate exact-date routes", async () => {
     const second = { ...fare, destinationAirportCode: "ICN", departureDate: "2027-07-01", returnDate: "2027-07-13", totalPrice: 732.58 };
     const source = createEthiopianPublishedSource(now, (async () => new Response(html([fare, second]))) as typeof fetch);
@@ -29,3 +41,5 @@ describe("Ethiopian multi-destination official fares", () => {
     expect(source.callCount()).toBe(0);
   });
 });
+
+

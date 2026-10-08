@@ -88,7 +88,7 @@ export function createPublishedSource(config: PublishedSourceConfig, now: Date, 
       return matchPublishedTrip((await Promise.all(pages.map(load))).flat(), q, config);
     },
   };
-  if(!sharedCache||!["TP","VS","GQ"].includes(config.airline))return source;
+  if(!sharedCache||!["TP","VS","GQ","ET"].includes(config.airline))return source;
   const additional=async(q:QuoteQuery)=>{
     if(q.party.adults!==1||q.party.children||q.party.infants)return [];
     const pages=EXTERNAL_PUBLISHED_PAGES.filter(page=>page.airline===config.airline&&!page.allDestinations&&(page.origin===q.origin&&page.destination===q.destination||page.origin===q.destination&&page.destination===q.origin));
