@@ -15,7 +15,7 @@ for(const page of pages){const now=new Date();try{
   const payload=JSON.stringify({source:'published_page',airline:page.airline,page:page.sourceUrl,checkedAt:now.toISOString(),records:fareRecords(html)});
   if(Buffer.byteLength(payload)>128000)throw new Error('Ingest payload too large');
   const published=await fetch('https://eee-api.liorilay2004.workers.dev/api/internal/public-fares',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${process.env.COLLECTOR_KEY}`},body:payload,signal:AbortSignal.timeout(15000)});
-  if(!published.ok)throw new Error(`Ingestion HTTP ${published.status}`);
+  if(!published.ok){const rejected=await published.json().catch(()=>({}));throw new Error(`Ingestion HTTP ${published.status}: ${typeof rejected.error==='string'&&/^[a-z_]+$/.test(rejected.error)?rejected.error:'unknown'}`);}
   const result=await published.json();console.log(JSON.stringify({airline:page.airline,publishedFares:result.fares,checkedAt:result.checkedAt}));
  }
  const result={airline:page.airline,page:page.sourceUrl,checkedAt:now.toISOString(),fares};results.push(result);
