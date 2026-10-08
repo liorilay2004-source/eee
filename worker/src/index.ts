@@ -17,7 +17,6 @@ import {supplementKztFx} from './kzt-fx-supplement';
 import airAstanaPages from './airastana-published-catalog.json';
 import {createAirAstanaCachedSource} from './sources/airastana-cached';
 import {supplementFx} from "./fx-supplement";
-import {collectTurkishFares} from "./turkish-cache";
 import {createTurkishCachedSource} from "./sources/turkish-cached";
 /**
  * Worker entry point: the REST API (SPEC §6).
