@@ -6,6 +6,10 @@ on:
         description: Probe additional approved pages without publishing
         type: boolean
         default: false
+      airline:
+        description: Optional candidate airline code
+        type: string
+        default: ''
   schedule:
     - cron: '6,16,26,36,46,56 * * * *'
 permissions:
@@ -24,6 +28,7 @@ jobs:
         env:
           COLLECTOR_KEY: ${{ secrets.COLLECTOR_KEY }}
           PROBE_CANDIDATES: ${{ inputs.candidates }}
+          PROBE_AIRLINE: ${{ inputs.airline }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:

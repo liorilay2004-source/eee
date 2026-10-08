@@ -11,7 +11,9 @@ const pages=candidateMode?[
  {airline:'FI',origin:'LHR',origins:['LHR','LGW'],destination:'KEF',sourceUrl:'https://www.icelandair.com/en-gb/flights/flights-from-london-to-iceland'},
 ]:EXTERNAL_PUBLISHED_PAGES;
 const results=[];
-for(const page of pages){const now=new Date();try{
+const selection=process.env.PROBE_AIRLINE;
+if(selection&&(!candidateMode||!pages.some(page=>page.airline===selection)))throw new Error('Invalid candidate selection');
+for(const page of pages.filter(page=>!selection||page.airline===selection)){const now=new Date();try{
  const response=await fetch(page.sourceUrl,{redirect:'manual',signal:AbortSignal.timeout(15000)});
  if(response.status!==200)throw new Error(`HTTP ${response.status}`);
  const reader=response.body.getReader();const chunks=[];let size=0;
