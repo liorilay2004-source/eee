@@ -382,7 +382,7 @@ export const SOURCE_REGISTRY: readonly SourceRegistryEntry[] = Object.freeze([
   entry("spirit", "Spirit Airlines", "planned", 43, ["US"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("frontier", "Frontier Airlines", "planned", 43, ["US"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("hawaiian", "Hawaiian Airlines", "planned", 43, ["US", "Oceania"], "מתוכנן כקישור/אדפטר עתידי."),
-  entry("aeromexico", "Aeromexico", "planned", 42, ["LATAM", "US"], "מתוכנן כקישור/אדפטר עתידי."),
+  { ...entry("aeromexico", "Aeromexico", "manual-link", 42, ["LATAM", "US"], "מחירי הלוך וחזור מתוארכים מלוס אנג׳לס נאספים ברקע. נדרש אימות מחיר וזמינות; ייתכנו דמי מזוודה."), capabilities: { ...manual, cachedPrice: true } },
   entry("latam", "LATAM Airlines", "planned", 42, ["LATAM"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("avianca", "Avianca", "planned", 42, ["LATAM"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("copa", "Copa Airlines", "planned", 42, ["LATAM"], "מתוכנן כקישור/אדפטר עתידי."),
@@ -438,4 +438,5 @@ export function sourceRegistryForRoute(req: Pick<SearchRequest, "origin" | "dest
     return copied;
   });
 }
+
 

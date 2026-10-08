@@ -78,7 +78,7 @@ describe("src/ runs in the Workers runtime", () => {
   it("only quotes.ts and wego.ts can reach fetch: the other adapters describe a request and read an answer, nothing more", () => {
     const callsFetch = (file: string) => /\bfetch\s*\(/.test(readFileSync(file, "utf8"));
     const adapters = sourceFiles(join(worker, "src", "sources"));
-    expect(adapters.map((f) => basename(f)).sort()).toEqual(["aegean-published.ts", "aerlingus-published.ts", "airbaltic-published.ts", "aircanada-published.ts", "aireuropa-published.ts", "airnz-published.ts", "airserbia-direct.ts", "american-published.ts", "direct-combination.ts", "duffel.ts", "ethiopian-published.ts", "gol-published.ts", "hasdata.ts", "ignav.ts", "klm-cached.ts", "philippine-published.ts", "published-fares.ts", "published-source.ts", "ryanair-direct.ts", "searchapi.ts", "serpapi.ts", "skyexpress-published.ts", "tap-published.ts", "virgin-published.ts", "wego.ts"]);
+    expect(adapters.map((f) => basename(f)).sort()).toEqual(["aegean-published.ts", "aerlingus-published.ts", "aeromexico-cached.ts", "airbaltic-published.ts", "aircanada-published.ts", "aireuropa-published.ts", "airnz-published.ts", "airserbia-direct.ts", "american-published.ts", "direct-combination.ts", "duffel.ts", "ethiopian-published.ts", "gol-published.ts", "hasdata.ts", "ignav.ts", "klm-cached.ts", "philippine-published.ts", "published-fares.ts", "published-source.ts", "ryanair-direct.ts", "searchapi.ts", "serpapi.ts", "skyexpress-published.ts", "tap-published.ts", "virgin-published.ts", "wego.ts"]);
     for (const file of adapters) expect(callsFetch(file), file).toBe(file.endsWith("wego.ts"));
     expect(callsFetch(join(worker, "src", "quotes.ts"))).toBe(true);
   });
@@ -110,3 +110,4 @@ describe("match_audit stays PII-free and costs nothing (audit.ts)", () => {
     expect(docs).not.toMatch(/Workers Logs[^\n]*VERIFIED/);
   });
 });
+

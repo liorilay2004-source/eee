@@ -12,7 +12,7 @@ describe("background KLM rendering", () => {
     const env = {KLM_RENDERED_ENABLED:"true",BROWSER:{quickAction}} as unknown as Env;
     expect(await collectRenderedKlm({env,repo:{savePrices},now,cache:{put,get:vi.fn()}})).toMatchObject({ok:true,fares:1,saved:1});
     expect(quickAction).toHaveBeenCalledTimes(1);
-    expect(quickAction).toHaveBeenCalledWith("content",expect.objectContaining({url:KLM_PAGE,gotoOptions:{waitUntil:"networkidle2",timeout:20000}}));
+    expect(quickAction).toHaveBeenCalledWith("content",expect.objectContaining({url:KLM_PAGE,gotoOptions:{waitUntil:"networkidle2",timeout:10000}}));
     expect(savePrices.mock.calls[0]![0]).toMatchObject([{source:"klm",priceAmount:419.17,departDate:fare.departureDate,returnDate:fare.returnDate}]);
     expect(put).toHaveBeenCalledTimes(1);
   });
@@ -32,3 +32,4 @@ describe("background KLM rendering", () => {
     expect(source.callCount()).toBe(0); expect(source.nextQuoteRequests!(q)).toBe(0);
   });
 });
+

@@ -133,7 +133,7 @@ describe("source registry", () => {
       }
       expect(source.status === "active" || source.status === "api", source.id).toBe(false);
       expect(source.capabilities.livePrice, source.id).toBe(false);
-      expect(source.capabilities.cachedPrice, source.id).toBe(source.id === "aegean" || source.id === "air_canada" || source.id === "tap" || source.id === "ethiopian" || source.id === "air_europa" || source.id === "philippine" || source.id === "virgin_atlantic" || source.id === "air_new_zealand" || source.id === "air_baltic" || source.id === "sky_express" || source.id === "gol" || source.id === "klm" || source.id === "american" || source.id === "aer_lingus" || source.id === "air_serbia" || source.id === "elal");
+      expect(source.capabilities.cachedPrice, source.id).toBe(source.id === "aegean" || source.id === "air_canada" || source.id === "tap" || source.id === "ethiopian" || source.id === "air_europa" || source.id === "philippine" || source.id === "virgin_atlantic" || source.id === "air_new_zealand" || source.id === "air_baltic" || source.id === "sky_express" || source.id === "gol" || source.id === "aeromexico" || source.id === "klm" || source.id === "american" || source.id === "aer_lingus" || source.id === "air_serbia" || source.id === "elal");
     }
   });
 
@@ -151,3 +151,4 @@ describe("source registry", () => {
     expect(sourceRegistry()[0]!.capabilities.livePrice).toBe(SOURCE_REGISTRY[0]!.capabilities.livePrice);
   });
 });
+

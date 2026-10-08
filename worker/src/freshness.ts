@@ -40,7 +40,7 @@ export const VENDOR_CACHE_MAX_MINUTES: Readonly<Partial<Record<SourceName, numbe
  * Live search APIs that neither promise freshness nor document a cache. Must stay in step with QUOTE_SOURCE_NAMES
  * (quotes.ts; not imported here, to keep travelpayouts.ts free of an import cycle) minus VENDOR_CACHE_MAX_MINUTES (tested).
  */
-export const UNSTATED_AGE_QUOTE_SOURCES: readonly SourceName[] = ["ignav", "wego", "searchapi", "duffel", "hasdata", "ryanair", "aegean", "air_canada", "tap", "ethiopian", "air_europa", "philippine", "virgin_atlantic", "air_new_zealand", "air_baltic", "sky_express", "gol", "klm", "american", "aer_lingus", "air_serbia", "elal", "direct_combination"];
+export const UNSTATED_AGE_QUOTE_SOURCES: readonly SourceName[] = ["ignav", "wego", "searchapi", "duffel", "hasdata", "ryanair", "aegean", "air_canada", "tap", "ethiopian", "air_europa", "philippine", "virgin_atlantic", "air_new_zealand", "air_baltic", "sky_express", "gol", "aeromexico", "klm", "american", "aer_lingus", "air_serbia", "elal", "direct_combination"];
 
 /** ISO date-time WITH an explicit zone ("Z" or "+HH:MM"): a zoneless time would have to be guessed. */
 const ZONED_ISO = /^(\d{4})-(\d{2})-(\d{2})T([01]\d|2[0-3]):[0-5]\d(:[0-5]\d(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})$/;
@@ -189,3 +189,4 @@ export function fareFreshness(o: Offer, now: Date): FareFreshness {
   // 5. A cached fare without a timestamp (every Travelpayouts fare today).
   return unknown("cached_fare_unknown_age", `מחיר שמור ממאגר מחירים, נשלף ${hebrewAgo(scanAgeMinutes)}. מתי נמצא המחיר עצמו לא ידוע, וייתכן שהשתנה.`);
 }
+

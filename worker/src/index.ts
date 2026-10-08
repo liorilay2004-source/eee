@@ -71,6 +71,8 @@ import { createVirginPublishedSource } from "./sources/virgin-published";
 import { createDirectCombinationSource } from "./sources/direct-combination";
 import { createPublicFareCache } from "./public-fare-cache";
 import { collectRenderedKlm } from "./rendered-collection";
+import { collectRenderedAeromexico } from "./aeromexico-rendered";
+import { createAeromexicoCachedSource } from "./sources/aeromexico-cached";
 import { createKlmCachedSource } from "./sources/klm-cached";
 import { collectPublishedPages } from "./published-collection";
 import { createWegoSource } from "./sources/wego";
@@ -251,6 +253,7 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
   const duffel = secret(env.DUFFEL_API_TOKEN);
   const hasData = secret(env.HASDATA_API_KEY);
   const providers = [
+    env.AEROMEXICO_RENDERED_ENABLED === "true" ? createAeromexicoCachedSource(publicCache) : null,
     env.KLM_RENDERED_ENABLED === "true" ? createKlmCachedSource(publicCache) : null,
     env.RYANAIR_DIRECT_ENABLED === "true" ? createRyanairDirectSource(now, fetchFn, publicCache) : null,
     env.AEGEAN_PUBLISHED_ENABLED === "true" ? createAegeanPublishedSource(now, fetchFn, publicCache) : null,
@@ -633,6 +636,7 @@ export default {
         marketFor: (origin) => marketForCountry(defaultResolver.countryOfAirport(origin)),
       });
       const [origin, destination] = pickSnapshotRoute(now);
+      ctx.waitUntil(collectRenderedAeromexico({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("Aeromexico collection:", JSON.stringify(result))));
       ctx.waitUntil(collectRenderedKlm({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("rendered collection:", JSON.stringify(result))));
       ctx.waitUntil(collectPublishedPages({ env, repo, now, fetchFn,
         cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined,
@@ -705,3 +709,4 @@ export default {
     }
   },
 } satisfies ExportedHandler<Env>;
+

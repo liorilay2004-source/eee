@@ -10,7 +10,7 @@
  */
 
 export type TicketStructure = "roundtrip" | "split";
-export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "ryanair" | "aegean" | "air_canada" | "tap" | "ethiopian" | "air_europa" | "philippine" | "virgin_atlantic" | "air_new_zealand" | "air_baltic" | "sky_express" | "gol" | "klm" | "american" | "aer_lingus" | "air_serbia" | "elal" | "direct_combination";
+export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "ryanair" | "aegean" | "air_canada" | "tap" | "ethiopian" | "air_europa" | "philippine" | "virgin_atlantic" | "air_new_zealand" | "air_baltic" | "sky_express" | "gol" | "aeromexico" | "klm" | "american" | "aer_lingus" | "air_serbia" | "elal" | "direct_combination";
 export type Cabin = "economy" | "premium-economy" | "business" | "first";
 export type RecKind = "cheapest" | "best_value" | "my_times";
 
@@ -572,6 +572,7 @@ export interface Env {
   DB: D1Database;
   BROWSER?: { quickAction(action: "content", options: { url: string; gotoOptions: { waitUntil: "networkidle2"; timeout: number }; rejectResourceTypes: string[] }): Promise<Response> };
   KLM_RENDERED_ENABLED?: string;
+  AEROMEXICO_RENDERED_ENABLED?: string;
   TRAVELPAYOUTS_TOKEN?: string;
   TRAVELPAYOUTS_MARKER?: string;
   ALLOWED_ORIGIN?: string; // CORS allow-origin for the Pages frontend
@@ -634,3 +635,5 @@ export interface Env {
   EASYJET_API_KEY?: string;
   RYANAIR_API_KEY?: string;
 }
+
+
