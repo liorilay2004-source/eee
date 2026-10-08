@@ -148,3 +148,9 @@ KLM: success true, HTTP 200, title Cheapest flights from Tel Aviv | KLM, 1,035,0
 Air France: rendered success true, HTTP 200, 778,455 HTML characters, NEXT_DATA present, no challenge text, but only an incomplete Fare with all identifying/price fields null. Do not enable this empty page as a priced source.
 
 Both isolated rendering probes completed in about six seconds each and the dev process was stopped. Next implementation: render KLM in bounded background collection, persist its dated advertisements and serve cached/D1 results to searches; do not launch a browser per user search or claim unlimited rendering capacity. Existing Browser Run free daily limits remain in force; no upgrade authorized or applied. Runtime KLM source integration remains pending.
+
+### KLM background integration and search proven
+
+Commit 20a6acfe87c1 added a fixed-page, 20-second navigation, one-render-per-hour background collector with Browser Run binding. Search adapter reads public cache only (zero network/browser calls); pipeline D1 enrichment supplies longer-lived stored dated offers. The collector unwraps success/result HTML, limits envelope and HTML size, persists exact dated economy fare rows and contains failures so other cron tasks continue. No billing upgrade, arbitrary URLs or browser launch per user query.
+
+A one-use verification harness invoked the same collector with remote production D1 and Browser Run: ok true, 7 fares, 7 saved. The harness was stopped. Production exact TLV–AMS 2026-12-07 to 12-14 returned KLM enabled/ok, calls 0, offers 1 and a displayed KLM card USD 419.17 (ILS 1,288.53). A competing SerpApi USD 405 card ranked ahead. Worker version 8fdaae60-40f3-465c-8ab7-51dc9719587f; Pages 9d7b691f. The deployed hourly timer has not yet been independently observed firing this new rendered collector; manual harness execution and actual production search are proven. Other routes/dates and checkout inventory remain unproven.
