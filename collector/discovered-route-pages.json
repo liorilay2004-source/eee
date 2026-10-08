@@ -2206,5 +2206,71 @@
     "url": "https://www.aa.com/en-us/flights-from-orange-county-to-mexico-city",
     "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
     "checkedAt": "2026-10-08T07:08:15.319Z"
+  },
+  {
+    "airline": "B6",
+    "url": "https://www.jetblue.com/en/flights-from-new-york-to-santo-domingo",
+    "observedOn": "https://www.jetblue.com/en/flights-from-new-york",
+    "checkedAt": "2026-10-08T07:48:26.604Z"
+  },
+  {
+    "airline": "B6",
+    "url": "https://www.jetblue.com/en/flights-from-new-york-to-boston",
+    "observedOn": "https://www.jetblue.com/en/flights-from-new-york",
+    "checkedAt": "2026-10-08T07:48:26.604Z"
+  },
+  {
+    "airline": "B6",
+    "url": "https://www.jetblue.com/en/flights-from-new-york-to-fort-lauderdale",
+    "observedOn": "https://www.jetblue.com/en/flights-from-new-york",
+    "checkedAt": "2026-10-08T07:48:26.604Z"
+  },
+  {
+    "airline": "B6",
+    "url": "https://www.jetblue.com/en/flights-from-new-york-to-orlando",
+    "observedOn": "https://www.jetblue.com/en/flights-from-new-york",
+    "checkedAt": "2026-10-08T07:48:26.604Z"
+  },
+  {
+    "airline": "B6",
+    "url": "https://www.jetblue.com/en/flights-from-new-york-to-los-angeles",
+    "observedOn": "https://www.jetblue.com/en/flights-from-new-york",
+    "checkedAt": "2026-10-08T07:48:26.604Z"
+  },
+  {
+    "airline": "B6",
+    "url": "https://www.jetblue.com/en/flights-from-new-york-to-kingston",
+    "observedOn": "https://www.jetblue.com/en/flights-from-new-york",
+    "checkedAt": "2026-10-08T07:48:26.604Z"
+  },
+  {
+    "airline": "B6",
+    "url": "https://www.jetblue.com/en/flights-from-new-york-to-west-palm-beach",
+    "observedOn": "https://www.jetblue.com/en/flights-from-new-york",
+    "checkedAt": "2026-10-08T07:48:26.604Z"
+  },
+  {
+    "airline": "B6",
+    "url": "https://www.jetblue.com/en/flights-from-new-york-to-montego-bay",
+    "observedOn": "https://www.jetblue.com/en/flights-from-new-york",
+    "checkedAt": "2026-10-08T07:48:26.604Z"
+  },
+  {
+    "airline": "B6",
+    "url": "https://www.jetblue.com/en/flights-from-new-york-to-san-juan",
+    "observedOn": "https://www.jetblue.com/en/flights-from-new-york",
+    "checkedAt": "2026-10-08T07:48:26.604Z"
+  },
+  {
+    "airline": "B6",
+    "url": "https://www.jetblue.com/en/flights-from-new-york-to-tampa",
+    "observedOn": "https://www.jetblue.com/en/flights-from-new-york",
+    "checkedAt": "2026-10-08T07:48:26.604Z"
+  },
+  {
+    "airline": "B6",
+    "url": "https://www.jetblue.com/en/flights-from-new-york-to-san-francisco",
+    "observedOn": "https://www.jetblue.com/en/flights-from-new-york",
+    "checkedAt": "2026-10-08T07:48:26.604Z"
   }
 ]
