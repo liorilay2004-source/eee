@@ -13,3 +13,9 @@ Scheduled collection is gated by the repository variable `EXTERNAL_COLLECTOR_ENA
 Challenges, access denials and invalid pages produce a failed source result; no challenge or session bypass is implemented. One failing source does not discard successfully published snapshots from other sources.
 
 Initial live GitHub runs returned HTTP403 from all four official pages. No usable snapshot was published and `EXTERNAL_LHG_COLLECTOR` was not enabled. This collector is infrastructure for migration, not a working replacement for these sources yet.
+
+## Public JSON calendars
+
+`public-calendar-probe.yml` separately collects Ryanair ATH–FCO and FCO–ATH, and Air Serbia BEG–ATH and ATH–BEG, for June 2027. These observed official public endpoints require no browser or airline account. The authenticated ingestion endpoint parses raw responses with the production parsers and stores ten-minute snapshots. Manual run 37738262906 successfully published 30 priced days per direction (120 total). A subsequent production ATH–FCO search reported Ryanair `calls: 0`, `offers: 1`, demonstrating shared snapshot use without another upstream request.
+
+`EXTERNAL_CALENDARS_ENABLED=true` enables this separate ten-minute GitHub schedule. It covers only these four route/month calendars; arbitrary searches still use existing on-demand collection. Regional and isolate caches can retain an earlier observation until its original ten-minute expiry. GitHub delays can create freshness gaps, and these advertised calendar prices are not guaranteed booking-cart prices. The blocked LHG collector remains disabled.

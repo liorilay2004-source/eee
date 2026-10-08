@@ -1,10 +1,13 @@
 name: Official public calendar probe
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '4,14,24,34,44,54 * * * *'
 permissions:
   contents: read
 jobs:
   probe:
+    if: github.event_name == 'workflow_dispatch' || vars.EXTERNAL_CALENDARS_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
