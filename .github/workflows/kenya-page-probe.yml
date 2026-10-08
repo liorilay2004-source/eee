@@ -1,0 +1,35 @@
+name: Inspect observed Kenya Airways public fare pages
+on:
+  workflow_dispatch:
+    inputs:
+      offset:
+        type: number
+        default: 0
+  schedule:
+    - cron: '6,16,26,36,46,56 * * * *'
+permissions:
+  contents: read
+concurrency:
+  group: kenya-public-probe
+  cancel-in-progress: false
+jobs:
+  probe:
+    if: github.event_name == 'workflow_dispatch' || vars.EXTERNAL_KENYA_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node --test collector/fare-records.test.mjs collector/publish-page-observation.test.mjs
+      - run: node collector/probe-kenya-pages.mjs
+        env:
+          COLLECTOR_KEY: ${{ secrets.COLLECTOR_KEY }}
+          KENYA_OFFSET: ${{ inputs.offset || 0 }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kenya-public-observations
+          path: kenya-page-observations.json
+          retention-days: 3
