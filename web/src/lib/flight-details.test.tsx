@@ -37,6 +37,20 @@ describe("flight details and official airline handoff", () => {
     card.offer.deeplink += "?untrusted=1"; card.offer.returnDeeplink = card.offer.deeplink;
     expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("untrusted");
   });
+  it("shows Eurowings calendar totals with the official link and no invented flight details", () => {
+    const {card,request}=fixture();
+    card.offer.source="eurowings";card.offer.outbound.airlines=[];card.offer.inbound.airlines=[];
+    card.offer.outbound.stops=null;card.offer.inbound.stops=null;
+    card.offer.tags=["published_advertisement","advertised_calendar_price"];
+    card.offer.deeplink="https://www.eurowings.com/en/booking/flights/low-fare-calendar.html";
+    const details=renderToStaticMarkup(<FlightDetailsCard card={card} request={request} originLabel="Heathrow" destinationLabel="Dusseldorf" />);
+    expect(details).toContain("Eurowings");
+    expect(details).toContain("בלי הנחת מועדון");
+    expect(details).toContain("שעות הטיסה, העצירות והכבודה לא נמסרו");
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).toContain(card.offer.deeplink);
+    card.offer.deeplink+="?untrusted=1";
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("untrusted");
+  });
   it("opens only the observed official Icelandair fare page", () => {
     const {card}=fixture();card.offer.source="icelandair";card.offer.outbound.airlines=["FI"];card.offer.inbound.airlines=["FI"];
     card.offer.deeplink="https://www.icelandair.com/en-gb/flights/flights-from-london-to-iceland";

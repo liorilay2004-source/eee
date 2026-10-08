@@ -75,6 +75,8 @@ import { collectRenderedKlm } from "./rendered-collection";
 import { collectRenderedFinnair } from "./finnair-rendered";
 import { createFinnairCachedSource } from "./sources/finnair-cached";
 import { collectRenderedIcelandair } from "./icelandair-rendered";
+import { collectRenderedEurowings } from "./eurowings-rendered";
+import { createEurowingsCachedSource } from "./sources/eurowings-cached";
 import { createIcelandairCachedSource } from "./sources/icelandair-cached";
 import { createNorwegianCachedSource, norwegianCollectionMonth } from "./sources/norwegian-cached";
 import { collectNorwegianMonth } from "./norwegian-rendered";
@@ -268,6 +270,7 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
   const providers = [
     env.FINNAIR_RENDERED_ENABLED === "true" ? createFinnairCachedSource(publicCache, env.DB, now) : null,
     env.ICELANDAIR_RENDERED_ENABLED === "true" ? createIcelandairCachedSource(publicCache) : null,
+    env.EUROWINGS_RENDERED_ENABLED === "true" ? createEurowingsCachedSource(env.DB, now, publicCache) : null,
     env.NORWEGIAN_RENDERED_ENABLED === "true" ? createNorwegianCachedSource(env.DB, now, publicCache) : null,
     env.IBERIA_RENDERED_ENABLED === "true" ? createIberiaCachedSource(publicCache) : null,
     env.AVIANCA_RENDERED_ENABLED === "true" ? createAviancaCachedSource(publicCache) : null,
@@ -656,6 +659,7 @@ export default {
       });
       const [origin, destination] = pickSnapshotRoute(now);
       const browserJobs: Array<() => Promise<unknown>> = [];
+      if (now.getUTCHours() % 6 === 4) browserJobs.push(() => collectRenderedEurowings({env, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined}).then(result => console.log("Eurowings collection:", JSON.stringify(result))));
       if (now.getUTCHours() % 6 === 2) browserJobs.push(() => collectRenderedIcelandair({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Icelandair collection:", JSON.stringify(result))));
       if (env.NORWEGIAN_RENDERED_ENABLED === "true") browserJobs.push(() => collectNorwegianMonth(env, norwegianCollectionMonth(now), now, typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined).then(result => console.log("Norwegian collection:", JSON.stringify(result))).catch(() => console.error("Norwegian collection unavailable")));
       if (now.getUTCHours() === 3) browserJobs.push(() => collectRenderedIberia({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Iberia collection:", JSON.stringify(result))));
