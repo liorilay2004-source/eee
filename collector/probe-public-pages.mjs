@@ -1,6 +1,7 @@
 import {writeFile} from 'node:fs/promises';
 import {parsePublishedFares} from '../worker/src/sources/published-fares.ts';
 import {fareRecords} from './fare-records.mjs';
+import {routeLinks} from './route-links.mjs';
 import {parseIberiaFares} from '../worker/src/iberia-fares.ts';
 import {parseFinnairFares} from '../worker/src/finnair-fares.ts';
 import {EXTERNAL_PUBLISHED_PAGES} from '../worker/src/external-published-catalog.ts';
@@ -38,7 +39,8 @@ for(const page of pages.filter(page=>!selection||page.airline===selection)){cons
   if(!published.ok){const rejected=await published.json().catch(()=>({}));throw new Error(`Ingestion HTTP ${published.status}: ${typeof rejected.error==='string'&&/^[a-z_]+$/.test(rejected.error)?rejected.error:'unknown'}`);}
   const result=await published.json();console.log(JSON.stringify({airline:page.airline,publishedFares:result.fares,checkedAt:result.checkedAt}));
  }
- const result={airline:page.airline,page:page.sourceUrl,checkedAt:now.toISOString(),fares};results.push(result);
- console.log(JSON.stringify({airline:page.airline,status:200,fares:fares.length,bytes:size}));
+ const discoveredPages=routeLinks(html,page.sourceUrl);
+ const result={airline:page.airline,page:page.sourceUrl,checkedAt:now.toISOString(),fares,discoveredPages};results.push(result);
+ console.log(JSON.stringify({airline:page.airline,status:200,fares:fares.length,bytes:size,discoveredPages:discoveredPages.length}));
 }catch(error){results.push({airline:page.airline,error:error.message});console.log(JSON.stringify({airline:page.airline,error:error.message}));process.exitCode=1;}}
 await writeFile('public-page-probe.json',JSON.stringify(results,null,2));
