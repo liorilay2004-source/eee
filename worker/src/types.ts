@@ -10,7 +10,7 @@
  */
 
 export type TicketStructure = "roundtrip" | "split";
-export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "ryanair" | "aegean" | "air_canada" | "tap" | "ethiopian" | "air_europa" | "philippine" | "virgin_atlantic" | "air_new_zealand" | "air_baltic" | "sky_express" | "gol" | "elal" | "direct_combination";
+export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "ryanair" | "aegean" | "air_canada" | "tap" | "ethiopian" | "air_europa" | "philippine" | "virgin_atlantic" | "air_new_zealand" | "air_baltic" | "sky_express" | "gol" | "aer_lingus" | "elal" | "direct_combination";
 export type Cabin = "economy" | "premium-economy" | "business" | "first";
 export type RecKind = "cheapest" | "best_value" | "my_times";
 
@@ -592,6 +592,7 @@ export interface Env {
   AIRBALTIC_PUBLISHED_ENABLED?: string;
   SKYEXPRESS_PUBLISHED_ENABLED?: string;
   GOL_PUBLISHED_ENABLED?: string;
+  AERLINGUS_PUBLISHED_ENABLED?: string;
   HASDATA_API_KEY?: string;
   /**
    * ADDITIVE (price alerts, src/telegram.ts): the free Telegram Bot API. All three must be set or the alert channel is disabled:
