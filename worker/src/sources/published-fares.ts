@@ -14,7 +14,7 @@ export interface PublishedFare {
   checkedAt: string;
   pricing: "published_advertisement";
 }
-const officialHosts: Readonly<Record<string, string>> = { A3: "flights.aegeanair.com", AC: "www.aircanada.com", TP: "www.flytap.com", ET: "www.ethiopianairlines.com", UX: "www.aireuropa.com", PR: "flights.philippineairlines.com", VS: "flights.virginatlantic.com", NZ: "www.airnewzealand.com", BT: "www.airbaltic.com", GQ: "www.skyexpress.gr", G3: "www.voegol.com.br", EI: "www.aerlingus.com", AA: "www.aa.com", KL: "www.klm.co.il", AM: "www.aeromexico.com", CM: "www.copaair.com", FI: "www.icelandair.com", TK: "www.turkishairlines.com" };
+const officialHosts: Readonly<Record<string, string>> = { B6: "www.jetblue.com", A3: "flights.aegeanair.com", AC: "www.aircanada.com", TP: "www.flytap.com", ET: "www.ethiopianairlines.com", UX: "www.aireuropa.com", PR: "flights.philippineairlines.com", VS: "flights.virginatlantic.com", NZ: "www.airnewzealand.com", BT: "www.airbaltic.com", GQ: "www.skyexpress.gr", G3: "www.voegol.com.br", EI: "www.aerlingus.com", AA: "www.aa.com", KL: "www.klm.co.il", AM: "www.aeromexico.com", CM: "www.copaair.com", FI: "www.icelandair.com", TK: "www.turkishairlines.com" };
 const record = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v);
 const date = (v: unknown): v is string => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && Number.isFinite(Date.parse(v)) && new Date(v).toISOString().slice(0, 10) === v;
 
