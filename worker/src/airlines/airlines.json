@@ -24,6 +24,7 @@
     {"iata": "AC", "nameEn": "Air Canada", "nameHe": "אייר קנדה", "lowCost": false, "heSource": "hewiki"},
     {"iata": "AF", "nameEn": "Air France", "nameHe": "אייר פראנס", "lowCost": false, "heSource": "hewiki"},
     {"iata": "AI", "nameEn": "Air India", "nameHe": "אייר אינדיה", "lowCost": false, "heSource": "hewiki"},
+    {"iata": "AM", "nameEn": "Aeromexico", "nameHe": "אירומקסיקו", "lowCost": false, "heSource": "transliteration"},
     {"iata": "AT", "nameEn": "Royal Air Maroc", "nameHe": "רויאל אייר מרוק", "lowCost": false, "heSource": "hewiki"},
     {"iata": "AY", "nameEn": "Finnair", "nameHe": "פינאייר", "lowCost": false, "heSource": "hewiki"},
     {"iata": "AZ", "nameEn": "ITA Airways", "nameHe": "ITA איירווייז", "lowCost": false, "heSource": "hewiki"},
@@ -106,3 +107,4 @@
     {"iata": "XZ", "nameEn": "Aeroitalia", "nameHe": "אירואיטליה", "lowCost": true, "heSource": "transliteration"}
   ]
 }
+

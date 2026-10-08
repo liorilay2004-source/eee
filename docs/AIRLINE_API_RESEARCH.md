@@ -176,3 +176,16 @@ remote Cloudflare browser binding and its ten-second navigation bound. It return
 The loader bounds the rendering payload at four million bytes before JSON parsing.
 Eighteen targeted tests and the Worker typecheck pass. Production scheduling and
 search integration are still pending; no additional hourly browser usage is enabled.
+
+## Aeromexico production integration — 2026-10-08
+The background collector saved 28 exact round-trip advertisements to production D1.
+Deployment f03f98c enables hourly collection and a cache-only user search source.
+The production search LAX–MEX June 2–9 2027 returned aeromexico enabled/ok,
+one offer and zero upstream calls; the airline price was ILS 1326.83 (USD 431.63).
+SerpApi returned a cheaper USD 297 offer, which correctly ranked first.
+All 2164 Worker tests passed with two workers; typecheck and web build passed.
+The first highly parallel run timed out two tests and caused cascading log assertions;
+the bounded rerun passed every test. A registry expectation was updated for the new source.
+Both browser collectors have ten-second navigation bounds. Hourly scheduled Aeromexico
+execution has not yet been observed; the actual collector was verified by a one-time run.
+Coverage is only the published LAX-origin dated fares, not all airline routes or final checkout.
