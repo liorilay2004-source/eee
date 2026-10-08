@@ -12,6 +12,8 @@ on:
       limit:
         type: number
         default: 20
+  schedule:
+    - cron: '2,12,22,32,42,52 * * * *'
 permissions:
   contents: read
 concurrency:
@@ -19,6 +21,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   probe:
+    if: github.event_name == 'workflow_dispatch' || vars.EXTERNAL_HAWAIIAN_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
@@ -26,15 +29,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: node --test collector/fare-records.test.mjs collector/hawaiian-fares.test.mjs
+      - run: node --test collector/fare-records.test.mjs collector/hawaiian-fares.test.mjs collector/hawaiian-trips.test.mjs
       - run: node collector/probe-hawaiian-pages.mjs
         env:
-          HAWAIIAN_ORIGINS: ${{ inputs.origins }}
-          HAWAIIAN_OFFSET: ${{ inputs.offset }}
-          HAWAIIAN_LIMIT: ${{ inputs.limit }}
+          HAWAIIAN_ORIGINS: ${{ github.event_name == 'schedule' || inputs.origins || false }}
+          HAWAIIAN_OFFSET: ${{ inputs.offset || 0 }}
+          HAWAIIAN_LIMIT: ${{ github.event_name == 'schedule' && 49 || inputs.limit || 20 }}
+      - run: node collector/build-hawaiian-index.mjs
+        if: always()
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: hawaiian-public-observations
-          path: hawaiian-page-observations.json
+          path: |
+            hawaiian-page-observations.json
+            hawaiian-date-index.json
           retention-days: 3
