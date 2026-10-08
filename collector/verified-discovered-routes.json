@@ -2038,5 +2038,109 @@
     "sourceUrl": "https://www.aa.com/en-us/flights-from-orange-county-to-mexico-city",
     "observedOn": "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city",
     "checkedAt": "2026-10-08T07:38:44.326Z"
+  },
+  {
+    "airline": "B6",
+    "origin": "JFK",
+    "destination": "SDQ",
+    "sourceUrl": "https://www.jetblue.com/en/flights-from-new-york-to-santo-domingo",
+    "observedOn": "https://www.jetblue.com/en/flights-from-new-york",
+    "checkedAt": "2026-10-08T07:54:59.990Z"
+  },
+  {
+    "airline": "B6",
+    "origin": "JFK",
+    "destination": "BOS",
+    "sourceUrl": "https://www.jetblue.com/en/flights-from-new-york-to-boston",
+    "observedOn": "https://www.jetblue.com/en/flights-from-new-york",
+    "checkedAt": "2026-10-08T07:55:00.440Z"
+  },
+  {
+    "airline": "B6",
+    "origin": "JFK",
+    "destination": "FLL",
+    "sourceUrl": "https://www.jetblue.com/en/flights-from-new-york-to-fort-lauderdale",
+    "observedOn": "https://www.jetblue.com/en/flights-from-new-york",
+    "checkedAt": "2026-10-08T07:55:00.646Z"
+  },
+  {
+    "airline": "B6",
+    "origin": "JFK",
+    "destination": "MCO",
+    "sourceUrl": "https://www.jetblue.com/en/flights-from-new-york-to-orlando",
+    "observedOn": "https://www.jetblue.com/en/flights-from-new-york",
+    "checkedAt": "2026-10-08T07:55:00.839Z"
+  },
+  {
+    "airline": "B6",
+    "origin": "JFK",
+    "destination": "LAX",
+    "sourceUrl": "https://www.jetblue.com/en/flights-from-new-york-to-los-angeles",
+    "observedOn": "https://www.jetblue.com/en/flights-from-new-york",
+    "checkedAt": "2026-10-08T07:55:01.043Z"
+  },
+  {
+    "airline": "B6",
+    "origin": "JFK",
+    "destination": "KIN",
+    "sourceUrl": "https://www.jetblue.com/en/flights-from-new-york-to-kingston",
+    "observedOn": "https://www.jetblue.com/en/flights-from-new-york",
+    "checkedAt": "2026-10-08T07:55:01.235Z"
+  },
+  {
+    "airline": "B6",
+    "origin": "JFK",
+    "destination": "DJT",
+    "sourceUrl": "https://www.jetblue.com/en/flights-from-new-york-to-west-palm-beach",
+    "observedOn": "https://www.jetblue.com/en/flights-from-new-york",
+    "checkedAt": "2026-10-08T07:55:01.484Z"
+  },
+  {
+    "airline": "B6",
+    "origin": "LGA",
+    "destination": "DJT",
+    "sourceUrl": "https://www.jetblue.com/en/flights-from-new-york-to-west-palm-beach",
+    "observedOn": "https://www.jetblue.com/en/flights-from-new-york",
+    "checkedAt": "2026-10-08T07:55:01.484Z"
+  },
+  {
+    "airline": "B6",
+    "origin": "JFK",
+    "destination": "MBJ",
+    "sourceUrl": "https://www.jetblue.com/en/flights-from-new-york-to-montego-bay",
+    "observedOn": "https://www.jetblue.com/en/flights-from-new-york",
+    "checkedAt": "2026-10-08T07:55:01.685Z"
+  },
+  {
+    "airline": "B6",
+    "origin": "JFK",
+    "destination": "SJU",
+    "sourceUrl": "https://www.jetblue.com/en/flights-from-new-york-to-san-juan",
+    "observedOn": "https://www.jetblue.com/en/flights-from-new-york",
+    "checkedAt": "2026-10-08T07:55:01.879Z"
+  },
+  {
+    "airline": "B6",
+    "origin": "JFK",
+    "destination": "TPA",
+    "sourceUrl": "https://www.jetblue.com/en/flights-from-new-york-to-tampa",
+    "observedOn": "https://www.jetblue.com/en/flights-from-new-york",
+    "checkedAt": "2026-10-08T07:55:02.077Z"
+  },
+  {
+    "airline": "B6",
+    "origin": "LGA",
+    "destination": "TPA",
+    "sourceUrl": "https://www.jetblue.com/en/flights-from-new-york-to-tampa",
+    "observedOn": "https://www.jetblue.com/en/flights-from-new-york",
+    "checkedAt": "2026-10-08T07:55:02.077Z"
+  },
+  {
+    "airline": "B6",
+    "origin": "JFK",
+    "destination": "SFO",
+    "sourceUrl": "https://www.jetblue.com/en/flights-from-new-york-to-san-francisco",
+    "observedOn": "https://www.jetblue.com/en/flights-from-new-york",
+    "checkedAt": "2026-10-08T07:55:02.295Z"
   }
 ]
