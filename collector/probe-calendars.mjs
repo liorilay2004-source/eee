@@ -1,10 +1,8 @@
 import {writeFile} from 'node:fs/promises';
+import {calendarTargets} from './calendar-targets.mjs';
 
 // Approved public calendar contracts already consumed by the production providers.
-const targets = [
-  ...['ATH/FCO', 'FCO/ATH'].map(route => ({source:'ryanair', url:`https://services-api.ryanair.com/farfnd/v4/oneWayFares/${route}/cheapestPerDay?outboundMonthOfDate=2027-06-01&currency=EUR`})),
-  ...['BEG/ATH', 'ATH/BEG'].map(route => ({source:'air_serbia', url:`https://www.airserbia.com/api/destination/flight-prices/${route}?year=2027&month=6&pos=GLOBAL`})),
-];
+const targets = calendarTargets();
 const results=[];
 for (const target of targets) {
   const checkedAt=new Date().toISOString();
@@ -18,7 +16,7 @@ for (const target of targets) {
       if(!/^[a-f0-9]{64}$/.test(process.env.COLLECTOR_KEY))throw new Error('Invalid collector configuration');
       const route=new URL(target.url).pathname.split('/');
       const origin=route[4],destination=route[5];
-      const published=await fetch('https://eee-api.liorilay2004.workers.dev/api/internal/public-fares',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${process.env.COLLECTOR_KEY}`},body:JSON.stringify({source:target.source,page:target.url,origin,destination,month:'2027-06',checkedAt,body}),signal:AbortSignal.timeout(15000)});
+      const published=await fetch('https://eee-api.liorilay2004.workers.dev/api/internal/public-fares',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${process.env.COLLECTOR_KEY}`},body:JSON.stringify({source:target.source,page:target.url,origin,destination,month:target.month,checkedAt,body}),signal:AbortSignal.timeout(15000)});
       if(!published.ok)throw new Error(`Ingestion HTTP ${published.status}`);
       const accepted=await published.json();console.log(JSON.stringify({source:target.source,publishedFares:accepted.fares,checkedAt:accepted.checkedAt}));
     }
