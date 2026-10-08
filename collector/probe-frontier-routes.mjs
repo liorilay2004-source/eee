@@ -1,5 +1,6 @@
 import {readFile,writeFile} from 'node:fs/promises';
 import {fareRecords} from './fare-records.mjs';
+import {routeLinks} from './route-links.mjs';
 import {parsePublishedFares} from '../worker/src/sources/published-fares.ts';
 const inventory=process.env.FRONTIER_PAGE_KIND==='origins'?'./frontier-origin-pages.json':'./frontier-discovered-routes.json';
 const pages=JSON.parse(await readFile(new URL(inventory,import.meta.url),'utf8'));
@@ -28,8 +29,9 @@ for(const page of pages){
   const origins=[...new Set(records.map(r=>r.originAirportCode).filter(v=>typeof v==='string'&&/^[A-Z]{3}$/.test(v)))];
   if(origins.length>20)throw new Error('Origin limit');
   const fares=origins.flatMap(origin=>parsePublishedFares(html,{airline:'F9',origin,destination:'XXX',allDestinations:true,sourceUrl:url.href,now:new Date(checkedAt)}));
-  results.push({page:page.url,finalUrl:url.href,redirects,checkedAt,records,fares});
-  console.log(JSON.stringify({page:page.url,publicFares:fares.length,pairs:[...new Set(fares.map(f=>f.origin+'-'+f.destination))]}));
+  const links=routeLinks(html,url.href);
+  results.push({page:page.url,finalUrl:url.href,redirects,checkedAt,records,fares,links});
+  console.log(JSON.stringify({page:page.url,publicFares:fares.length,linkedRoutes:links.length,pairs:[...new Set(fares.map(f=>f.origin+'-'+f.destination))]}));
  }catch(error){results.push({page:page.url,finalUrl:url.href,redirects,checkedAt,error:error.message});console.log(JSON.stringify({page:page.url,error:error.message}));}
  await writeFile('frontier-route-observations.json',JSON.stringify(results,null,2));
 }
