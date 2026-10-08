@@ -387,7 +387,7 @@ export const SOURCE_REGISTRY: readonly SourceRegistryEntry[] = Object.freeze([
   entry("avianca", "Avianca", "planned", 42, ["LATAM"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("copa", "Copa Airlines", "planned", 42, ["LATAM"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("azul", "Azul", "planned", 41, ["LATAM"], "מתוכנן כקישור/אדפטר עתידי."),
-  entry("gol", "GOL", "planned", 41, ["LATAM"], "מתוכנן כקישור/אדפטר עתידי."),
+  { ...entry("gol", "GOL", "manual-link", 41, ["LATAM"], "מחירי תיירים מתוארכים מהעמוד הרשמי של סאו פאולו. המוצא האמיתי נשמר לכל הצעה; יש לאמת זמינות ומחיר סופי."), capabilities: { ...manual, cachedPrice: true, combinations: true } },
   entry("air_china", "Air China", "planned", 40, ["Asia"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("china_eastern", "China Eastern Airlines", "planned", 40, ["Asia"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("china_southern", "China Southern Airlines", "planned", 40, ["Asia"], "מתוכנן כקישור/אדפטר עתידי."),

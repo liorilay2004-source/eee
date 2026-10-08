@@ -27,6 +27,7 @@ VIRGIN_PUBLISHED_ENABLED = "true"
 AIRNZ_PUBLISHED_ENABLED = "true"
 AIRBALTIC_PUBLISHED_ENABLED = "true"
 SKYEXPRESS_PUBLISHED_ENABLED = "true"
+GOL_PUBLISHED_ENABLED = "true"
 
 # Created in the owner's Cloudflare account on 2026-09-29 (not a secret: it only identifies the database).
 [[d1_databases]]

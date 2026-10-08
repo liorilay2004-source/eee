@@ -14,7 +14,7 @@ export interface PublishedFare {
   checkedAt: string;
   pricing: "published_advertisement";
 }
-const officialHosts: Readonly<Record<string, string>> = { A3: "flights.aegeanair.com", AC: "www.aircanada.com", TP: "www.flytap.com", ET: "www.ethiopianairlines.com", UX: "www.aireuropa.com", PR: "flights.philippineairlines.com", VS: "flights.virginatlantic.com", NZ: "www.airnewzealand.com", BT: "www.airbaltic.com", GQ: "www.skyexpress.gr" };
+const officialHosts: Readonly<Record<string, string>> = { A3: "flights.aegeanair.com", AC: "www.aircanada.com", TP: "www.flytap.com", ET: "www.ethiopianairlines.com", UX: "www.aireuropa.com", PR: "flights.philippineairlines.com", VS: "flights.virginatlantic.com", NZ: "www.airnewzealand.com", BT: "www.airbaltic.com", GQ: "www.skyexpress.gr", G3: "www.voegol.com.br" };
 const record = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v);
 const date = (v: unknown): v is string => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && Number.isFinite(Date.parse(v)) && new Date(v).toISOString().slice(0, 10) === v;
 
@@ -24,9 +24,10 @@ export function publishedFareUrl(url: string, airline: string): URL {
   return parsed;
 }
 
-export function parsePublishedFares(html: string, query: { airline: string; origin: string; destination: string; sourceUrl: string; now: Date; allDestinations?: boolean }): PublishedFare[] {
+export function parsePublishedFares(html: string, query: { airline: string; origin: string; destination: string; sourceUrl: string; now: Date; allDestinations?: boolean; origins?: readonly string[] }): PublishedFare[] {
   publishedFareUrl(query.sourceUrl, query.airline);
   if (!/^[A-Z]{3}$/.test(query.origin) || !/^[A-Z]{3}$/.test(query.destination)) throw new Error("Invalid airport");
+  if (query.origins && (query.origins.length > 10 || query.origins.some(origin => !/^[A-Z]{3}$/.test(origin)))) throw new Error("Invalid origins");
   if (html.length > 2_000_000) throw new Error("Official page too large");
   const scripts = html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi);
   let data: unknown;
@@ -57,11 +58,11 @@ export function parsePublishedFares(html: string, query: { airline: string; orig
         returnDate: null, totalPrice: node.priceSpecification.totalPrice, currencyCode: node.priceSpecification.currencyCode,
         travelClass: "ECONOMY", flightType: "ONE_WAY", redemption: null };
     }
-    if (record(node) && node.__typename === "Fare" && (node.redemption == null || node.redemption === false) && (node.travelClass == null || typeof node.travelClass === "string" && (node.travelClass.toUpperCase() === "ECONOMY" || query.airline === "PR" && node.travelClass === "eco" || query.airline === "VS" && ["Economy Classic", "Economy Classic Flex"].includes(node.travelClass))) && node.originAirportCode === query.origin && typeof node.destinationAirportCode === "string" && /^[A-Z]{3}$/.test(node.destinationAirportCode) && (query.allDestinations || node.destinationAirportCode === query.destination) && date(node.departureDate) && node.departureDate >= today && typeof node.totalPrice === "number" && Number.isFinite(node.totalPrice) && node.totalPrice > 0 && typeof node.currencyCode === "string" && /^[A-Z]{3}$/.test(node.currencyCode)) {
+    if (record(node) && node.__typename === "Fare" && (node.redemption == null || node.redemption === false) && (node.travelClass == null || typeof node.travelClass === "string" && (node.travelClass.toUpperCase() === "ECONOMY" || query.airline === "PR" && node.travelClass === "eco" || query.airline === "VS" && ["Economy Classic", "Economy Classic Flex"].includes(node.travelClass))) && typeof node.originAirportCode === "string" && (node.originAirportCode === query.origin || query.origins?.includes(node.originAirportCode)) && typeof node.destinationAirportCode === "string" && /^[A-Z]{3}$/.test(node.destinationAirportCode) && (query.allDestinations || node.destinationAirportCode === query.destination) && date(node.departureDate) && node.departureDate >= today && typeof node.totalPrice === "number" && Number.isFinite(node.totalPrice) && node.totalPrice > 0 && typeof node.currencyCode === "string" && /^[A-Z]{3}$/.test(node.currencyCode)) {
       const isOneWay = node.flightType === "ONE_WAY" && (node.returnDate === "" || node.returnDate == null);
       const isRoundTrip = node.flightType === "ROUND_TRIP" && date(node.returnDate) && node.returnDate > node.departureDate;
       if (isOneWay || isRoundTrip) {
-        const fare: PublishedFare = { airline: query.airline, origin: query.origin, destination: node.destinationAirportCode,
+        const fare: PublishedFare = { airline: query.airline, origin: node.originAirportCode, destination: node.destinationAirportCode,
           departDate: node.departureDate, returnDate: isRoundTrip ? node.returnDate as string : null,
           amount: node.totalPrice, currency: node.currencyCode, structure: isOneWay ? "oneway" : "roundtrip",
           sourceUrl: query.sourceUrl, checkedAt: query.now.toISOString(), pricing: "published_advertisement" };

@@ -10,9 +10,11 @@ interface Page {
   destination: string;
   sourceUrl: string;
   flag: keyof Env;
+  origins?: readonly string[];
 }
 // Only pages already used and validated by production source adapters.
 export const COLLECTION_PAGES: readonly Page[] = [
+  { source: "gol", airline: "G3", origin: "GRU", destination: "GIG", origins: ["GRU", "CGH", "SAO"], sourceUrl: "https://www.voegol.com.br/en/flights-from-sao-paulo", flag: "GOL_PUBLISHED_ENABLED" },
   { source: "sky_express", airline: "GQ", origin: "ATH", destination: "FCO", sourceUrl: "https://www.skyexpress.gr/en/flights-from-athens", flag: "SKYEXPRESS_PUBLISHED_ENABLED" },
   { source: "air_canada", airline: "AC", origin: "TLV", destination: "YYZ", sourceUrl: "https://www.aircanada.com/en-ca/flights-from-tel-aviv", flag: "AIRCANADA_PUBLISHED_ENABLED" },
   { source: "tap", airline: "TP", origin: "TLV", destination: "LIS", sourceUrl: "https://www.flytap.com/en_il/flights-from-tel-aviv", flag: "TAP_PUBLISHED_ENABLED" },

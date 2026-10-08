@@ -133,6 +133,14 @@ describe("flight details and official airline handoff", () => {
     card.offer.deeplink += "?api_key=untrusted";
     expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("untrusted");
   });
+  it("opens only the verified GOL origin page for a published fare", () => {
+    const { card } = fixture();
+    card.offer.source = "gol";
+    card.offer.deeplink = "https://www.voegol.com.br/en/flights-from-sao-paulo";
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).toContain(card.offer.deeplink);
+    card.offer.deeplink = "https://www.voegol.com.br.evil.test/en/flights-from-sao-paulo";
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("evil.test");
+  });
   it("discloses excluded Philippine travel tax beside the advertised fare", () => {
     const { card, request } = fixture();
     card.offer.source = "philippine";
