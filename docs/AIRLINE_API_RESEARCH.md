@@ -25,7 +25,7 @@ The production site now includes an overlay/bookmarklet flow:
 3. The script injects an iframe from `https://eee-web-bly.pages.dev/overlay`.
 4. The overlay reads the current page URL only, saves a sanitized link through `POST /api/flight-links`, detects source/airline/route/date where possible, and opens the EEE search page with the route filled so the engine can create date and stay combinations.
 
-This avoids brittle scraping and still lets the user collect direct airline pages and build combinations.
+The overlay remembers links. It does not collect prices by itself and does not fulfill the automatic airline-price collection objective.
 
 ## API findings from official sources
 
@@ -46,9 +46,19 @@ This avoids brittle scraping and still lets the user collect direct airline page
 
 ## Implementation rule
 
-Do not scrape airline websites by default. Use one of these layers, in order:
+The current user explicitly requested automatic collection of public airline prices. Prefer working official APIs, and collect public dated fares or normally accessible rendered pages when appropriate. A manual link is not evidence of price coverage.
 
 1. Official direct airline API, where credentials exist.
 2. Multi-airline API/GDS such as Duffel, Amadeus, Travelport, Sabre.
-3. Manual link/overlay memory with route/date parsing.
-4. Browser automation only as a manually approved diagnostic tool, not production pricing.
+3. Automatic parsing of public official fare pages with exact departure/return dates, currency and ticket structure, using the shared public cache.
+4. Normal server-side browser rendering where needed, with bounded runtime and cache reuse. Do not solve or bypass security challenges, replay private browser cookies, or present empty/challenge pages as price sources.
+5. Manual link/overlay memory remains a supplementary feature, not a replacement for automatic prices.
+
+## Runtime collection probes — 2026-10-08 UTC
+
+- Cloudflare Browser Run Quick Actions were exercised using an isolated local Wrangler worker with a real remote browser binding, not deployed publicly. No credentials, cookies, custom identity headers or challenge interaction were supplied.
+- Official EL AL page: `https://www.elal.com/flight-deals/en-il/`. The Quick Action JSON envelope reported success, but the rendered HTML result was only 574 characters, with no `__NEXT_DATA__`, round-trip text or USD fare values. Browser transport success therefore does not prove usable airline data. No automatic EL AL adapter was enabled from this probe.
+- Quick Actions return an envelope containing a string `result`; future adapters must unwrap it before parsing HTML and validate actual fare records. Reference: https://developers.cloudflare.com/browser-run/quick-actions/content-endpoint/
+- The isolated probe was stopped after inspecting the result. Existing production bindings and source behavior were preserved.
+- Aeromexico official origin page discovered from its own indexed page: `https://www.aeromexico.com/en_us/flights-from-los-angeles`. A normal server request returned HTTP 403. Indexed prices were not imported or represented as fresh runtime prices. No Aeromexico adapter was enabled.
+- These results leave all-airline automatic coverage incomplete. Next work must establish a usable, repeatable runtime response before connecting either source.
