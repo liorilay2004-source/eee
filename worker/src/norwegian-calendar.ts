@@ -21,3 +21,30 @@ export function parseNorwegianCalendar(data: unknown, query: {origin:string;dest
   }
   return result;
 }
+
+/** Rendered public low-fare tables. Transit rows are excluded: HTML does not expose the stop count. */
+export function parseNorwegianCalendarHtml(html: string, month: string, now: Date): NorwegianCalendarFare[] {
+  if(html.length>4_000_000)throw new Error("Calendar HTML too large");
+  if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))return [];
+  const compact=month.replace("-","");
+  if(!html.includes(`D_City=ATH&amp;A_City=OSL&amp;D_Month=${compact}&amp;R_Month=${compact}&amp;AdultCount=1&amp;CurrencyCode=EUR`))return [];
+  const clean=html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,"").replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,"");
+  const body:Record<string,unknown>={currencyCode:"EUR"};
+  const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  for(const [label,key,route] of [["Outbound","outbound","from Athens (ATH)"],["Return","inbound","from Oslo-Gardermoen (OSL)"]] as const){
+    const section=new RegExp(`<h2\\b[^>]*>${label}</h2>([\\s\\S]*?)</table>`,"g");
+    const matches=[...clean.matchAll(section)];if(matches.length!==1)return [];
+    const table=matches[0]![1]!;if(!table.includes(route)||!table.includes('class="lowfare-calendar__table'))return [];
+    const days=[];
+    for(const button of table.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)){
+      if(/\bdisabled(?:\s|=|$)/.test(button[1]!)||/Is transit|Sold out/.test(button[2]!))continue;
+      const dates=[...button[2]!.matchAll(/aria-label="(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{1,2}), (\d{4})"/g)];
+      const amounts=[...button[2]!.matchAll(/aria-label="Fare is (\d+(?:\.\d{1,2})?)"/g)];
+      if(dates.length!==1||amounts.length!==1)continue;
+      const d=dates[0]!;const date=`${d[3]}-${String(months.indexOf(d[1]!)+1).padStart(2,"0")}-${d[2]!.padStart(2,"0")}T00:00:00`;
+      days.push({date,price:Number(amounts[0]![1]),isSoldOut:false,isAgreementPrice:false,isInterliningRoute:false,transitCount:0});
+    }
+    body[key]={days};
+  }
+  return parseNorwegianCalendar(body,{origin:"ATH",destination:"OSL",month},now);
+}
