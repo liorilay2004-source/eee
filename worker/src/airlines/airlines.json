@@ -40,6 +40,7 @@
     {"iata": "DY", "nameEn": "Norwegian", "nameHe": "נורוויג'ן אייר שאטל", "lowCost": true, "heSource": "hewiki"},
     {"iata": "E2", "nameEn": "Air Haifa", "nameHe": "אייר חיפה", "lowCost": false, "heSource": "hewiki"},
     {"iata": "EC", "nameEn": "easyJet Europe", "nameHe": "איזיג'ט אירופה", "lowCost": true, "heSource": "transliteration"},
+    {"iata": "EI", "nameEn": "Aer Lingus", "nameHe": "אייר לינגוס", "lowCost": false, "heSource": "transliteration"},
     {"iata": "EK", "nameEn": "Emirates", "nameHe": "אמירטס", "lowCost": false, "heSource": "hewiki"},
     {"iata": "ET", "nameEn": "Ethiopian Airlines", "nameHe": "אתיופיאן איירליינס", "lowCost": false, "heSource": "hewiki"},
     {"iata": "EW", "nameEn": "Eurowings", "nameHe": "יורווינגס", "lowCost": true, "heSource": "hewiki"},

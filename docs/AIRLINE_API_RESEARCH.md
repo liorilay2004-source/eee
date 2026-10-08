@@ -89,3 +89,7 @@ A fresh isolated Cloudflare remote Worker preview fetched `https://www.aerlingus
 | DUB–MAN | 2026-12-07 | EUR 23.32 | ECONOMY | ONE_WAY |
 
 This establishes a usable public transport and exact dated fare records, not production integration. Next implementation must accept explicitly one-way fares only, verify the cabin mapping for `low`, and exclude transatlantic ROUND_TRIP records whose visible price is per direction. Do not treat those amounts as round-trip totals or infer the missing return price. The remote preview was stopped after verification.
+
+### Aer Lingus production integration verified
+
+Worker b432c57377ef enabled the Aer Lingus adapter and hourly public cache warming. Full worker suite: 2,142 tests passed; TypeScript and frontend production build passed. Production exact DUB–MAN 2026-12-07 to 2026-12-10 generated a real cross-carrier fare: EI outward EUR 23.32 plus FR return EUR 30.99 = EUR 54.31. Production D1 preserved both independently priced legs. FR alone EUR 48.61 was cheaper and won ranking. Aer Lingus transatlantic partial round-trip records are excluded. Coverage remains sparse dated advertisements and one adult; no checkout or universal coverage claim.
