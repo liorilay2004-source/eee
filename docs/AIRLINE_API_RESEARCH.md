@@ -219,3 +219,23 @@ This proves stored source integration, not final checkout availability or all Co
 All 2171 Worker tests across 76 files passed with two workers; typecheck and web
 build passed. Worker deployment 91049210aaad / 2cff6057-9004-4055-b929-6e1dd3fe39e6.
 Pages deployment https://2a8b46ee.eee-web-bly.pages.dev.
+
+## Avianca and LOT hosted-browser probes — 2026-10-08
+
+Avianca official https://www.avianca.com/en_us/flights-from-miami-to-cali
+renders successfully in Cloudflare, although a normal HTTP request returns 403.
+The rendered page contains about 570 KB, no __NEXT_DATA__, and no challenge.
+Visible selected excerpts show a route minimum of USD 330 round-trip and an
+outbound calendar item Saturday November 7, 2026, from USD 165 per passenger,
+with a Select return prompt. JSON-LD uses Product and AggregateOffer schemas.
+Neither the headline minimum nor the outbound item establishes a complete
+exact-date return quote. Do not double USD 165 or pair it with an invented return.
+Next useful work is to inspect the public calendar's return selection and its
+route/date response schema, rather than classify Avianca as globally blocked.
+
+LOT's official JFK–TLV flight page has visible dated published offers in the web
+index, but the Cloudflare browser action returned HTTP 422 with error 5006:
+Network connection closed. This is a transport failure, not proof that no fares
+exist. The probe's fixed URL is:
+https://www.lot.com/us/en/flights/flights-to-middle-east/flights-to-israel/flights-to-tel-aviv/flights-from-new-york-to-tel-aviv
+No LOT source has been enabled from indexed data or this failed render.
