@@ -70,6 +70,7 @@ import { createAirNzPublishedSource } from "./sources/airnz-published";
 import { createVirginPublishedSource } from "./sources/virgin-published";
 import { createDirectCombinationSource } from "./sources/direct-combination";
 import { createPublicFareCache } from "./public-fare-cache";
+import { runCollectionQueue } from "./collection-queue";
 import { collectRenderedKlm } from "./rendered-collection";
 import { collectRenderedFinnair } from "./finnair-rendered";
 import { createFinnairCachedSource } from "./sources/finnair-cached";
@@ -648,12 +649,14 @@ export default {
         marketFor: (origin) => marketForCountry(defaultResolver.countryOfAirport(origin)),
       });
       const [origin, destination] = pickSnapshotRoute(now);
-      if (now.getUTCHours() === 3) ctx.waitUntil(collectRenderedIberia({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("Iberia collection:", JSON.stringify(result))));
-      if (now.getUTCHours() === 1) ctx.waitUntil(collectRenderedFinnair({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("Finnair collection:", JSON.stringify(result))));
-      if (now.getUTCHours() % 6 === 0) ctx.waitUntil(collectRenderedAvianca({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("Avianca collection:", JSON.stringify(result))));
-      if (now.getUTCHours() % 4 === 0) ctx.waitUntil(collectRenderedCopa({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("Copa collection:", JSON.stringify(result))));
-      if (now.getUTCHours() % 2 === 0) ctx.waitUntil(collectRenderedAeromexico({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("Aeromexico collection:", JSON.stringify(result))));
-      if (now.getUTCHours() % 2 === 0) ctx.waitUntil(collectRenderedKlm({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("rendered collection:", JSON.stringify(result))));
+      const browserJobs: Array<() => Promise<unknown>> = [];
+      if (now.getUTCHours() === 3) browserJobs.push(() => collectRenderedIberia({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("Iberia collection:", JSON.stringify(result))));
+      if (now.getUTCHours() === 1) browserJobs.push(() => collectRenderedFinnair({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("Finnair collection:", JSON.stringify(result))));
+      if (now.getUTCHours() % 6 === 0) browserJobs.push(() => collectRenderedAvianca({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("Avianca collection:", JSON.stringify(result))));
+      if (now.getUTCHours() % 4 === 0) browserJobs.push(() => collectRenderedCopa({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("Copa collection:", JSON.stringify(result))));
+      if (now.getUTCHours() % 2 === 0) browserJobs.push(() => collectRenderedAeromexico({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("Aeromexico collection:", JSON.stringify(result))));
+      if (now.getUTCHours() % 2 === 0) browserJobs.push(() => collectRenderedKlm({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("rendered collection:", JSON.stringify(result))));
+      ctx.waitUntil(runCollectionQueue(browserJobs));
       ctx.waitUntil(collectPublishedPages({ env, repo, now, fetchFn,
         cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined,
       }).then(result => {
