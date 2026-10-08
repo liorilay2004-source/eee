@@ -239,3 +239,20 @@ Network connection closed. This is a transport failure, not proof that no fares
 exist. The probe's fixed URL is:
 https://www.lot.com/us/en/flights/flights-to-middle-east/flights-to-israel/flights-to-tel-aviv/flights-from-new-york-to-tel-aviv
 No LOT source has been enabled from indexed data or this failed render.
+
+## Avianca complete-card discovery — 2026-10-08
+
+A fresh visible browser load of the official page redirects to
+https://www.avianca.com/us/en/flights-from-miami-to-cali and eventually displays
+Round trip, Saturday November 7–14 2026, From USD 330 per passenger, Book now.
+Both dates occur in the same hh-rtcard and each hh-rtcard-row has a date span.
+The Cloudflare content action also returned this complete card after waiting for
+`.hh-rtcard-dates .hh-rtcard-row:nth-child(2)` with a ten-second selector timeout.
+Thus the earlier missing return was an incomplete render, not absent fare data.
+
+A fixed-route parser now extracts only that complete cash card, preserving the
+actual dates and amount. Headline minima, miles, partial cards, malformed dates,
+expired departures and scripts are rejected. Three tests and typecheck pass.
+A later real parser/render repeat timed out with error 6002 and yielded no card;
+production integration remains pending until repeatable rendering and collection
+are verified. No Avianca source or scheduled browser usage was enabled yet.
