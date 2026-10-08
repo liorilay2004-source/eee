@@ -1,8 +1,10 @@
 import {readFile,writeFile} from 'node:fs/promises';
+import {publishPageObservation} from './publish-page-observation.mjs';
 import {fareRecords} from './fare-records.mjs';
 import {observedPairs} from './observed-pairs.mjs';
 import {parsePublishedFares} from '../worker/src/sources/published-fares.ts';
 
+const approved=JSON.parse(await readFile(new URL('../worker/src/kenya-published-catalog.json',import.meta.url),'utf8'));
 const inventory=JSON.parse(await readFile(new URL('./kenya-observed-pages.json',import.meta.url),'utf8'));
 const offset=Number(process.env.KENYA_OFFSET??0),limit=Number(process.env.KENYA_LIMIT??20);
 if(!Number.isInteger(offset)||offset<0||offset>inventory.length||!Number.isInteger(limit)||limit<1||limit>20)throw new Error('Invalid batch');
@@ -27,6 +29,13 @@ for(const row of inventory.slice(offset,offset+limit)){
   const html=Buffer.concat(chunks).toString('utf8'),records=fareRecords(html);
   const fares=observedPairs(records).flatMap(pair=>parsePublishedFares(html,{...pair,airline:'KQ',sourceUrl:target.href,now:new Date(checkedAt)}));
   const observation={...row,finalUrl:target.href,checkedAt,records,fares};results.push(observation);
+  if(process.env.COLLECTOR_KEY && approved.some(config=>config.sourceUrl===target.href)){
+   const configs=approved.filter(config=>config.sourceUrl===target.href);
+   if(!configs.length)throw Object.assign(new Error('Unapproved publication page'),{fatal:true});
+   const parsed=configs.flatMap(config=>parsePublishedFares(html,{...config,now:new Date(checkedAt)}));
+   const expectedFares=new Set(parsed.map(f=>JSON.stringify(f))).size;
+   observation.publication=await publishPageObservation({airline:'KQ',page:target.href,checkedAt,records,expectedFares},process.env.COLLECTOR_KEY);
+  }
   console.log(JSON.stringify({page:row.url,records:records.length,fares:fares.length,...observation.publication}));
  }catch(error){results.push({...row,checkedAt,error:error.message});process.exitCode=1;if(error.fatal){await writeFile('kenya-page-observations.json',JSON.stringify(results,null,2));throw error;}}
  await writeFile('kenya-page-observations.json',JSON.stringify(results,null,2));
