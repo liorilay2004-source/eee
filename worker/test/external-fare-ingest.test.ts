@@ -6,6 +6,12 @@ import type {Env} from "../src/types";
 const now=new Date("2026-10-08T06:30:00Z"),key="a".repeat(64),entry=EXTERNAL_FARE_PAGES[0];
 const body={source:entry.source,page:entry.page,checkedAt:now.toISOString(),anchors:[{text:"From 304 EUR",url:"https://www.lufthansa.com/aircore/deeplink/redirect/en/gr/ATH/TLV/05.06.2027/19.06.2027/RT"}]};
 const request=(value:unknown=body,token=key)=>new Request("https://example.com/api/internal/public-fares",{method:"POST",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:JSON.stringify(value)});
+it("keeps both observed TAP airport pairs from the same city page",async()=>{
+ const e=env(),record={__typename:"Fare",originAirportCode:"TLV",destinationAirportCode:"JFK",departureDate:"2027-06-01",returnDate:"2027-06-05",totalPrice:500,currencyCode:"USD",travelClass:"ECONOMY",flightType:"ROUND_TRIP"};
+ const value={source:"published_page",airline:"TP",page:"https://www.flytap.com/en_il/flights-from-tel-aviv-to-new-york",checkedAt:now.toISOString(),records:[record,{...record,destinationAirportCode:"EWR",totalPrice:450},{...record,destinationAirportCode:"LAX"}]};
+ expect((await ingestPublicFares(request(value),e.value,now)).status).toBe(200);
+ expect(JSON.parse(e.write.mock.calls[0]![1]).fares.map((fare:{destination:string})=>fare.destination).sort()).toEqual(["EWR","JFK"]);
+});
 it("reparses bounded Iberia card HTML and ignores script prices",async()=>{
  const e=env(),html='<article><span class="iata">MAD</span><span class="iata">TLV</span><span class="cards-block-column--article__content-dates--start">2027-06-01</span><span class="cards-block-column--article__content-dates--end">2027-06-05</span>Return flights from<p class="cards-block-column--article__content-price">239 €</p></article>',value={source:"published_page",airline:"IB",page:"https://www.iberia.com/es/cheap-flights/Madrid-Tel-Aviv/",checkedAt:now.toISOString(),html};
  expect((await ingestPublicFares(request(value),e.value,now)).status).toBe(200);
