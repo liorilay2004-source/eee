@@ -54,3 +54,9 @@ it("validates raw Singapore airport/date/cabin rows before saving the larger sna
  expect((await ingestPublicFares(request({...value,page:"https://evil.example"}),e.value,now)).status).toBe(400);
  expect((await ingestPublicFares(request({...value,records:[]}),e.value,now)).status).toBe(422);
 });
+it("isolates Singapore duration snapshots and rejects mismatched actual dates",async()=>{
+ const e=env(),row={origin:"SIN",destination:"NRT",departureDate:"2027-01-12",returnDate:"2027-01-25",fare:863.6,currency:"SGD",cabinClass:"Y"};
+ const value={source:"singapore",duration:14,page:"https://www.singaporeair.com/sg/en/plan-travel/destinations/flights-from-singapore-to-tokyo/",checkedAt:now.toISOString(),records:[row]};
+ expect((await ingestPublicFares(request(value),e.value,now)).status).toBe(200);expect(e.write.mock.calls[0]![0]).toBe(value.page+"?fare-duration=14");
+ expect((await ingestPublicFares(request({...value,duration:7}),e.value,now)).status).toBe(422);expect((await ingestPublicFares(request({...value,duration:15}),e.value,now)).status).toBe(400);
+});

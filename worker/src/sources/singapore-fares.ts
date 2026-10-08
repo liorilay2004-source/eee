@@ -1,6 +1,12 @@
 import type {PublishedFare} from "./published-fares";
 const date=(v:unknown):v is string=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;
 export const SINGAPORE_PAGE='https://www.singaporeair.com/sg/en/plan-travel/destinations/flights-from-singapore-to-tokyo/';
+export function singaporeCacheKey(duration:number):string {
+ if(duration===7)return SINGAPORE_PAGE;
+ if(duration===14)return `${SINGAPORE_PAGE}?fare-duration=14`;
+ throw new Error('Unsupported Singapore duration');
+}
+export const isSingaporeCacheKey=(key:string)=>key===SINGAPORE_PAGE||key===singaporeCacheKey(14);
 /** Public cash fare-cache observations. No inferred times, bags or operator. */
 export function singaporeObservations(rows:unknown,checkedAt:string):PublishedFare[]{
  if(!Array.isArray(rows)||rows.length>1000||!Number.isFinite(Date.parse(checkedAt)))throw new Error('Invalid Singapore observations');
