@@ -19,8 +19,17 @@ it("accepts JetBlue DN only with the observed explicit economy and Main metadata
 it("reads shared JetBlue one-way fares without inventing a round trip or group price",async()=>{
  const now=new Date("2026-10-08T00:00:00Z"),url="https://www.jetblue.com/en/flights-from-new-york";
  const row={airline:"B6",origin:"JFK",destination:"MCO",departDate:"2026-11-17",returnDate:null,amount:70,currency:"USD",structure:"oneway",sourceUrl:url,checkedAt:now.toISOString(),pricing:"published_advertisement"};
- const source=createJetBluePublishedSource(now,(async()=>{throw new Error("must use shared snapshot");}) as typeof fetch,{get:async<T>()=>({fares:[row] as T[],expires:now.getTime()+600000}),put:async()=>{}});
+ const source=createJetBluePublishedSource(now,(async()=>{throw new Error("must use shared snapshot");}) as typeof fetch,{get:async<T>(key:string)=>({fares:(key===url?[row]:[]) as T[],expires:now.getTime()+600000}),put:async()=>{}});
  const q={origin:"JFK",destination:"MCO",departDate:row.departDate,returnDate:"2026-11-21",party:{adults:1,children:0,infants:0}};
  expect(await source.oneWays!(q)).toMatchObject([{source:"jetblue",amount:70}]);expect(await source.quote(q)).toEqual([]);expect(source.callCount()).toBe(0);
  expect(await source.oneWays!({...q,party:{adults:2,children:0,infants:0}})).toEqual([]);
+});
+
+it("combines independently collected forward and return advertisements",async()=>{
+ const now=new Date("2026-10-09T00:00:00Z");
+ const forward={airline:"B6",origin:"JFK",destination:"MCO",departDate:"2026-12-08",returnDate:null,amount:70,currency:"USD",structure:"oneway",sourceUrl:"https://www.jetblue.com/en/flights-from-new-york",checkedAt:now.toISOString(),pricing:"published_advertisement"};
+ const reverse={...forward,origin:"MCO",destination:"JFK",departDate:"2026-12-21",amount:73,sourceUrl:"https://www.jetblue.com/en/flights-from-orlando-to-new-york"};
+ const source=createJetBluePublishedSource(now,(async()=>{throw new Error("use shared snapshot");}) as typeof fetch,{get:async<T>(key:string)=>({fares:[key===forward.sourceUrl?forward:reverse] as T[],expires:now.getTime()+600000}),put:async()=>{}});
+ const q={origin:"JFK",destination:"MCO",departDate:forward.departDate,returnDate:reverse.departDate,party:{adults:1,children:0,infants:0}};
+ expect(await source.quote(q)).toMatchObject([{source:"jetblue",priceAmount:143,ticketStructure:"split",deeplink:forward.sourceUrl,returnDeeplink:reverse.sourceUrl}]);expect(source.callCount()).toBe(0);
 });
