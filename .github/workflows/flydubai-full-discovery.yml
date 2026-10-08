@@ -1,0 +1,53 @@
+name: Inspect all observed flydubai fare pages
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: flydubai-full-discovery
+  cancel-in-progress: false
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      offsets: ${{ steps.inventory.outputs.offsets }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - id: inventory
+        run: |
+          node --input-type=module <<'JS'
+          import {readFile,appendFile} from 'node:fs/promises';
+          const pages=JSON.parse(await readFile('collector/flydubai-observed-pages.json','utf8'));
+          if(!pages.length||pages.length>1000||new Set(pages.map(p=>p.url)).size!==pages.length)throw Error('Invalid inventory');
+          const offsets=Array.from({length:Math.ceil(pages.length/20)},(_,i)=>i*20);
+          await appendFile(process.env.GITHUB_OUTPUT,`offsets=${JSON.stringify(offsets)}\n`);
+          console.log(JSON.stringify({pages:pages.length,batches:offsets.length}));
+          JS
+  inspect:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        offset: ${{ fromJSON(needs.plan.outputs.offsets) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node --test collector/flydubai-fares.test.mjs
+      - run: node collector/probe-flydubai-pages.mjs
+        env:
+          FLYDUBAI_OFFSET: ${{ matrix.offset }}
+          FLYDUBAI_LIMIT: 20
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: flydubai-observations-${{ matrix.offset }}
+          path: flydubai-page-observations.json
+          retention-days: 3
