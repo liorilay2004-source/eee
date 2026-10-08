@@ -1,10 +1,16 @@
 name: Authenticated Frontier price publication probe
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '4,14,24,34,44,54 * * * *'
+concurrency:
+  group: frontier-published-refresh
+  cancel-in-progress: false
 permissions:
   contents: read
 jobs:
   publish:
+    if: github.event_name == 'workflow_dispatch' || vars.EXTERNAL_FRONTIER_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:

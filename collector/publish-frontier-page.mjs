@@ -1,7 +1,8 @@
 import {FRONTIER_PUBLISHED_PAGES} from '../worker/src/frontier-published-catalog.ts';
 import {parsePublishedFares} from '../worker/src/sources/published-fares.ts';
 import {fareRecords} from './fare-records.mjs';
-const page=process.env.FRONTIER_PAGE??'https://flights.flyfrontier.com/en/flights-from-denver-to-phoenix';
+const pages=process.env.FRONTIER_PAGE?[process.env.FRONTIER_PAGE]:['https://flights.flyfrontier.com/en/flights-from-denver-to-phoenix','https://flights.flyfrontier.com/en/flights-from-phoenix-to-denver'];
+for(const page of pages){
 const configs=FRONTIER_PUBLISHED_PAGES.filter(p=>p.sourceUrl===page);
 if(!configs.length||!/^[a-f0-9]{64}$/.test(process.env.COLLECTOR_KEY??''))throw new Error('Invalid collector configuration');
 const checkedAt=new Date().toISOString();
@@ -17,4 +18,6 @@ if(Buffer.byteLength(payload)>128000)throw new Error('Payload size limit');
 const published=await fetch('https://eee-api.liorilay2004.workers.dev/api/internal/public-fares',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${process.env.COLLECTOR_KEY}`},body:payload,signal:AbortSignal.timeout(15000)});
 if(!published.ok)throw new Error(`Ingestion HTTP ${published.status}`);
 const result=await published.json();if(result.fares!==fares.length)throw new Error('Ingestion count mismatch');
-console.log(JSON.stringify({page,fares:result.fares,checkedAt:result.checkedAt,expiresAfterSeconds:600}));
+console.log(JSON.stringify({page,fares:result.fares,checkedAt:result.checkedAt,expiresAfterSeconds:600,prices:fares.map(f=>({origin:f.origin,destination:f.destination,departDate:f.departDate,amount:f.amount,currency:f.currency}))}));
+
+}

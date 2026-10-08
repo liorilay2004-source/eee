@@ -1,3 +1,4 @@
+import {createFrontierCachedSource} from "../src/sources/frontier-cached";
 import {createSingaporeCachedSource} from "../src/sources/singapore-cached";
 /**
  * Pipeline tests: real D1 shim + repo, a mock Travelpayouts client, injected FX. Mapped to SPEC §16.
@@ -188,6 +189,15 @@ describe("computeSearchKey", () => {
 });
 
 describe("recommendations (SPEC §8)", () => {
+  it("ranks two exact cached Frontier tickets despite exhausted D1 history",async()=>{
+    const {repo,deps}=setup({tp:mockTp({configured:false})});vi.spyOn(repo,"loadRecentOffers").mockRejectedValue(new Error("Your account has exceeded D1's free tier daily row read limit"));
+    const forward="https://flights.flyfrontier.com/en/flights-from-denver-to-phoenix",reverse="https://flights.flyfrontier.com/en/flights-from-phoenix-to-denver";
+    const out={airline:"F9",origin:"DEN",destination:"PHX",departDate:"2027-01-05",returnDate:null,amount:18.98,currency:"USD",structure:"oneway",sourceUrl:forward,checkedAt:NOW.toISOString(),pricing:"published_advertisement"};
+    const back={...out,origin:"PHX",destination:"DEN",departDate:"2027-01-10",amount:25.98,sourceUrl:reverse};
+    const cache={get:async(key:string)=>({fares:key===forward?[out]:key===reverse?[back]:[],expires:NOW.getTime()+600000}),put:async()=>{}} as PublicFareCache;
+    const result=await runSearch({...deps,quoteSources:[createFrontierCachedSource(NOW,cache)]},req({origin:"DEN",destination:"PHX",windowStart:out.departDate,windowEnd:back.departDate,stayMin:5,stayMax:5}));
+    expect(result.cards[0]!.offer).toMatchObject({source:"frontier",priceAmount:44.96,priceCurrency:"USD",ticketStructure:"split",departDate:out.departDate,returnDate:back.departDate});
+  });
   it("ranks an exact SGD Singapore fare despite unavailable D1 history",async()=>{
     const {repo,deps}=setup({tp:mockTp({configured:false})});
     vi.spyOn(repo,"loadRecentOffers").mockRejectedValue(new Error("Your account has exceeded D1's free tier daily row read limit"));
