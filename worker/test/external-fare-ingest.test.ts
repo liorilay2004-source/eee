@@ -23,6 +23,12 @@ it('clears removed prices only through an explicit authenticated approved-page s
   expect((await ingestPublicFares(request({...payload,page:'https://evil.test'}),e.value,now)).status).toBe(400);
  }
 });
+it('ingests only the approved Air Astana route identity in native KZT',async()=>{
+ const e=env(),value={source:'published_page',airline:'KC',page:'https://bestfares.airastana.com/en-kz/flights-from-almaty-to-london',checkedAt:now.toISOString(),records:[{__typename:'Fare',originAirportCode:'ALA',destinationAirportCode:'LHR',departureDate:'2026-12-04',returnDate:'2026-12-06',flightType:'ROUND_TRIP',travelClass:'ECONOMY',totalPrice:365883,currencyCode:'KZT',priceLastSeen:{value:'6',unit:'hours'}}]};
+ expect((await ingestPublicFares(request(value),e.value,now)).status).toBe(200);
+ expect(JSON.parse(e.write.mock.calls[0]![1]).fares).toMatchObject([{origin:'ALA',destination:'LHR',amount:365883,currency:'KZT',upstreamPriceAge:{value:6,unit:'hours'}}]);
+ expect((await ingestPublicFares(request({...value,records:[{...value.records[0],originAirportCode:'TLV'}]}),e.value,now)).status).toBe(422);
+});
 it("keeps both observed TAP airport pairs from the same city page",async()=>{
  const e=env(),record={__typename:"Fare",originAirportCode:"TLV",destinationAirportCode:"JFK",departureDate:"2027-06-01",returnDate:"2027-06-05",totalPrice:500,currencyCode:"USD",travelClass:"ECONOMY",flightType:"ROUND_TRIP"};
  const value={source:"published_page",airline:"TP",page:"https://www.flytap.com/en_il/flights-from-tel-aviv-to-new-york",checkedAt:now.toISOString(),records:[record,{...record,destinationAirportCode:"EWR",totalPrice:450},{...record,destinationAirportCode:"LAX"}]};

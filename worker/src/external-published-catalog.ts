@@ -1,6 +1,8 @@
 import {FRONTIER_PUBLISHED_PAGES} from "./frontier-published-catalog";
-export const EXTERNAL_PUBLISHED_PAGES=[
+import AIRASTANA_PUBLISHED_PAGES from './airastana-published-catalog.json';
+export const EXTERNAL_PUBLISHED_PAGES:{airline:string;origin:string;destination:string;sourceUrl:string;collector?:string;allDestinations?:boolean;origins?:string[]}[]=[
  ...FRONTIER_PUBLISHED_PAGES,
+ ...AIRASTANA_PUBLISHED_PAGES,
  {airline:"SQ",origin:"SIN",destination:"HND",sourceUrl:"https://www.singaporeair.com/sg/en/plan-travel/destinations/flights-from-singapore-to-tokyo/",collector:"singapore",allDestinations:true},
  {airline:"B6",origin:"MCO",destination:"JFK",sourceUrl:"https://www.jetblue.com/en/flights-from-orlando-to-new-york"},
  {airline:"B6",origin:"JFK",origins:["JFK","LGA"],destination:"MCO",sourceUrl:"https://www.jetblue.com/en/flights-from-new-york",allDestinations:true},

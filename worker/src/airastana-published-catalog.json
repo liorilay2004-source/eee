@@ -1,0 +1,905 @@
+[
+  {
+    "airline": "KC",
+    "origin": "ALA",
+    "destination": "LHR",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-almaty-to-london",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "ALA",
+    "destination": "UKK",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-almaty",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "ALA",
+    "destination": "URA",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-almaty",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "ALA",
+    "destination": "GYD",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-almaty",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "ALA",
+    "destination": "FRA",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-almaty",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "ALA",
+    "destination": "TBS",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-almaty",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "ALA",
+    "destination": "BSZ",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-almaty",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "ALA",
+    "destination": "AYT",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-almaty",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "ALA",
+    "destination": "CIT",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-almaty",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "ALA",
+    "destination": "LHR",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-almaty",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "ALA",
+    "destination": "PVG",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-almaty",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "ALA",
+    "destination": "ICN",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-almaty",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "ALA",
+    "destination": "DEL",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-almaty",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "ALA",
+    "destination": "IST",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-almaty",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "ALA",
+    "destination": "TAS",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-almaty",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "ALA",
+    "destination": "DXB",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-almaty",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "ALA",
+    "destination": "BKK",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-almaty",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "NQZ",
+    "destination": "LHR",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-astana",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "NQZ",
+    "destination": "CIT",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-astana",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "NQZ",
+    "destination": "PQC",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-astana",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "NQZ",
+    "destination": "PEK",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-astana",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "NQZ",
+    "destination": "UKK",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-astana",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "NQZ",
+    "destination": "URA",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-astana",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "NQZ",
+    "destination": "TBS",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-astana",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "NQZ",
+    "destination": "AYT",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-astana",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "NQZ",
+    "destination": "SCO",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-astana",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "NQZ",
+    "destination": "AKX",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-astana",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "NQZ",
+    "destination": "TAS",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-astana",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "NQZ",
+    "destination": "DXB",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-astana",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "NQZ",
+    "destination": "ALA",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-astana",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "NQZ",
+    "destination": "KSN",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-astana",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "GUW",
+    "destination": "KZO",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-atyrau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "GUW",
+    "destination": "AKX",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-atyrau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "GUW",
+    "destination": "FRA",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-atyrau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "GUW",
+    "destination": "TAS",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-atyrau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "GUW",
+    "destination": "BSZ",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-atyrau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "GUW",
+    "destination": "TBS",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-atyrau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "GUW",
+    "destination": "CIT",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-atyrau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "GUW",
+    "destination": "URA",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-atyrau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "GUW",
+    "destination": "LHR",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-atyrau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "GUW",
+    "destination": "ICN",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-atyrau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "GUW",
+    "destination": "DXB",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-atyrau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "GUW",
+    "destination": "BOM",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-atyrau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "GUW",
+    "destination": "AMS",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-atyrau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "GUW",
+    "destination": "DEL",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-atyrau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "GUW",
+    "destination": "BKK",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-atyrau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "GUW",
+    "destination": "GYD",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-atyrau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "GUW",
+    "destination": "IST",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-atyrau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "GUW",
+    "destination": "NQZ",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-atyrau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "GUW",
+    "destination": "ALA",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-atyrau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "URA",
+    "destination": "DEL",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-uralsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "URA",
+    "destination": "TGD",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-uralsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "URA",
+    "destination": "TAS",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-uralsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "URA",
+    "destination": "GUW",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-uralsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "URA",
+    "destination": "CXR",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-uralsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "URA",
+    "destination": "AMS",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-uralsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "URA",
+    "destination": "IST",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-uralsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "URA",
+    "destination": "TBS",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-uralsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "URA",
+    "destination": "LHR",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-uralsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "URA",
+    "destination": "FRA",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-uralsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "URA",
+    "destination": "DXB",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-uralsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "URA",
+    "destination": "ALA",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-uralsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "URA",
+    "destination": "NQZ",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-uralsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "SCO",
+    "destination": "UKK",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "SCO",
+    "destination": "TAS",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "SCO",
+    "destination": "ICN",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "SCO",
+    "destination": "LHR",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "SCO",
+    "destination": "DXB",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "SCO",
+    "destination": "DEL",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "SCO",
+    "destination": "BSZ",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "SCO",
+    "destination": "PEK",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "SCO",
+    "destination": "CAN",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "SCO",
+    "destination": "NQZ",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "SCO",
+    "destination": "ALA",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktau",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "AKX",
+    "destination": "TBS",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktobe",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "AKX",
+    "destination": "TAS",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktobe",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "AKX",
+    "destination": "LHR",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktobe",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "AKX",
+    "destination": "GUW",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktobe",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "AKX",
+    "destination": "FRA",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktobe",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "AKX",
+    "destination": "BOM",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktobe",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "AKX",
+    "destination": "PEK",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktobe",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "AKX",
+    "destination": "BKK",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktobe",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "AKX",
+    "destination": "CAN",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktobe",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "AKX",
+    "destination": "DEL",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktobe",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "AKX",
+    "destination": "HKT",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktobe",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "AKX",
+    "destination": "IST",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktobe",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "AKX",
+    "destination": "ICN",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktobe",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "AKX",
+    "destination": "DXB",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktobe",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "AKX",
+    "destination": "ALA",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktobe",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "AKX",
+    "destination": "NQZ",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-aktobe",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "KSN",
+    "destination": "TBS",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-kostanay",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "KSN",
+    "destination": "IST",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-kostanay",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "KSN",
+    "destination": "ICN",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-kostanay",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "KSN",
+    "destination": "PEK",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-kostanay",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "KSN",
+    "destination": "FRA",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-kostanay",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "KSN",
+    "destination": "NQZ",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-kostanay",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "KZO",
+    "destination": "LHR",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-kyzylorda",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "KZO",
+    "destination": "ICN",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-kyzylorda",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "KZO",
+    "destination": "GUW",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-kyzylorda",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "KZO",
+    "destination": "NQZ",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-kyzylorda",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "KZO",
+    "destination": "ALA",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-kyzylorda",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "CIT",
+    "destination": "UKK",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-shymkent",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "CIT",
+    "destination": "BSZ",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-shymkent",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "CIT",
+    "destination": "LHR",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-shymkent",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "CIT",
+    "destination": "GUW",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-shymkent",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "CIT",
+    "destination": "FRA",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-shymkent",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "CIT",
+    "destination": "ICN",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-shymkent",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "CIT",
+    "destination": "DEL",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-shymkent",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "CIT",
+    "destination": "TBS",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-shymkent",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "CIT",
+    "destination": "DXB",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-shymkent",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "CIT",
+    "destination": "IST",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-shymkent",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "CIT",
+    "destination": "ALA",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-shymkent",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "UKK",
+    "destination": "TGD",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-ust-kamenogorsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "UKK",
+    "destination": "LHR",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-ust-kamenogorsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "UKK",
+    "destination": "ICN",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-ust-kamenogorsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "UKK",
+    "destination": "BKK",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-ust-kamenogorsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "UKK",
+    "destination": "GUW",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-ust-kamenogorsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "UKK",
+    "destination": "CAN",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-ust-kamenogorsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "UKK",
+    "destination": "AYT",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-ust-kamenogorsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "UKK",
+    "destination": "URA",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-ust-kamenogorsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "UKK",
+    "destination": "HKT",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-ust-kamenogorsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "UKK",
+    "destination": "SCO",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-ust-kamenogorsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "UKK",
+    "destination": "DXB",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-ust-kamenogorsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "UKK",
+    "destination": "FRA",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-ust-kamenogorsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "UKK",
+    "destination": "TBS",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-ust-kamenogorsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "UKK",
+    "destination": "IST",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-ust-kamenogorsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "UKK",
+    "destination": "TAS",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-ust-kamenogorsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "UKK",
+    "destination": "NQZ",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-ust-kamenogorsk",
+    "collector": "airastana"
+  },
+  {
+    "airline": "KC",
+    "origin": "UKK",
+    "destination": "ALA",
+    "sourceUrl": "https://bestfares.airastana.com/en-kz/flights-from-ust-kamenogorsk",
+    "collector": "airastana"
+  }
+]
