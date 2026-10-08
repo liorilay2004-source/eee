@@ -49,9 +49,9 @@ const MAX_BODY_CHARS = 500_000;
 
 // --- contracts ------------------------------------------------------------------------------------------
 
-export type QuoteSourceName = Extract<SourceName, "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "ryanair" | "aegean" | "air_canada" | "tap" | "ethiopian" | "air_europa" | "philippine" | "virgin_atlantic" | "air_new_zealand" | "air_baltic" | "sky_express" | "gol" | "aer_lingus" | "elal" | "direct_combination">;
-export const QUOTE_SOURCE_NAMES: readonly QuoteSourceName[] = ["ignav", "wego", "searchapi", "serpapi", "duffel", "hasdata", "ryanair", "aegean", "air_canada", "tap", "ethiopian", "air_europa", "philippine", "virgin_atlantic", "air_new_zealand", "air_baltic", "sky_express", "gol", "aer_lingus", "elal", "direct_combination"];
-export const isPublishedSource = (source: SourceName): boolean => source === "ryanair" || source === "aegean" || source === "air_canada" || source === "tap" || source === "ethiopian" || source === "air_europa" || source === "philippine" || source === "virgin_atlantic" || source === "air_new_zealand" || source === "air_baltic" || source === "sky_express" || source === "gol" || source === "aer_lingus" || source === "elal" || source === "direct_combination";
+export type QuoteSourceName = Extract<SourceName, "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "ryanair" | "aegean" | "air_canada" | "tap" | "ethiopian" | "air_europa" | "philippine" | "virgin_atlantic" | "air_new_zealand" | "air_baltic" | "sky_express" | "gol" | "aer_lingus" | "air_serbia" | "elal" | "direct_combination">;
+export const QUOTE_SOURCE_NAMES: readonly QuoteSourceName[] = ["ignav", "wego", "searchapi", "serpapi", "duffel", "hasdata", "ryanair", "aegean", "air_canada", "tap", "ethiopian", "air_europa", "philippine", "virgin_atlantic", "air_new_zealand", "air_baltic", "sky_express", "gol", "aer_lingus", "air_serbia", "elal", "direct_combination"];
+export const isPublishedSource = (source: SourceName): boolean => source === "ryanair" || source === "aegean" || source === "air_canada" || source === "tap" || source === "ethiopian" || source === "air_europa" || source === "philippine" || source === "virgin_atlantic" || source === "air_new_zealand" || source === "air_baltic" || source === "sky_express" || source === "gol" || source === "aer_lingus" || source === "air_serbia" || source === "elal" || source === "direct_combination";
 export const isQuoteSource = (name: SourceName): name is QuoteSourceName => (QUOTE_SOURCE_NAMES as readonly string[]).includes(name);
 
 export type QuotaPeriod = "monthly" | "lifetime";
@@ -555,7 +555,7 @@ function requestsOf(source: FareQuoteSource, q: QuoteQuery): number {
   return typeof n === "number" && Number.isFinite(n) && n >= 0 ? Math.ceil(n) : 1;
 }
 
-const LABEL: Record<QuoteSourceName, string> = { ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi", duffel: "Duffel", hasdata: "HasData", ryanair: "Ryanair", aegean: "Aegean", air_canada: "Air Canada", tap: "TAP", ethiopian: "Ethiopian", air_europa: "Air Europa", philippine: "Philippine Airlines", virgin_atlantic: "Virgin Atlantic", air_new_zealand: "Air New Zealand", air_baltic: "airBaltic", sky_express: "SKY express", gol: "GOL", aer_lingus: "Aer Lingus", elal: "EL AL", direct_combination: "Official airline combination" };
+const LABEL: Record<QuoteSourceName, string> = { ignav: "Ignav", wego: "Wego", searchapi: "SearchApi", serpapi: "SerpApi", duffel: "Duffel", hasdata: "HasData", ryanair: "Ryanair", aegean: "Aegean", air_canada: "Air Canada", tap: "TAP", ethiopian: "Ethiopian", air_europa: "Air Europa", philippine: "Philippine Airlines", virgin_atlantic: "Virgin Atlantic", air_new_zealand: "Air New Zealand", air_baltic: "airBaltic", sky_express: "SKY express", gol: "GOL", aer_lingus: "Aer Lingus", air_serbia: "Air Serbia", elal: "EL AL", direct_combination: "Official airline combination" };
 
 /** Fixed texts only: nothing of a vendor response, URL or key can get into meta.sources. */
 export function describeQuoteError(source: FareQuoteSource, e: unknown): string {

@@ -412,7 +412,7 @@ export const SOURCE_REGISTRY: readonly SourceRegistryEntry[] = Object.freeze([
   entry("virgin_australia", "Virgin Australia", "planned", 34, ["Oceania"], "מתוכנן כקישור/אדפטר עתידי."),
   { ...entry("air_new_zealand", "Air New Zealand", "manual-link", 34, ["Oceania", "US"], "מחירי הלוך ושוב מתוארכים בדולרים מלוס אנג׳לס. נדרש אימות זמינות ומחיר סופי באתר החברה."), capabilities: { ...manual, cachedPrice: true, combinations: true } },
   { ...entry("virgin_atlantic", "Virgin Atlantic", "manual-link", 34, ["IL", "EU", "US"], "מחירי תיירים מתוארכים שפורסמו ליעדים מתל אביב. ייתכנו טיסות שותפים; נדרש אימות זמינות ומחיר סופי."), capabilities: { ...manual, cachedPrice: true, combinations: true } },
-  entry("air_serbia", "Air Serbia", "planned", 33, ["EU"], "מתוכנן כקישור/אדפטר עתידי."),
+  { ...entry("air_serbia", "Air Serbia", "manual-link", 33, ["EU"], "לוח מחירי כיוון אחד רשמי לבלגרד ואתונה. שני כרטיסים נפרדים; המחיר והזמינות דורשים אימות בהזמנה."), capabilities: { ...manual, cachedPrice: true, combinations: true } },
   entry("croatia", "Croatia Airlines", "planned", 33, ["EU"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("tarom", "TAROM", "planned", 33, ["EU"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("bulgaria_air", "Bulgaria Air", "planned", 33, ["EU"], "מתוכנן כקישור/אדפטר עתידי."),

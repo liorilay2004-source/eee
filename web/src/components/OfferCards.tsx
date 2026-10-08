@@ -119,6 +119,7 @@ export function FlightDetailsCard({ card, request, originLabel, destinationLabel
     {offer.source === "air_canada" && <p className="note note-warn">מחיר שפורסם באתר Air Canada למבוגר אחד בתאריכים המוצגים. זמינות ומחיר סופי נבדקים באתר החברה.</p>}
     {offer.source === "tap" && <p className="note note-warn">מחיר שפורסם באתר TAP למבוגר אחד בתאריכים המוצגים. זמינות ומחיר סופי נבדקים באתר החברה.</p>}
     {offer.source === "elal" && <p className="note note-warn">מחיר מבצע שפורסם באתר אל על למבוגר אחד בתאריכים המוצגים. הנתונים נטענו למאגר בבדיקה נקודתית; יש לאמת זמינות ומחיר סופי באתר החברה.</p>}
+    {offer.source === "air_serbia" && <p className="note note-warn">מחירי לוח למבוגר אחד, בשני כרטיסים נפרדים. המחירים נמצאו באתר החברה במהלך 24 השעות האחרונות ועלולים להשתנות בהזמנה.</p>}
     {offer.source === "gol" && <p className="note note-warn">מחיר תיירים שפורסם באתר GOL למבוגר אחד בתאריכים המוצגים. יש לאמת שדה תעופה, זמינות ומחיר סופי באתר החברה.</p>}
     {offer.source === "sky_express" && <p className="note note-warn">מחיר תיירים שפורסם באתר SKY express למבוגר אחד בתאריכים המוצגים. יש לאמת זמינות ומחיר סופי באתר החברה.</p>}
     {offer.source === "air_baltic" && <p className="note note-warn">מחיר שפורסם באתר airBaltic למבוגר אחד בתאריכים המוצגים. זמינות, מפעיל הטיסה ותנאי הכרטיס נבדקים באתר החברה.</p>}
