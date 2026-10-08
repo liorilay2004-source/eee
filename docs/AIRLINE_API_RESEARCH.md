@@ -71,8 +71,21 @@ Normal requests were repeated from an isolated **remote Cloudflare Worker previe
 | --- | --- | --- | --- |
 | `https://www.skyexpress.gr/en/flights-from-athens` | 200 | 43 raw records, including business fares | Economy-only adapter deployed; exact ATH–FCO December 13–18, 2026 price EUR 101.80 confirmed in production D1. Source participates in combinations and hourly collection. |
 | `https://www.aerlingus.com/en-ie/flights-from-dublin` | 200 | 14 raw records | Integration pending: cabin label `low` and each-way versus round-trip meaning must be validated. Explicit one-way examples exist; do not treat transatlantic each-way prices as complete round trips. |
-| `https://www.voegol.com.br/en/flights-from-sao-paulo` | 200 | 34 raw records | Integration pending: origin page mixes CGH, GRU and SAO. Parser/cache must preserve actual origins instead of attributing all records to one airport. |
+| `https://www.voegol.com.br/en/flights-from-sao-paulo` | 200 | 34 raw records | Connected and verified in production: GRU–MCZ, 2026-12-09 to 2026-12-16, USD 341.23. Parser/cache preserve actual CGH, GRU and SAO origins; exact-query matching rejects fares from other airports. |
 | `https://www.avianca.com/en_us/flights-from-miami-to-cali` | 403 | 0 | Not connected. |
 | `https://www.copaair.com/en/flights-from-panama-city` | 503 | 0 | Not connected. |
 
 The SKY express source returns official published advertisements, not held inventory or a final checkout. It remains limited to the dated fares actually exposed by its Athens origin page. This does not prove coverage of every route, date, passenger count, or airline.
+
+## Aer Lingus Cloudflare execution evidence — 2026-10-08
+
+A fresh isolated Cloudflare remote Worker preview fetched `https://www.aerlingus.com/en-ie/flights-from-dublin` using ordinary HTTPS fetch (no browser cookies or authentication). HTTP 200; 1,085,604 HTML characters; 14 raw `Fare` records. Explicit dated one-way examples:
+
+| Airports | Departure | Amount | Raw cabin | Structure |
+| --- | --- | --- | --- | --- |
+| DUB–AMS | 2027-01-26 | EUR 41.45 | low | ONE_WAY |
+| DUB–FAO | 2027-04-13 | EUR 77.47 | low | ONE_WAY |
+| DUB–ACE | 2027-02-01 | EUR 76.25 | low | ONE_WAY |
+| DUB–MAN | 2026-12-07 | EUR 23.32 | ECONOMY | ONE_WAY |
+
+This establishes a usable public transport and exact dated fare records, not production integration. Next implementation must accept explicitly one-way fares only, verify the cabin mapping for `low`, and exclude transatlantic ROUND_TRIP records whose visible price is per direction. Do not treat those amounts as round-trip totals or infer the missing return price. The remote preview was stopped after verification.
