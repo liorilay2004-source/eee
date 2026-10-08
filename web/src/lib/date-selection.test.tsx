@@ -5,6 +5,12 @@ import { countValidPairs, emptyForm, toRequest } from "./search";
 import { selectVacationDate, nightsBetween, exactVacationForm } from "./date-selection";
 
 describe("vacation dates", () => {
+  it("sends Athens June 1–5 as exactly four nights and one pair", () => {
+    const form = { ...emptyForm(), destination: "ATH", windowStart: "2027-06-01" };
+    const chosen = { ...form, ...selectVacationDate(form, "2027-06-05") };
+    expect(toRequest(chosen)).toMatchObject({ destination: "ATH", windowStart: "2027-06-01", windowEnd: "2027-06-05", stayMin: 4, stayMax: 4 });
+    expect(countValidPairs(chosen.windowStart, chosen.windowEnd, chosen.stayMin, chosen.stayMax)).toBe(1);
+  });
   it("asks for a return date after the first click", () => {
     expect(selectVacationDate(emptyForm(), "2027-06-01")).toEqual({ windowStart: "2027-06-01", windowEnd: "" });
   });

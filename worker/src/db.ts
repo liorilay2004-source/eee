@@ -399,7 +399,7 @@ export function createRepo(db: D1Database): Repo {
       await runChunked(db, statements);
     },
 
-    async loadRecentOffers(origin, destination, departFrom, returnTo, maxAgeHours, now, sources) {
+    async loadRecentOffers(origin, destination, departFrom, returnTo, maxAgeHours, now, sources, exactDates = false) {
       if (sources && sources.length === 0) return [];
       if (!(maxAgeHours > 0)) return [];
       const cutoff = new Date(now.getTime() - maxAgeHours * HOUR_MS).toISOString();
@@ -407,8 +407,10 @@ export function createRepo(db: D1Database): Repo {
       let sql =
         // INDEXED BY: the range on checked_at keeps the scan proportional to recent rows, not to the route's history.
         // (idx_prices_recent comes with migration 0003: apply migrations before deploying this build.)
-        `SELECT ${PRICE_COLUMNS} FROM prices INDEXED BY idx_prices_recent ` +
-        "WHERE origin = ? AND destination = ? AND checked_at > ? AND depart_date >= ? AND return_date <= ?";
+        `SELECT ${PRICE_COLUMNS} FROM prices INDEXED BY ${exactDates ? "idx_prices_route" : "idx_prices_recent"} ` +
+        (exactDates
+          ? "WHERE origin = ? AND destination = ? AND checked_at > ? AND depart_date = ? AND return_date = ?"
+          : "WHERE origin = ? AND destination = ? AND checked_at > ? AND depart_date >= ? AND return_date <= ?");
       if (sources) {
         sql += ` AND source IN (${sources.map(() => "?").join(", ")})`;
         binds.push(...sources);

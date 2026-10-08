@@ -518,6 +518,7 @@ export interface Repo {
     maxAgeHours: number,
     now: Date,
     sources?: SourceName[],
+    exactDates?: boolean,
   ): Promise<Offer[]>;
   priceContext(origin: string, destination: string, departDate: string, returnDate: string, now: Date): Promise<PriceContext | null>;
   /**

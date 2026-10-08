@@ -625,7 +625,11 @@ async function loadRecent(
 ): Promise<Offer[]> {
   const rows = await Promise.all(
     pairs.map(async (p) => {
-      try { return await repo.loadRecentOffers(p.origin, p.dest, req.windowStart, req.windowEnd, maxAgeHours, now, sources); }
+      try {
+        const nights = (Date.parse(req.windowEnd) - Date.parse(req.windowStart)) / 86_400_000;
+        const exactDates = req.stayMin === nights && req.stayMax === nights;
+        return await repo.loadRecentOffers(p.origin, p.dest, req.windowStart, req.windowEnd, maxAgeHours, now, sources, exactDates);
+      }
       catch (error) {
         // Log only a category: database messages can contain bound values or SQL.
         const message = error instanceof Error ? error.message : "";

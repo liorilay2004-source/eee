@@ -239,6 +239,21 @@ describe("savePrices / loadRecentOffers", () => {
     expect(detail).not.toContain("TEMP B-TREE"); // newest-first comes straight from the index
   });
 
+  it("reads an exact vacation through the date-pair index", async () => {
+    const db = createTestD1();
+    const prepare = vi.spyOn(db, "prepare");
+    const repo = createRepo(db);
+    await repo.savePrices([
+      mkOffer({ departDate: "2027-06-01", returnDate: "2027-06-05", priceAmount: 77 }),
+      mkOffer({ departDate: "2027-06-02", returnDate: "2027-06-04", priceAmount: 55 }),
+    ]);
+    const rows = await repo.loadRecentOffers("TLV", "BCN", "2027-06-01", "2027-06-05", 24, NOW, undefined, true);
+    expect(rows.map(o => o.priceAmount)).toEqual([77]);
+    const sql = String(prepare.mock.calls.map(c => String(c[0])).find(q => q.includes("FROM prices INDEXED BY")));
+    const plan = await db.prepare(`EXPLAIN QUERY PLAN ${sql}`).bind(...Array.from({ length: sql.split("?").length - 1 }, () => "x")).all<{ detail: string }>();
+    expect(plan.results.map(r => r.detail).join(" | ")).toContain("idx_prices_route (origin=? AND destination=? AND depart_date=? AND return_date=? AND checked_at>?)");
+  });
+
   it("returns the same rows however much older history the route has", async () => {
     const repo = createRepo(createTestD1());
     const old = Array.from({ length: 300 }, (_, i) => mkOffer({ priceAmount: 500 + i, checkedAt: ago(20 * DAY + i), source: "google_flights" }));
