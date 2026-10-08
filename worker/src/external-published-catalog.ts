@@ -1,4 +1,6 @@
+import {FRONTIER_PUBLISHED_PAGES} from "./frontier-published-catalog";
 export const EXTERNAL_PUBLISHED_PAGES=[
+ ...FRONTIER_PUBLISHED_PAGES,
  {airline:"SQ",origin:"SIN",destination:"HND",sourceUrl:"https://www.singaporeair.com/sg/en/plan-travel/destinations/flights-from-singapore-to-tokyo/",collector:"singapore",allDestinations:true},
  {airline:"B6",origin:"MCO",destination:"JFK",sourceUrl:"https://www.jetblue.com/en/flights-from-orlando-to-new-york"},
  {airline:"B6",origin:"JFK",origins:["JFK","LGA"],destination:"MCO",sourceUrl:"https://www.jetblue.com/en/flights-from-new-york",allDestinations:true},

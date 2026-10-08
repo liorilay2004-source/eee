@@ -50,6 +50,6 @@ async function probe(page){const now=new Date();try{
 }catch(error){results.push({airline:page.airline,error:error.message});console.log(JSON.stringify({airline:page.airline,error:error.message}));process.exitCode=1;}
 checkpoint=checkpoint.then(()=>writeFile('public-page-probe.json',JSON.stringify(results,null,2)));
 await checkpoint;}
-await collectByHost([...new Map(pages.filter(page=>page.collector!=="singapore"&&(!selection||page.airline===selection)).map(page=>[page.sourceUrl,page])).values()],probe);
+await collectByHost([...new Map(pages.filter(page=>page.collector!=="singapore"&&page.collector!=="frontier"&&(!selection||page.airline===selection)).map(page=>[page.sourceUrl,page])).values()],probe);
 await checkpoint;
 await writeFile('public-page-probe.json',JSON.stringify(results,null,2));

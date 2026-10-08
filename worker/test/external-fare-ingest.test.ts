@@ -59,4 +59,9 @@ it("isolates Singapore duration snapshots and rejects mismatched actual dates",a
  const value={source:"singapore",duration:14,page:"https://www.singaporeair.com/sg/en/plan-travel/destinations/flights-from-singapore-to-tokyo/",checkedAt:now.toISOString(),records:[row]};
  expect((await ingestPublicFares(request(value),e.value,now)).status).toBe(200);expect(e.write.mock.calls[0]![0]).toBe(value.page+"?fare-duration=14");
  expect((await ingestPublicFares(request({...value,duration:7}),e.value,now)).status).toBe(422);expect((await ingestPublicFares(request({...value,duration:15}),e.value,now)).status).toBe(400);
+});it("ingests an observed Frontier route and excludes membership prices",async()=>{
+ const e=env(),row={__typename:"Fare",originAirportCode:"DEN",destinationAirportCode:"PHX",departureDate:"2027-01-05",returnDate:"",flightType:"ONE_WAY",totalPrice:18.98,currencyCode:"USD",travelClass:"ECONOMY"};
+ const value={source:"published_page",airline:"F9",page:"https://flights.flyfrontier.com/en/flights-from-denver-to-phoenix",checkedAt:now.toISOString(),records:[row,{...row,travelClass:"Discount Den",totalPrice:9.98}]};
+ expect((await ingestPublicFares(request(value),e.value,now)).status).toBe(200);const snapshot=JSON.parse(e.write.mock.calls[0]![1]);expect(snapshot.fares).toHaveLength(1);expect(snapshot.fares[0]).toMatchObject({airline:"F9",amount:18.98,origin:"DEN",destination:"PHX",structure:"oneway",returnDate:null});expect(snapshot.expires).toBe(now.getTime()+600000);
+ expect((await ingestPublicFares(request({...value,page:"https://flights.flyfrontier.com/en/account"}),e.value,now)).status).toBe(400);
 });
