@@ -25,15 +25,22 @@ jobs:
   publish:
     if: github.event_name == 'workflow_dispatch' || vars.EXTERNAL_FRONTIER_ENABLED == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 6
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      - run: node --test collector/publish-pages.test.mjs collector/frontier-batch.test.mjs
       - run: node collector/publish-frontier-page.mjs
         env:
           COLLECTOR_KEY: ${{ secrets.COLLECTOR_KEY }}
           FRONTIER_BATCH: ${{ inputs.batch || false }}
           FRONTIER_OFFSET: ${{ inputs.offset || 0 }}
           FRONTIER_LIMIT: ${{ inputs.limit || 10 }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontier-publication-receipts
+          path: frontier-publication-receipts.json
+          retention-days: 3
