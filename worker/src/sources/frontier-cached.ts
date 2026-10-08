@@ -19,6 +19,11 @@ export function createFrontierCachedSource(now:Date,cache?:PublicFareCache):Fare
   return [...new Map(results.flatMap(r=>r.status==='fulfilled'?r.value:[]).map(f=>[JSON.stringify(f),f])).values()];
  }
  return {name:'frontier',configured:true,quota:{period:'monthly',cap:0,allowance:0},callCount:()=>0,nextQuoteRequests:()=>0,
+  async validatesStoredOffer(offer){
+   const q={origin:offer.origin,destination:offer.destination,departDate:offer.departDate,returnDate:offer.returnDate,party:{adults:1,children:0,infants:0}};
+   const current=matchPublishedTrip(await fares(q),q,{airline:'F9',source:'frontier'});
+   return current.some(f=>f.priceAmount===offer.priceAmount&&f.priceCurrency===offer.priceCurrency&&f.checkedAt===offer.checkedAt&&f.deeplink===offer.deeplink&&f.returnDeeplink===offer.returnDeeplink);
+  },
   async quote(q){return matchPublishedTrip(await fares(q),q,{airline:'F9',source:'frontier'});},
   async oneWays(q){return (await fares(q)).filter(f=>f.origin===q.origin&&f.destination===q.destination&&f.departDate===q.departDate||f.origin===q.destination&&f.destination===q.origin&&f.departDate===q.returnDate).map(f=>({source:'frontier' as const,airline:f.airline,origin:f.origin,destination:f.destination,date:f.departDate,amount:f.amount,currency:f.currency,checkedAt:f.checkedAt,bookingUrl:f.sourceUrl,leg:{departTime:null,arriveTime:null,durationMin:null,stops:null,airlines:[f.airline]}}));}
  };

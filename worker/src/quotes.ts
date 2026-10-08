@@ -118,6 +118,8 @@ export interface FareQuoteSource {
   nextQuoteRequests?(q?: QuoteQuery): number;
   /** Official one-way advertisements, never inferred from a round-trip total. */
   oneWays?(q: QuoteQuery): Promise<readonly PricedDirection[]>;
+  /** Check stored offers against the current external snapshot, without upstream requests. */
+  validatesStoredOffer?(offer: Offer): Promise<boolean>;
   /**
    * Live round-trip offers for exactly this date pair, per ADULT in the vendor's original currency (like
    * TravelpayoutsClient.roundTrips). Rejects with QuoteError; never retries; costs one reserved unit per request.

@@ -869,10 +869,19 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   // A scan that succeeded completely: its result is cached below, and the live quotes are asked only in this case, so within
   // the cache TTL every repeat of the search is a cache hit that costs the vendors' free allowances nothing.
   const scanComplete = !fromCache && scan !== null && scan.failures.length === 0 && scan.successes > 0;
-  const fromDb = latestPerFlight(stored)
+  const validateStored = async (offers:Offer[]):Promise<Offer[]> => {
+    const keep=await Promise.all(offers.map(async offer=>{
+      const source=deps.quoteSources?.find(s=>s.configured&&s.name===offer.source&&s.validatesStoredOffer);
+      if(!source?.validatesStoredOffer)return true;
+      try{return await source.validatesStoredOffer(offer);}catch{return false;}
+    }));
+    return offers.filter((_,i)=>keep[i]);
+  };
+  carriedQuotes=await validateStored(carriedQuotes);
+  const fromDb = (await validateStored(latestPerFlight(stored)
     .filter((o) => !isPublishedSource(o.source) || pax === 1 && req.adults === 1)
     .filter((o) => !isQuoteSource(o.source) || storedQuoteWithinAge(o, now)) // a stored quote is "live" for a few hours only
-    .map((o) => scaledCopy(o, pax)); // stored fares are per passenger
+    )).map((o) => scaledCopy(o, pax)); // stored fares are per passenger
   const gfOffers = fromDb.filter((o) => o.source === "google_flights").length;
   const gfStatus: SourceStatus = { name: "google_flights", enabled: gfOffers > 0, ok: gfOffers > 0, calls: 0, offers: gfOffers, error: null };
 
