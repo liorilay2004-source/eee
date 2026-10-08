@@ -144,3 +144,19 @@ Eighteen completed full-run artifacts covered 1,080 requested pages, 1,079 reada
 ### Frontier all-approved publication run, 2026-10-08
 
 Added the manual frontier-full-publish workflow, which derives fourteen sequential sixty-page batches from the actual 829 approved unique URLs. Verified the real plan selects exactly 829 distinct approved pages with no omissions or duplication, and batch tests passed. Authenticated full refresh run 37758242246 is now live (plan completed, one publication batch running, thirteen queued). The original full discovery run 37754695566 also remains live on its original handle. This refresh is not proof that all pages succeeded or are simultaneously fresh: individual prices still expire ten minutes after their own capture, and later public-page changes can remove formerly usable offers. Wider scheduling/continuous coverage, the remaining airline inventory and checkout verification are still incomplete.
+
+### Windows automatic collector evidence, 2026-10-08
+
+The first automatic runs of `EEE-Flydubai-PublicCollector`, `EEE-EVA-PublicCollector` and `EEE-Vietnam-PublicCollector` completed after their 14:58 Israel-time triggers. The next 15:03 cycle also completed. All three tasks reported `Ready`, `LastTaskResult=0` and zero missed runs; their configured repetition interval is five minutes.
+
+| Collector | Approved pages published per cycle | Fare observations accepted per cycle | First automatic run folder |
+| --- | ---: | ---: | --- |
+| flydubai | 17 | 102 | `flydubai/20261008T115806220Z-e431e564` |
+| EVA | 10 | 173 | `eva/20261008T115806177Z-32fa7014` |
+| Vietnam | 1 | 2 | `vietnam/20261008T115807798Z-574d71c5` |
+
+Evidence is stored beneath `C:\Users\lior\.codex\eee-local-collector`. Each listed run's `metadata.json` reports `status=succeeded`, `exitCode=0` and `pageErrors=0`; the observation files independently contain the same page counts and summed publication receipt counts. The 15:03 folders (`20261008T120307617Z-1a604c0e`, `20261008T120307479Z-e25775f5`, `20261008T120308667Z-4d151caa`, respectively) confirm identical accepted counts with zero errors. All receipts retain each page's original `checkedAt`; repeated collection does not relabel an older observation with the verification time. Only relevant task metadata and these public observation files were inspected; the protected collector secret was neither read nor decrypted.
+
+These runs prove automatic publication for the named approved pages. They do not establish complete airline/date coverage, booking-cart prices or uninterrupted availability; future runs depend on the local host and readable upstream pages, and observations keep their existing freshness limit.
+
+GitHub run [37769423691 — Inspect all observed flydubai fare pages](https://github.com/liorilay2004-source/eee/actions/runs/37769423691) was separately verified as terminal `status=completed`, `conclusion=cancelled`, last updated `2026-10-08T11:43:19Z`. It was not restarted during this verification.

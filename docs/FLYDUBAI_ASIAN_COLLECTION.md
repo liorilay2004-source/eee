@@ -24,7 +24,7 @@ EVA's observed economy records include TPE–NRT on 13–17 June and 12–16 Jul
 
 ## Refresh execution
 
-GitHub publication workflows are separately gated by `EXTERNAL_FLYDUBAI_ENABLED`, `EXTERNAL_EVA_ENABLED`, and `EXTERNAL_VIETNAM_ENABLED`. They must remain disabled until runner connectivity and refresh timing are verified. flydubai discovery run `37769423691` timed out for its first two GitHub batches while local requests succeeded; the still-running discovery is not evidence of price coverage.
+GitHub publication workflows are separately gated by `EXTERNAL_FLYDUBAI_ENABLED`, `EXTERNAL_EVA_ENABLED`, and `EXTERNAL_VIETNAM_ENABLED`. They must remain disabled until runner connectivity and refresh timing are verified. flydubai discovery run `37769423691` timed out for its first two GitHub batches while local requests succeeded; its terminal status was verified as `completed` with conclusion `cancelled`, last updated `2026-10-08T11:43:19Z`. It was not restarted and does not establish price coverage.
 
 Local runners `collector/run-local-flydubai.ps1` and `collector/run-local-asian.ps1` use a separate `LOCAL_COLLECTOR_KEY`. The encrypted DPAPI credential is outside Git at `%USERPROFILE%\.codex\secrets\eee-local-collector.dpapi`. It is decrypted only into a hidden child process environment; it is never written to logs. The existing GitHub credential remains independent.
 

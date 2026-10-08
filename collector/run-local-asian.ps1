@@ -60,13 +60,13 @@ try {
     $taskSecretPath = Join-Path $env:USERPROFILE '.codex\secrets\eee-local-collector.dpapi'
     $taskStage = 'loading_credential'
     if (-not (Test-Path -LiteralPath $taskSecretPath -PathType Leaf)) { throw 'Local collector credential is not provisioned' }
-    $taskSecureKey = Get-Content -LiteralPath $taskSecretPath -Raw | ConvertTo-SecureString
+    $taskSecureKey = (Get-Content -LiteralPath $taskSecretPath -Raw).Trim() | ConvertTo-SecureString
     $taskSecretPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($taskSecureKey)
     $taskSecretValue = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($taskSecretPointer)
     if ($taskSecretValue -notmatch '^[a-f0-9]{64}$') { throw 'Invalid local collector configuration' }
 
     $taskStart = [System.Diagnostics.ProcessStartInfo]::new()
-    $taskStart.FileName = (Get-Command node -CommandType Application -ErrorAction Stop).Source
+    $taskStart.FileName = (Get-Command node -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
     $taskStart.WorkingDirectory = $taskRepo
     $taskStart.UseShellExecute = $false
     $taskStart.CreateNoWindow = $true
