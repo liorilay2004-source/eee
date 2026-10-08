@@ -1,8 +1,6 @@
 name: Refresh all approved Frontier fare pages
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '7,37 * * * *'
 permissions:
   contents: read
 concurrency:

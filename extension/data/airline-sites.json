@@ -1,0 +1,398 @@
+[
+  {
+    "id": "elal",
+    "host": "www.elal.com"
+  },
+  {
+    "id": "arkia",
+    "host": "www.arkia.com"
+  },
+  {
+    "id": "israir",
+    "host": "www.israir.co.il"
+  },
+  {
+    "id": "turkish",
+    "host": "www.turkishairlines.com"
+  },
+  {
+    "id": "pegasus",
+    "host": "www.flypgs.com"
+  },
+  {
+    "id": "aegean",
+    "host": "en.aegeanair.com"
+  },
+  {
+    "id": "wizz",
+    "host": "wizzair.com"
+  },
+  {
+    "id": "ryanair",
+    "host": "www.ryanair.com"
+  },
+  {
+    "id": "easyjet",
+    "host": "www.easyjet.com"
+  },
+  {
+    "id": "lufthansa",
+    "host": "www.lufthansa.com"
+  },
+  {
+    "id": "swiss",
+    "host": "www.swiss.com"
+  },
+  {
+    "id": "austrian",
+    "host": "www.austrian.com"
+  },
+  {
+    "id": "airfrance",
+    "host": "wwws.airfrance.com"
+  },
+  {
+    "id": "klm",
+    "host": "www.klm.com"
+  },
+  {
+    "id": "emirates",
+    "host": "www.emirates.com"
+  },
+  {
+    "id": "etihad",
+    "host": "www.etihad.com"
+  },
+  {
+    "id": "qatar",
+    "host": "www.qatarairways.com"
+  },
+  {
+    "id": "british_airways",
+    "host": "www.britishairways.com"
+  },
+  {
+    "id": "ita",
+    "host": "www.ita-airways.com"
+  },
+  {
+    "id": "iberia",
+    "host": "www.iberia.com"
+  },
+  {
+    "id": "tap",
+    "host": "www.flytap.com"
+  },
+  {
+    "id": "vueling",
+    "host": "www.vueling.com"
+  },
+  {
+    "id": "lot",
+    "host": "www.lot.com"
+  },
+  {
+    "id": "sas",
+    "host": "www.flysas.com"
+  },
+  {
+    "id": "finnair",
+    "host": "www.finnair.com"
+  },
+  {
+    "id": "norwegian",
+    "host": "www.norwegian.com"
+  },
+  {
+    "id": "icelandair",
+    "host": "www.icelandair.com"
+  },
+  {
+    "id": "aer_lingus",
+    "host": "www.aerlingus.com"
+  },
+  {
+    "id": "brussels",
+    "host": "www.brusselsairlines.com"
+  },
+  {
+    "id": "eurowings",
+    "host": "www.eurowings.com"
+  },
+  {
+    "id": "air_europa",
+    "host": "www.aireuropa.com"
+  },
+  {
+    "id": "transavia",
+    "host": "www.transavia.com"
+  },
+  {
+    "id": "sunexpress",
+    "host": "www.sunexpress.com"
+  },
+  {
+    "id": "jet2",
+    "host": "www.jet2.com"
+  },
+  {
+    "id": "volotea",
+    "host": "www.volotea.com"
+  },
+  {
+    "id": "air_baltic",
+    "host": "www.airbaltic.com"
+  },
+  {
+    "id": "sky_express",
+    "host": "www.skyexpress.gr"
+  },
+  {
+    "id": "flydubai",
+    "host": "www.flydubai.com"
+  },
+  {
+    "id": "air_arabia",
+    "host": "www.airarabia.com"
+  },
+  {
+    "id": "gulf_air",
+    "host": "www.gulfair.com"
+  },
+  {
+    "id": "oman_air",
+    "host": "www.omanair.com"
+  },
+  {
+    "id": "saudia",
+    "host": "www.saudia.com"
+  },
+  {
+    "id": "royal_jordanian",
+    "host": "www.rj.com"
+  },
+  {
+    "id": "kuwait",
+    "host": "www.kuwaitairways.com"
+  },
+  {
+    "id": "egyptair",
+    "host": "www.egyptair.com"
+  },
+  {
+    "id": "ethiopian",
+    "host": "www.ethiopianairlines.com"
+  },
+  {
+    "id": "kenya",
+    "host": "www.kenya-airways.com"
+  },
+  {
+    "id": "south_african",
+    "host": "www.flysaa.com"
+  },
+  {
+    "id": "royal_air_maroc",
+    "host": "www.royalairmaroc.com"
+  },
+  {
+    "id": "air_canada",
+    "host": "www.aircanada.com"
+  },
+  {
+    "id": "american",
+    "host": "www.aa.com"
+  },
+  {
+    "id": "delta",
+    "host": "www.delta.com"
+  },
+  {
+    "id": "united",
+    "host": "www.united.com"
+  },
+  {
+    "id": "southwest",
+    "host": "www.southwest.com"
+  },
+  {
+    "id": "alaska",
+    "host": "www.alaskaair.com"
+  },
+  {
+    "id": "jetblue",
+    "host": "www.jetblue.com"
+  },
+  {
+    "id": "spirit",
+    "host": "www.spirit.com"
+  },
+  {
+    "id": "frontier",
+    "host": "www.flyfrontier.com"
+  },
+  {
+    "id": "hawaiian",
+    "host": "www.hawaiianairlines.com"
+  },
+  {
+    "id": "aeromexico",
+    "host": "aeromexico.com"
+  },
+  {
+    "id": "latam",
+    "host": "www.latamairlines.com"
+  },
+  {
+    "id": "avianca",
+    "host": "www.avianca.com"
+  },
+  {
+    "id": "copa",
+    "host": "www.copaair.com"
+  },
+  {
+    "id": "azul",
+    "host": "www.voeazul.com.br"
+  },
+  {
+    "id": "gol",
+    "host": "www.voegol.com.br"
+  },
+  {
+    "id": "air_china",
+    "host": "www.airchina.com"
+  },
+  {
+    "id": "china_eastern",
+    "host": "www.ceair.com"
+  },
+  {
+    "id": "china_southern",
+    "host": "www.csair.com"
+  },
+  {
+    "id": "hainan",
+    "host": "www.hainanairlines.com"
+  },
+  {
+    "id": "cathay",
+    "host": "www.cathaypacific.com"
+  },
+  {
+    "id": "singapore",
+    "host": "www.singaporeair.com"
+  },
+  {
+    "id": "scoot",
+    "host": "www.flyscoot.com"
+  },
+  {
+    "id": "malaysia",
+    "host": "www.malaysiaairlines.com"
+  },
+  {
+    "id": "thai",
+    "host": "www.thaiairways.com"
+  },
+  {
+    "id": "vietnam",
+    "host": "www.vietnamairlines.com"
+  },
+  {
+    "id": "philippine",
+    "host": "www.philippineairlines.com"
+  },
+  {
+    "id": "garuda",
+    "host": "www.garuda-indonesia.com"
+  },
+  {
+    "id": "jal",
+    "host": "www.jal.co.jp"
+  },
+  {
+    "id": "ana",
+    "host": "www.ana.co.jp"
+  },
+  {
+    "id": "korean",
+    "host": "www.koreanair.com"
+  },
+  {
+    "id": "asiana",
+    "host": "flyasiana.com"
+  },
+  {
+    "id": "eva",
+    "host": "www.evaair.com"
+  },
+  {
+    "id": "china_airlines",
+    "host": "www.china-airlines.com"
+  },
+  {
+    "id": "air_india",
+    "host": "www.airindia.com"
+  },
+  {
+    "id": "indigo",
+    "host": "www.goindigo.in"
+  },
+  {
+    "id": "qantas",
+    "host": "www.qantas.com"
+  },
+  {
+    "id": "virgin_australia",
+    "host": "www.virginaustralia.com"
+  },
+  {
+    "id": "air_new_zealand",
+    "host": "www.airnewzealand.com"
+  },
+  {
+    "id": "virgin_atlantic",
+    "host": "www.virginatlantic.com"
+  },
+  {
+    "id": "air_serbia",
+    "host": "www.airserbia.com"
+  },
+  {
+    "id": "croatia",
+    "host": "www.croatiaairlines.com"
+  },
+  {
+    "id": "tarom",
+    "host": "www.tarom.ro"
+  },
+  {
+    "id": "bulgaria_air",
+    "host": "www.air.bg"
+  },
+  {
+    "id": "georgian",
+    "host": "georgian-airways.com"
+  },
+  {
+    "id": "azerbaijan",
+    "host": "www.azal.az"
+  },
+  {
+    "id": "uzbekistan",
+    "host": "www.uzairways.com"
+  },
+  {
+    "id": "air_astana",
+    "host": "airastana.com"
+  },
+  {
+    "id": "ukraine_international",
+    "host": "www.flyuia.com"
+  },
+  {
+    "id": "smartwings",
+    "host": "www.smartwings.com"
+  }
+]

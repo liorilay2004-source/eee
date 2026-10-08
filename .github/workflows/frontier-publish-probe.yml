@@ -14,8 +14,6 @@ on:
         description: Pages to refresh, at most sixty
         type: number
         default: 10
-  schedule:
-    - cron: '4,14,24,34,44,54 * * * *'
 concurrency:
   group: frontier-published-refresh
   cancel-in-progress: false

@@ -169,7 +169,68 @@
   clearBtn.disabled = true;
   K.load(local).then(applyStored, () => applyStored({ key: null, rejected: false }));
   chrome.storage.onChanged.addListener((changes, which) => {
-    if (which !== "local" || !changes[K.KEY]) return;
-    applyStored(K.sanitize(changes[K.KEY].newValue));
+    if (which !== "local") return;
+    if (changes[K.KEY]) applyStored(K.sanitize(changes[K.KEY].newValue));
+    if (changes["eee.siteObservations"]) renderSiteObservations(changes["eee.siteObservations"].newValue);
   });
+
+  const siteButton = /** @type {HTMLButtonElement} */ (byId("site-listener-toggle"));
+  const siteStatus = byId("site-listener-status");
+  const siteRows = byId("site-observations");
+  let activeTabId = null;
+  function renderSiteObservations(rows) {
+    siteRows.replaceChildren();
+    if (!Array.isArray(rows) || rows.length === 0) return;
+    for (const row of rows.slice(0, 5)) {
+      const item = document.createElement("li");
+      const route = document.createElement("strong");
+      route.textContent = `${row.origin} → ${row.destination}`;
+      const details = document.createElement("span");
+      details.textContent = `${row.departDate} – ${row.returnDate} · ${row.priceAmount} ${row.currency}`;
+      const host = document.createElement("small");
+      host.textContent = row.host;
+      item.append(route, details, host);
+      if (typeof row.previousPriceAmount === "number") {
+        const change = document.createElement("small");
+        change.textContent = `המחיר השתנה מ־${row.previousPriceAmount} ${row.currency}`;
+        item.append(change);
+      }
+      siteRows.append(item);
+    }
+  }
+  async function initializeSiteListener() {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      activeTabId = typeof tab?.id === "number" ? tab.id : null;
+      const url = typeof tab?.url === "string" ? new URL(tab.url) : null;
+      const sitesResponse = await fetch(chrome.runtime.getURL("data/airline-sites.json"));
+      const sites = sitesResponse.ok ? await sitesResponse.json() : [];
+      const supported = url?.protocol === "https:" && Array.isArray(sites)
+        && sites.some((site) => url.hostname === site.host || url.hostname.endsWith(`.${site.host}`));
+      siteButton.disabled = !supported || activeTabId === null;
+      siteButton.textContent = supported ? "התחל / הפסק האזנה בטאב הזה" : "פתחו עמוד של חברת תעופה";
+      siteStatus.textContent = supported ? `עמוד מזוהה: ${url.hostname}` : "ההאזנה זמינה באתרי חברות התעופה שבקטלוג.";
+    } catch {
+      siteButton.disabled = true;
+      siteStatus.textContent = "לא הצלחנו לבדוק את הטאב הנוכחי.";
+    }
+  }
+  siteButton.addEventListener("click", async () => {
+    if (activeTabId === null) return;
+    siteButton.disabled = true;
+    siteStatus.textContent = "מפעילים או מפסיקים את המאזין…";
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: activeTabId },
+        files: ["lib/site-observer.js", "content/site-listener.js"],
+      });
+      siteStatus.textContent = "פעולת המאזין נשלחה. הסטטוס מופיע בחלונית שעל האתר.";
+    } catch {
+      siteStatus.textContent = "הדפדפן לא אפשר להפעיל את המאזין בטאב הזה.";
+    } finally {
+      siteButton.disabled = false;
+    }
+  });
+  void chrome.storage.local.get("eee.siteObservations").then((rows) => renderSiteObservations(rows["eee.siteObservations"]), () => {});
+  void initializeSiteListener();
 })();

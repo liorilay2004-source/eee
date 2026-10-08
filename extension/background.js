@@ -23,6 +23,7 @@ const EEE = /** @type {any} */ (globalThis)[Symbol.for("eee.extension")];
 const api = EEE.api;
 const Settings = EEE.settings;
 const Access = EEE.access;
+const SITE_OBSERVATIONS_KEY = "eee.siteObservations";
 
 /**
  * chrome.storage.local is, by default, readable from content scripts too (TRUSTED_AND_UNTRUSTED_CONTEXTS), and its
@@ -74,6 +75,50 @@ async function lookup(req) {
   return client.lookup(req);
 }
 
+/** The action popup has to be open on the active tab; host matching then limits injection to bundled airline domains. */
+let airlineSitesPromise = null;
+function airlineHosts() {
+  airlineSitesPromise ??= fetch(chrome.runtime.getURL("data/airline-sites.json"))
+    .then((res) => (res.ok ? res.json() : []))
+    .catch(() => [])
+    .then((sites) => Array.isArray(sites) ? sites.map((site) => site?.host).filter((host) => typeof host === "string") : []);
+  return airlineSitesPromise;
+}
+
+function validDate(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+/** Captures only a visible, user-selected page's small fare tuple. It never sends the URL, text or page to the server. */
+async function rememberSiteObservation(value, sender) {
+  if (!sender.tab || sender.frameId !== 0 || !sender.url || !value || typeof value !== "object") return { saved: false };
+  let host;
+  try { host = new URL(sender.url).hostname.toLowerCase(); } catch { return { saved: false }; }
+  if (!(await airlineHosts()).some((allowed) => host === allowed || host.endsWith(`.${allowed}`))) return { saved: false };
+  const { origin, destination, departDate, returnDate, priceAmount, currency } = value;
+  if (typeof origin !== "string" || !/^[A-Z]{3}$/.test(origin)
+    || typeof destination !== "string" || !/^[A-Z]{3}$/.test(destination) || origin === destination
+    || !validDate(departDate) || !validDate(returnDate) || returnDate <= departDate
+    || typeof priceAmount !== "number" || !Number.isFinite(priceAmount) || priceAmount <= 0 || priceAmount > 250000
+    || typeof currency !== "string" || !/^[A-Z]{3}$/.test(currency)) return { saved: false };
+  const storage = await chrome.storage.local.get(SITE_OBSERVATIONS_KEY);
+  const rows = Array.isArray(storage[SITE_OBSERVATIONS_KEY]) ? storage[SITE_OBSERVATIONS_KEY] : [];
+  const key = [host, origin, destination, departDate, returnDate, currency].join("|");
+  const previous = rows.find((row) => row?.key === key);
+  if (previous?.priceAmount === priceAmount) return { saved: false, unchanged: true };
+  const record = {
+    key, host, origin, destination, departDate, returnDate, priceAmount, currency,
+    capturedAt: new Date().toISOString(),
+    ...(previous ? { previousPriceAmount: previous.priceAmount } : {}),
+    method: "visible-page-change",
+  };
+  const next = [record, ...rows.filter((row) => row?.key !== key)].slice(0, 100);
+  await chrome.storage.local.set({ [SITE_OBSERVATIONS_KEY]: next });
+  return { saved: true, record };
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Web pages cannot send here (no externally_connectable); only this extension's own scripts and pages.
   if (sender.id !== chrome.runtime.id || !message || typeof message !== "object") return false;
@@ -91,6 +136,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message.type === "lookup") {
     lookup(message.req).then(sendResponse, () => sendResponse(null));
+    return true;
+  }
+  if (message.type === "siteObservation") {
+    rememberSiteObservation(message.observation, sender).then(sendResponse, () => sendResponse({ saved: false }));
     return true;
   }
   return false;

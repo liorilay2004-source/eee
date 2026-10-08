@@ -1,8 +1,6 @@
 name: Observed Singapore Airlines public fare data probe
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '8,18,28,38,48,58 * * * *'
 concurrency:
   group: singapore-external-fares
   cancel-in-progress: false

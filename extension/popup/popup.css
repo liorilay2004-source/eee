@@ -194,6 +194,30 @@ summary:focus-visible {
   margin-top: 4px;
   color: var(--fg);
 }
+.site-listener {
+  margin: 10px 0;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.site-listener h2 { margin-top: 0; }
+.site-listener-note { margin: 4px 0 8px; color: var(--muted); font-size: 12px; }
+#site-listener-toggle {
+  width: 100%;
+  min-height: 38px;
+  border: 0;
+  border-radius: 9px;
+  padding: 8px 10px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+#site-listener-toggle:disabled { opacity: .55; cursor: not-allowed; }
+.site-observations { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 6px; }
+.site-observations li { display: grid; gap: 1px; padding: 7px 8px; border-radius: 8px; background: color-mix(in srgb, var(--accent) 8%, var(--bg)); }
+.site-observations small { color: var(--muted); font-size: 11px; }
 .access-status.bad {
   color: #b91c1c;
 }

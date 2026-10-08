@@ -1,8 +1,8 @@
 /**
  * Privacy and page-content guarantees, checked in the source:
- *  - the content scripts never make a network request and never read the page's DOM (only location and title);
- *  - the only network code is lib/api.js (called from background.js), plus background.js reading its own index file;
- *  - what reaches the service worker from a page is a lookup request with four fields, nothing typed.
+ *  - Google content scripts never make a network request and read only location/title;
+ *  - the user-activated airline listener reads a visible fare candidate and sends only a small tuple to local extension storage;
+ *  - the only network code is lib/api.js; the popup and service worker read packaged JSON locally.
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
@@ -33,6 +33,16 @@ describe("content scripts", () => {
     assert.match(main, /location\.href/);
     assert.match(main, /document\.title/);
     assert.doesNotMatch(main, /document\.referrer|history\.state|navigator\.(?!sendMessage)/);
+  });
+
+  it("the user-activated airline listener reads visible price text only, without forms, cookies or network APIs", () => {
+    const listener = code("content/site-listener.js");
+    assert.match(listener, /new MutationObserver/);
+    assert.match(listener, /document\.body\.innerText/);
+    assert.match(listener, /chrome\.runtime\.sendMessage\(\{ type: "siteObservation", observation: candidate \}\)/);
+    assert.doesNotMatch(listener, /document\.forms|document\.cookie|localStorage|sessionStorage|fetch\s*\(|XMLHttpRequest|sendBeacon|WebSocket|EventSource/);
+    assert.match(listener, /clearTimeout\(timer\)/); // event debounce, no recurring timer
+    assert.doesNotMatch(listener, /setInterval\s*\(/);
   });
 
   it("the card writes text only (textContent), never markup", () => {
@@ -69,28 +79,32 @@ describe("content scripts", () => {
     }
   });
 
-  it("no browser APIs beyond runtime messaging and storage", () => {
-    for (const f of [...contentFiles, "background.js", "popup/popup.js"]) {
+  it("uses activeTab and scripting only in the toolbar popup, never broad browsing APIs", () => {
+    for (const f of [...contentFiles, "content/site-listener.js", "background.js"]) {
       assert.doesNotMatch(code(f), /chrome\.(tabs|cookies|history|webRequest|scripting|identity|downloads|bookmarks|management|debugger)\b/, f);
     }
+    assert.match(code("popup/popup.js"), /chrome\.tabs\.query\(\{ active: true, currentWindow: true \}\)/);
+    assert.match(code("popup/popup.js"), /chrome\.scripting\.executeScript/);
+    assert.doesNotMatch(code("popup/popup.js"), /chrome\.(cookies|history|webRequest|identity|downloads|bookmarks|management|debugger)\b/);
   });
 });
 
 describe("network code", () => {
-  it("only lib/api.js calls the API; background.js fetches nothing but the client and its own index file", () => {
+  it("only lib/api.js calls the API; extension contexts fetch only packaged JSON locally", () => {
     const bg = code("background.js");
     const fetches = [...bg.matchAll(/\bfetch\s*\(([^)]*)/g)].map((m) => /** @type {string} */ (m[1]).trim());
-    assert.deepEqual(fetches, ["url, init", 'chrome.runtime.getURL("data/index.json"']);
+    assert.deepEqual(fetches, ["url, init", 'chrome.runtime.getURL("data/index.json"', 'chrome.runtime.getURL("data/airline-sites.json"']);
     const api = code("lib/api.js");
     // Two call sites, both to the API: the lookup, and the popup's key check (through the service worker).
     assert.deepEqual([...api.matchAll(/\bfetch\s*\(/g)].length, 2);
     assert.match(api, /deps\.fetch\(buildUrl\(req\)/);
     assert.match(api, /deps\.fetch\(new URL\(AUTH_CHECK_PATH, API_BASE\)\.toString\(\)/);
-    for (const f of ["popup/popup.js", ...contentFiles]) assert.doesNotMatch(code(f), /\bfetch\s*\(/, f);
+    assert.deepEqual([...code("popup/popup.js").matchAll(/\bfetch\s*\(([^)]*)/g)].map((m) => m[1].trim()), ['chrome.runtime.getURL("data/airline-sites.json"']);
+    for (const f of [...contentFiles, "content/site-listener.js"]) assert.doesNotMatch(code(f), /\bfetch\s*\(/, f);
   });
 
   it("no analytics, trackers or error reporters anywhere", () => {
-    for (const f of [...contentFiles, "background.js", "lib/api.js", "popup/popup.js", "popup/popup.html"]) {
+    for (const f of [...contentFiles, "content/site-listener.js", "background.js", "lib/api.js", "popup/popup.js", "popup/popup.html"]) {
       assert.doesNotMatch(read(f), /google-analytics|googletagmanager|gtag\(|sentry|mixpanel|segment\.io|amplitude|posthog|hotjar|datadog|clarity\.ms|telemetry/i, f);
     }
   });
@@ -105,7 +119,19 @@ describe("network code", () => {
     assert.match(main, /const req = Q\.apiRequest\(lookup\)/);
   });
 
-  it("the service worker answers only this extension's own scripts: lookups from content scripts (a tab), the key check from its own pages", () => {
+  it("the airline listener sends only extracted fare fields, and the background stores no page URL or content", () => {
+    const listener = code("content/site-listener.js");
+    for (const field of ["origin", "destination", "departDate", "returnDate", "priceAmount", "currency"]) assert.ok(listener.includes(field));
+    assert.doesNotMatch(listener, /pageText|document\.URL|location\.href.*sendMessage|sendMessage.*location\.href/);
+    const bg = code("background.js");
+    assert.match(bg, /message\.type === "siteObservation"/);
+    assert.match(bg, /sender\.frameId !== 0/);
+    assert.match(bg, /host === allowed \|\| host\.endsWith/);
+    assert.match(bg, /chrome\.storage\.local\.set\(\{ \[SITE_OBSERVATIONS_KEY\]: next \}\)/);
+    assert.doesNotMatch(bg, /url:\s*sender\.url|pageText|bodyText/);
+  });
+
+  it("the service worker answers only this extension's own scripts: page lookups/observations, key checks only from popup", () => {
     const bg = code("background.js");
     assert.match(bg, /if \(sender\.id !== chrome\.runtime\.id \|\| !message \|\| typeof message !== "object"\) return false;/);
     // Without a tab (the toolbar popup) only "authCheck" is answered; "index" and "lookup" come after the tab check.
@@ -115,6 +141,7 @@ describe("network code", () => {
     assert.match(noTabBlock, /message\.type === "authCheck"/);
     assert.match(noTabBlock, /return false;\s*\}\s*$/);
     assert.doesNotMatch(noTabBlock, /"index"|"lookup"/);
+    assert.match(bg, /message\.type === "siteObservation"/);
     assert.equal(manifest.externally_connectable, undefined);
   });
 

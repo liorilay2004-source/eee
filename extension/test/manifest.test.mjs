@@ -19,17 +19,25 @@ function runtimeFiles() {
 }
 
 describe("permissions", () => {
-  it("storage only, the API host only, nothing optional or exposed", () => {
+  it("storage plus user-activated activeTab injection, the API host only, nothing optional or exposed", () => {
     assert.equal(manifest.manifest_version, 3);
-    assert.deepEqual(manifest.permissions, ["storage"]);
+    assert.deepEqual(manifest.permissions, ["storage", "activeTab", "scripting"]);
     assert.deepEqual(manifest.host_permissions, ["https://eee-api.liorilay2004.workers.dev/*"]);
     for (const key of ["optional_permissions", "optional_host_permissions", "externally_connectable", "web_accessible_resources", "update_url", "key", "oauth2", "declarative_net_request", "chrome_url_overrides", "devtools_page", "sandbox"]) {
       assert.equal(manifest[key], undefined, key);
     }
     const text = JSON.stringify(manifest);
-    for (const bad of ["<all_urls>", "\"tabs\"", "\"cookies\"", "\"history\"", "\"webRequest\"", "\"scripting\"", "\"activeTab\"", "*://*/*", "http://"]) {
+    for (const bad of ["<all_urls>", "\"tabs\"", "\"cookies\"", "\"history\"", "\"webRequest\"", "*://*/*", "http://"]) {
       assert.ok(!text.includes(bad), bad);
     }
+  });
+
+  it("only supports on-demand observation on hosts in the generated airline catalog", () => {
+    const sites = JSON.parse(read("data/airline-sites.json"));
+    assert.ok(sites.length >= 80);
+    assert.ok(sites.some((site) => site.host === "www.lufthansa.com"));
+    assert.ok(!sites.some((site) => site.host === "www.google.com"));
+    assert.equal(read("data/airline-sites.json"), readFileSync(new URL("data/airline-sites.json", EXT), "utf8"));
   });
 
   it("the API host in the manifest is the one the code calls", () => {
@@ -57,6 +65,17 @@ describe("content scripts", () => {
     assert.deepEqual(entry.js, ["lib/text.js", "lib/dates.js", "lib/places.js", "lib/tfs.js", "lib/query.js", "lib/view.js", "lib/settings.js", "content/popup.js", "content/main.js"]);
     for (const f of entry.js) assert.ok(exists(f), f);
     assert.equal(entry.css, undefined); // styles live in the closed shadow root
+  });
+
+  it("the airline listener is injected only by a toolbar action, with the parser before the observer", () => {
+    const popup = read("popup/popup.js");
+    assert.match(popup, /chrome\.scripting\.executeScript/);
+    assert.match(popup, /files:\s*\["lib\/site-observer\.js",\s*"content\/site-listener\.js"\]/);
+    assert.doesNotMatch(manifest.content_scripts[0].matches.join(" "), /airline|<all_urls>/i);
+    const listener = read("content/site-listener.js");
+    assert.match(listener, /new MutationObserver/);
+    assert.doesNotMatch(listener, /setInterval\s*\(/);
+    assert.match(listener, /chrome\.runtime\.sendMessage\(\{ type: "siteObservation"/);
   });
 
   it("classic scripts: no import/export statements in anything a content script loads", () => {

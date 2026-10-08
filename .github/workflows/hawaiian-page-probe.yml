@@ -16,8 +16,6 @@ on:
         type: string
         default: ''
         description: Optional JSON array of observed pages to retry
-  schedule:
-    - cron: '2,12,22,32,42,52 * * * *'
 permissions:
   contents: read
 concurrency:

@@ -444,8 +444,8 @@ describe("content scripts have no path to the key", () => {
     assert.doesNotMatch(bg.slice(bg.indexOf('if (message.type === "index")')), /authCheck|AccessKey|accessKey/);
   });
 
-  it("the manifest already covers the API host: no new permission for the key", () => {
-    assert.deepEqual(manifest.permissions, ["storage"]);
+  it("the API host remains the only fixed host permission", () => {
+    assert.deepEqual(manifest.permissions, ["storage", "activeTab", "scripting"]);
     assert.deepEqual(manifest.host_permissions, [`${A.API_BASE}/*`]);
     assert.ok(new URL(A.AUTH_CHECK_PATH, A.API_BASE).toString().startsWith(`${A.API_BASE}/`));
   });
