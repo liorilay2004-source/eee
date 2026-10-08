@@ -58,3 +58,6 @@ Ethiopian discovery 37743191425 subsequently completed successfully: fifty pages
 
 
 Run 37743737249 completed: 51 SKY express pages produced 80 fares with no SKY failures. The overall run failed because three TAP/Virgin pages returned no valid prices (HTTP422), rather than an ingestion failure for SKY. Commit 24ef4cd connects 23 verified Ethiopian route pages to authenticated collection and supplemental shared quotes; typecheck and seven Ethiopian/SKY tests passed. Worker version 0f6c20eb-b021-48ec-b94a-83db78507eb2 deployed successfully. Live publication run 37744507601 and Copa discovery 37744511631 were confirmed in progress; Aer Lingus/GOL/American discovery runs 37744557322/37744561136/37744565013 were dispatched. No claim of complete airline/date coverage follows. The published collector now checkpoints observations after each page so a later timeout preserves completed evidence.
+
+
+Copa observed-route discovery 37744511631 completed: fifty fetched pages, all carrying valid dated fares, 242 observations and no failures. Fifty actual airport-pair/source-page rows were added to the verified registry; these additional Copa routes still require production catalog and cached-provider integration. Aer Lingus discovery 37744557322 also completed; artifact inspection is recorded separately from job status.

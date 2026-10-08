@@ -790,5 +790,405 @@
     "sourceUrl": "https://www.ethiopianairlines.com/en-il/flights-from-tel-aviv-to-gondar",
     "observedOn": "https://www.ethiopianairlines.com/en-il/",
     "checkedAt": "2026-10-08T07:28:08.105Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "MIA",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-miami",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:36:55.455Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "BOG",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-bogota",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:36:55.941Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "DAV",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-david",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:36:56.267Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "MDE",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-medellin",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:36:56.644Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "JFK",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-new-york",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:36:56.988Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "MCO",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-orlando",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:36:57.345Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "MEX",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-mexico-city",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:36:58.952Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "MGA",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-managua",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:36:59.238Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "CTG",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-cartagena",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:36:59.555Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "CCS",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-caracas",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:36:59.870Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "GUA",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-guatemala-city",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:00.158Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "EZE",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-buenos-aires-ar",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:00.473Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "SJO",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-san-jose-cr",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:01.993Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "CUN",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-cancun",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:02.271Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "LIM",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-lima",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:03.813Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "SDQ",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-santo-domingo",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:05.728Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "SCL",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-santiago",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:07.778Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "LAX",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-los-angeles",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:08.089Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "CLO",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-cali",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:08.390Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "SAL",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-san-salvador",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:09.973Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "PUJ",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-punta-cana",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:11.488Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "GIG",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-rio-de-janeiro",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:13.160Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "BAQ",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-barranquilla",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:14.943Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "PEI",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-pereira",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:16.555Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "HAV",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-havana",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:18.450Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "GRU",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-sao-paulo",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:18.741Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "FLL",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-fort-lauderdale",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:19.018Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "VLN",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-valencia",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:20.578Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "LAS",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-las-vegas",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:22.199Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "TPA",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-tampa",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:22.472Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "ATL",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-atlanta",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:23.990Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "SJU",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-san-juan",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:24.390Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "IAD",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-washington",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:26.186Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "YYZ",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-toronto",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:26.460Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "UIO",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-quito",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:26.743Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "ORD",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-chicago",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:28.558Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "CUR",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-willemstad",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:30.221Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "XPL",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-comayagua-tegucigalpa",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:30.492Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "SFO",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-san-francisco",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:32.964Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "BOS",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-boston",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:34.863Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "AUS",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-austin",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:35.181Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "AUA",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-oranjestad",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:36.814Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "GYE",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-guayaquil",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:38.506Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "MAR",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-maracaibo",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:40.249Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "CUC",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-cucuta",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:42.082Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "STI",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-santiago-de-los-caballeros",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:43.698Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "BLA",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-barcelona-venezuela",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:45.587Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "DEN",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-denver",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:47.195Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "GDL",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-guadalajara",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:48.759Z"
+  },
+  {
+    "airline": "CM",
+    "origin": "PTY",
+    "destination": "PMV",
+    "sourceUrl": "https://www.copaair.com/en/flights-from-panama-city-to-porlamar-isla-margarita",
+    "observedOn": "https://www.copaair.com/en/flights-from-panama-city",
+    "checkedAt": "2026-10-08T07:37:50.652Z"
   }
 ]
