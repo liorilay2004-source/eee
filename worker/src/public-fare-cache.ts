@@ -6,7 +6,7 @@ export interface PublicFareCache {
 const TTL_MS = 10 * 60_000;
 export const BACKGROUND_FARE_TTL_MS = 36 * 3_600_000;
 const MAX_BYTES = 500_000;
-const hosts = new Set(["services-api.ryanair.com", "flights.aegeanair.com", "www.aircanada.com", "www.flytap.com", "www.ethiopianairlines.com", "www.aireuropa.com", "flights.philippineairlines.com", "flights.virginatlantic.com", "www.airnewzealand.com", "www.airbaltic.com", "www.skyexpress.gr", "www.voegol.com.br", "www.finnair.com", "www.iberia.com", "www.avianca.com", "www.copaair.com", "www.aeromexico.com", "www.klm.co.il", "www.aa.com", "www.aerlingus.com", "www.airserbia.com", "www.norwegian.com", "www.brusselsairlines.com", "www.icelandair.com", "www.eurowings.com"]);
+const hosts = new Set(["services-api.ryanair.com", "flights.aegeanair.com", "www.aircanada.com", "www.flytap.com", "www.ethiopianairlines.com", "www.aireuropa.com", "flights.philippineairlines.com", "flights.virginatlantic.com", "www.airnewzealand.com", "www.airbaltic.com", "www.skyexpress.gr", "www.voegol.com.br", "www.finnair.com", "www.iberia.com", "www.avianca.com", "www.copaair.com", "www.aeromexico.com", "www.klm.co.il", "www.aa.com", "www.aerlingus.com", "www.airserbia.com", "www.norwegian.com", "www.lufthansa.com", "www.brusselsairlines.com", "www.icelandair.com", "www.eurowings.com"]);
 function cacheRequest(key: string): Request {
   const url = new URL(key);
   if (url.protocol !== "https:" || !hosts.has(url.hostname) || url.username || url.password || url.port || url.hash) throw new Error("Unsupported public fare source");
@@ -14,6 +14,8 @@ function cacheRequest(key: string): Request {
     const keys = [...url.searchParams.keys()];
     if (url.pathname !== "/en/booking/flights/low-fare-calendar.html" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(url.searchParams.get("month") ?? "") ||
         !(keys.length === 1 && keys[0] === "month" || keys.length === 2 && keys.includes("month") && keys.includes("destination") && url.searchParams.get("destination") === "ATH")) throw new Error("Unsupported Eurowings calendar cache");
+  } else if (url.hostname === "www.lufthansa.com") {
+    if (url.search || url.pathname !== "/lhg/gr/en/o-d/cy-cy/athens-tel-aviv") throw new Error("Unsupported public Lufthansa page");
   } else if (url.hostname === "www.brusselsairlines.com") {
     if (url.search || url.pathname !== "/lhg/be/en/o-d/cy-cy/brussels-athens") throw new Error("Unsupported public Brussels page");
   } else if (url.hostname === "www.icelandair.com") {

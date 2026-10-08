@@ -61,6 +61,14 @@ describe("flight details and official airline handoff", () => {
     card.offer.deeplink+="?untrusted=1";
     expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("untrusted");
   });
+  it("opens only the observed dated Lufthansa seller link", () => {
+    const {card}=fixture();card.offer.source="lufthansa";
+    card.offer.outbound.airlines=[];card.offer.inbound.airlines=[];
+    card.offer.deeplink="https://www.lufthansa.com/aircore/deeplink/redirect/en/gr/ATH/TLV/05.06.2027/19.06.2027/RT";
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).toContain(card.offer.deeplink);
+    card.offer.deeplink+="?untrusted=1";
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("untrusted");
+  });
   it("opens only the observed official Icelandair fare page", () => {
     const {card}=fixture();card.offer.source="icelandair";card.offer.outbound.airlines=["FI"];card.offer.inbound.airlines=["FI"];
     card.offer.deeplink="https://www.icelandair.com/en-gb/flights/flights-from-london-to-iceland";

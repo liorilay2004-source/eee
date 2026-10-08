@@ -17,9 +17,9 @@ the last-minute EUR436 for the same dates. The parser excludes conflicting pairs
 It retains collection time, original EUR, unknown carrier and advertised-price
 classification. Schedule data is not evidence of the flight included in a fare.
 
-The parser is not yet enabled as a production provider. Cache integration and
-checkout-price verification remain required before claiming
-production coverage. None of these observations solves TLV–ATH June1–5.
+The search provider reads collected ATH–TLV advertisements for one adult with
+exact matching dates. Checkout-price verification remains required before claiming
+confirmed booking prices. None of these observations solves TLV–ATH June1–5.
 
 ## Cloudflare collection verification
 
@@ -34,3 +34,36 @@ The shared renderer supports exactly the two observed Brussels/Lufthansa page
 URLs and refuses caller-supplied alternatives before launching the browser.
 Response size, anchor count and anchor label size are bounded. Failed rendering
 and non-string/unsuccessful envelopes never become fares.
+
+## Cache and provider verification
+
+At 2026-10-08 03:51:22 UTC, the integrated collector and provider were exercised
+with a real remote Cloudflare Browser Run binding and Workers Cache API. Collection
+returned 23 advertisements; ATH–TLV June5–19 returned EUR304 and its dated official
+link. June5–20 and the reversed TLV–ATH route returned no offers. The provider made
+zero upstream calls; the three cache/provider checks together took 13ms, not a full
+production search latency measurement. This probe did not use D1.
+
+Prices retain their original collection timestamp and expire after 36 hours.
+Scheduled refresh runs at 07/19 UTC within the existing queue of at most two
+concurrent browsers. Future cron execution and a complete production search have
+not yet been verified. Production D1's daily read allowance is currently exhausted.
+
+## Direct API access rechecked
+
+On 2026-10-08 the official Developer Center homepage explicitly states that
+registration to OpenAPI is on hold until further notice:
+https://developer.lufthansa.com/page
+
+The official product description distinguishes public reference/operations data
+from Partner Plan fare/deeplink data. Its fares/availability page requires submitting
+a use case and describes partner eligibility restrictions for metasearch-like
+services. Existing documentation therefore does not establish that this project's
+fare access is approved or that a new key can currently be self-issued.
+
+- https://developer.lufthansa.com/product
+- https://developer.lufthansa.com/page/read/Fares_availability
+- https://developer.lufthansa.com/docs/read/api_partner/offers
+
+No credentials were fabricated, obtained from example documentation, or committed.
+The public advertisement collector is independent of this unavailable API approval.

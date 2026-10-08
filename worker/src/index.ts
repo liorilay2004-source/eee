@@ -75,6 +75,8 @@ import { runCollectionQueue } from "./collection-queue";
 import { collectRenderedKlm } from "./rendered-collection";
 import { collectRenderedFinnair } from "./finnair-rendered";
 import { createFinnairCachedSource } from "./sources/finnair-cached";
+import { collectRenderedLufthansa } from "./lufthansa-rendered";
+import { createLufthansaCachedSource } from "./sources/lufthansa-cached";
 import { collectRenderedBrussels } from "./brussels-rendered";
 import { createBrusselsCachedSource } from "./sources/brussels-cached";
 import { collectRenderedIcelandair } from "./icelandair-rendered";
@@ -272,6 +274,7 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
   const hasData = secret(env.HASDATA_API_KEY);
   const providers = [
     env.FINNAIR_RENDERED_ENABLED === "true" ? createFinnairCachedSource(publicCache, env.DB, now) : null,
+    env.LUFTHANSA_RENDERED_ENABLED === "true" ? createLufthansaCachedSource(now, publicCache) : null,
     env.BRUSSELS_RENDERED_ENABLED === "true" ? createBrusselsCachedSource(now, publicCache) : null,
     env.ICELANDAIR_RENDERED_ENABLED === "true" ? createIcelandairCachedSource(publicCache) : null,
     env.EUROWINGS_RENDERED_ENABLED === "true" ? createEurowingsCachedSource(env.DB, now, publicCache) : null,
@@ -665,6 +668,7 @@ export default {
       const [origin, destination] = pickSnapshotRoute(now);
       const browserJobs: Array<() => Promise<unknown>> = [];
       if (now.getUTCHours() % 6 === 4) browserJobs.push(() => collectRenderedEurowings({env, now, destination: now.getUTCHours() % 12 === 4 ? "DUS" : "ATH", cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined}).then(result => console.log("Eurowings collection:", JSON.stringify(result))));
+      if (now.getUTCHours() % 12 === 7) browserJobs.push(() => collectRenderedLufthansa({ env, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Lufthansa collection:", JSON.stringify(result))));
       if (now.getUTCHours() % 12 === 6) browserJobs.push(() => collectRenderedBrussels({ env, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Brussels collection:", JSON.stringify(result))));
       if (now.getUTCHours() % 6 === 2) browserJobs.push(() => collectRenderedIcelandair({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Icelandair collection:", JSON.stringify(result))));
       if (env.NORWEGIAN_RENDERED_ENABLED === "true") browserJobs.push(() => collectNorwegianMonth(env, norwegianCollectionMonth(now), now, typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined).then(result => console.log("Norwegian collection:", JSON.stringify(result))).catch(() => console.error("Norwegian collection unavailable")));
