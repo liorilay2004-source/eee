@@ -125,6 +125,14 @@ describe("flight details and official airline handoff", () => {
     card.offer.deeplink = "https://www.airbaltic.com.evil.test/en/flight-deals/flights-from-israel";
     expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("evil.test");
   });
+  it("opens the verified SKY express fare page and rejects unrelated page parameters", () => {
+    const { card } = fixture();
+    card.offer.source = "sky_express";
+    card.offer.deeplink = "https://www.skyexpress.gr/en/flights-from-athens";
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).toContain(card.offer.deeplink);
+    card.offer.deeplink += "?api_key=untrusted";
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("untrusted");
+  });
   it("discloses excluded Philippine travel tax beside the advertised fare", () => {
     const { card, request } = fixture();
     card.offer.source = "philippine";

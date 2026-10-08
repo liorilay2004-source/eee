@@ -5,7 +5,7 @@ export interface PublicFareCache {
 }
 const TTL_MS = 10 * 60_000;
 const MAX_BYTES = 500_000;
-const hosts = new Set(["services-api.ryanair.com", "flights.aegeanair.com", "www.aircanada.com", "www.flytap.com", "www.ethiopianairlines.com", "www.aireuropa.com", "flights.philippineairlines.com", "flights.virginatlantic.com", "www.airnewzealand.com", "www.airbaltic.com"]);
+const hosts = new Set(["services-api.ryanair.com", "flights.aegeanair.com", "www.aircanada.com", "www.flytap.com", "www.ethiopianairlines.com", "www.aireuropa.com", "flights.philippineairlines.com", "flights.virginatlantic.com", "www.airnewzealand.com", "www.airbaltic.com", "www.skyexpress.gr"]);
 function cacheRequest(key: string): Request {
   const url = new URL(key);
   if (url.protocol !== "https:" || !hosts.has(url.hostname) || url.username || url.password || url.port || url.hash) throw new Error("Unsupported public fare source");
@@ -15,6 +15,8 @@ function cacheRequest(key: string): Request {
     if (url.search) throw new Error("Unsupported public Air Canada origin page");
   } else if (url.hostname === "www.flytap.com" && url.pathname === "/en_il/flights-from-tel-aviv") {
     if (url.search) throw new Error("Unsupported public TAP origin page");
+  } else if (url.hostname === "www.skyexpress.gr") {
+    if (url.search || url.pathname !== "/en/flights-from-athens") throw new Error("Unsupported public SKY express page");
   } else if (url.hostname === "www.airbaltic.com") {
     if (url.search || !["/en/flight-deals/flights-from-israel", "/en/flight-deals/flights-from-riga-to-tel-aviv"].includes(url.pathname)) throw new Error("Unsupported public airBaltic page");
   } else if (url.hostname === "www.airnewzealand.com") {
