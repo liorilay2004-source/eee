@@ -17,5 +17,16 @@ not be attached to an advertised price as if it identifies the selected flight.
 The parser accepts only the observed official market/path and explicit round-trip
 date pairs. It retains original currency, checked time and advertised-price
 classification, with unknown operating carrier. No production adapter is enabled
-yet: Worker collection and checkout price still require verification. These
+yet: search integration and checkout price still require verification. These
 advertisements do not provide TLV–ATH June 1–5 coverage or arbitrary date coverage.
+
+## Cloudflare collection verification
+
+On 2026-10-08 at 03:37:51 UTC, an actual remote Cloudflare Browser Run binding,
+invoked through a local Wrangler Worker, rendered the ordinary official page.
+`loadRenderedBrussels` extracted public anchors using Workers HTMLRewriter and
+returned 25 accepted advertisements, including June 4–18 and July 13–27 at EUR184.
+The conflicting May pair was excluded. The probe used no D1 reads or writes,
+did not create a reservation and did not handle security cookies or credentials.
+The renderer bounds its response to 4MB and selected anchors to 500.
+Type checking and all 12 parser tests passed after this runtime verification.

@@ -25,12 +25,12 @@ export function parseBrusselsAdvertisements(
     if (url.origin !== "https://www.brusselsairlines.com" || url.search || url.hash || url.username || url.password) continue;
     const m = /^\/aircore\/deeplink\/redirect\/en\/be\/([A-Z]{3})\/([A-Z]{3})\/(\d{2}\.\d{2}\.\d{4})\/(\d{2}\.\d{2}\.\d{4})\/RT$/.exec(url.pathname);
     if (!m || m[1] !== route.origin || m[2] !== route.destination) continue;
-    const departDate = day(m[3]), returnDate = day(m[4]);
+    const departDate = day(m[3]!), returnDate = day(m[4]!);
     if (!departDate || !returnDate || departDate < now.toISOString().slice(0, 10) || returnDate <= departDate) continue;
     // Calendar labels are whole-euro advertisements. Reject ambiguous or fractional formats.
     const matches = [...anchor.text.matchAll(/\bfrom\s+(\d+)\s*(?:EUR\b|€)/gi)];
     if (matches.length !== 1) continue;
-    const amount = Number(matches[0][1]);
+    const amount = Number(matches[0]![1]);
     if (!Number.isSafeInteger(amount) || amount <= 0 || amount > 100000) continue;
     const key = `${departDate}|${returnDate}`;
     if (prices.has(key) && prices.get(key)!.amount !== amount) conflicts.add(key);
