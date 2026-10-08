@@ -8,6 +8,16 @@ const storage = () => {
   return { rows, match: async (request: RequestInfo) => rows.get((request as Request).url)?.clone(), put: async (request: RequestInfo, response: Response) => { rows.set((request as Request).url, response.clone()); } };
 };
 describe("shared public fare data", () => {
+  it("stores only the verified Swiss public page and preserves CHF",async()=>{
+    const db=storage();const cache=createPublicFareCache(db as unknown as Cache,now,BACKGROUND_FARE_TTL_MS);
+    const key="https://www.swiss.com/lhg/ch/en/o-d/cy-cy/zurich-tel-aviv";
+    const fares=[{amount:358,currency:"CHF",checkedAt:now.toISOString()}];
+    await cache.put(key,fares);
+    expect(await cache.get(key)).toEqual({fares,expires:now.getTime()+BACKGROUND_FARE_TTL_MS});
+    await cache.put(`${key}?token=secret`,fares);
+    await cache.put(key.replace("zurich-tel-aviv","tel-aviv-zurich"),fares);
+    expect(db.rows.size).toBe(1);
+  });
   it("keeps background advertisements between daily collections without extending live calendar freshness", async () => {
     const db=storage();const writer=createPublicFareCache(db as unknown as Cache,now,BACKGROUND_FARE_TTL_MS);
     const key="https://www.norwegian.com/en/low-fare-calendar/Athens-OsloGardermoen?month=2027-06";

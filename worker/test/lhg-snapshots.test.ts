@@ -2,6 +2,7 @@ import {describe,it,expect,vi} from "vitest";
 import {saveLhgSnapshots,readLhgSnapshot} from "../src/lhg-snapshots";
 import {parseLufthansaAdvertisements} from "../src/lufthansa-advertisements";
 import {createLufthansaCachedSource} from "../src/sources/lufthansa-cached";
+import {parseSwissAdvertisements} from "../src/swiss-advertisements";
 import type {PublicFareCache} from "../src/public-fare-cache";
 const now=new Date("2026-10-08T04:00:00Z");
 const fares=parseLufthansaAdvertisements([{text:"from 304 €",url:"/aircore/deeplink/redirect/en/gr/ATH/TLV/05.06.2027/19.06.2027/RT"},{text:"from 310 €",url:"/aircore/deeplink/redirect/en/gr/ATH/TLV/06.06.2027/20.06.2027/RT"}],now);
@@ -12,6 +13,14 @@ function database(row:unknown={fares_json:JSON.stringify(fares),checked_at:now.t
  return {db:{prepare,batch} as unknown as D1Database,prepare,bind,first,batch};
 }
 describe("compact LHG storage",()=>{
+ it("stores Swiss francs without changing the currency or direction",async()=>{
+  const swiss=parseSwissAdvertisements([{text:"from CHF 358",url:"/aircore/deeplink/redirect/en/ch/ZRH/TLV/01.06.2027/15.06.2027/RT"}],now);
+  const {db,bind}=database({fares_json:JSON.stringify(swiss),checked_at:now.toISOString()});
+  expect(await saveLhgSnapshots(db,"swiss",swiss,now)).toBe(1);
+  expect(bind.mock.calls[0]!.slice(0,4)).toEqual(["swiss","ZRH","TLV","2027-06"]);
+  expect(await readLhgSnapshot(db,"swiss","2027-06",now)).toEqual(swiss);
+  await expect(saveLhgSnapshots(db,"swiss",[{...swiss[0]!,currency:"EUR"}],now)).rejects.toThrow("Unexpected snapshot currency");
+ });
  it("stores two same-month advertisements in one current row",async()=>{
   const {db,prepare,bind,batch}=database();
   expect(await saveLhgSnapshots(db,"lufthansa",fares,now)).toBe(1);

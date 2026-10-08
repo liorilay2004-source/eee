@@ -28,3 +28,5 @@ Cloudflare Browser Run verified the same official page at 2026-10-08T04:07:20.27
 This parser and renderer are not enabled as a production source yet.
 cache and storage integration and checkout-price verification remain required.
 No reservation, passenger entry or payment was performed.
+
+The collector now stores a bounded public cache and one current D1 row per departure month. A Browser Run probe at 2026-10-08T04:09:40.103Z collected and cached 26 advertisements while a deliberately unavailable D1 stub failed. Cache read took 5ms in that probe, not a full search latency measurement. Production scheduling, search-provider integration and production D1 persistence are still unverified.
