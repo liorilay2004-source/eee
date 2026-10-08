@@ -30,6 +30,7 @@ SKYEXPRESS_PUBLISHED_ENABLED = "true"
 GOL_PUBLISHED_ENABLED = "true"
 AERLINGUS_PUBLISHED_ENABLED = "true"
 AMERICAN_PUBLISHED_ENABLED = "true"
+KLM_RENDERED_ENABLED = "true"
 AIRSERBIA_DIRECT_ENABLED = "true"
 
 # Created in the owner's Cloudflare account on 2026-09-29 (not a secret: it only identifies the database).
@@ -57,3 +58,6 @@ crons = ["17 3 * * *", "43 * * * *", "29 * * * *"]
 # OPTIONAL private-use lock (src/access.ts): the secret `ACCESS_KEY`, 20-256 visible ASCII characters. Unset = the API is
 # public; set = every call but /api/health, the Telegram webhook and CORS preflights needs "Authorization: Bearer <key>".
 # Set it with `npx wrangler secret put ACCESS_KEY`, never here (docs/CLOUDFLARE_SETUP.md, section 6ג).
+
+[browser]
+binding = "BROWSER"

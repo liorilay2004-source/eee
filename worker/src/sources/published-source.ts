@@ -8,7 +8,7 @@ const cache = new Map<string, { expires: number; fares: PublishedFare[] }>();
 /** Published fares are sparse advertisements. Match both exact dates, never substitute
  * a headline price or infer missing return legs. Not usable for party repricing.
  */
-export function matchPublishedTrip(fares: readonly PublishedFare[], q: QuoteQuery, config: { airline: string; source: "aegean" | "air_canada" | "tap" | "ethiopian" | "air_europa" | "philippine" | "virgin_atlantic" | "air_new_zealand" | "air_baltic" | "sky_express" | "gol" | "american" | "aer_lingus" } = { airline: "A3", source: "aegean" }): Offer[] {
+export function matchPublishedTrip(fares: readonly PublishedFare[], q: QuoteQuery, config: { airline: string; source: "aegean" | "air_canada" | "tap" | "ethiopian" | "air_europa" | "philippine" | "virgin_atlantic" | "air_new_zealand" | "air_baltic" | "sky_express" | "gol" | "klm" | "american" | "aer_lingus" } = { airline: "A3", source: "aegean" }): Offer[] {
   if (q.party.adults !== 1 || q.party.children || q.party.infants) return [];
   const leg = (): Leg => ({ departTime: null, arriveTime: null, durationMin: null, stops: null, airlines: [config.airline] });
   const base = (fare: PublishedFare, amount: number, split: boolean, back?: PublishedFare): Offer => ({
@@ -29,7 +29,7 @@ export function matchPublishedTrip(fares: readonly PublishedFare[], q: QuoteQuer
 }
 
 export interface PublishedSourceConfig {
-  source: "aegean" | "air_canada" | "tap" | "ethiopian" | "air_europa" | "philippine" | "virgin_atlantic" | "air_new_zealand" | "air_baltic" | "sky_express" | "gol" | "american" | "aer_lingus";
+  source: "aegean" | "air_canada" | "tap" | "ethiopian" | "air_europa" | "philippine" | "virgin_atlantic" | "air_new_zealand" | "air_baltic" | "sky_express" | "gol" | "klm" | "american" | "aer_lingus";
   airline: string;
   routes: Readonly<Record<string, readonly PublishedPage[]>>;
   /** Origin-specific official page lists multiple destinations; parsed once for all. */

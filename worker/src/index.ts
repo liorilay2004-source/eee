@@ -70,6 +70,8 @@ import { createAirNzPublishedSource } from "./sources/airnz-published";
 import { createVirginPublishedSource } from "./sources/virgin-published";
 import { createDirectCombinationSource } from "./sources/direct-combination";
 import { createPublicFareCache } from "./public-fare-cache";
+import { collectRenderedKlm } from "./rendered-collection";
+import { createKlmCachedSource } from "./sources/klm-cached";
 import { collectPublishedPages } from "./published-collection";
 import { createWegoSource } from "./sources/wego";
 import { pickSnapshotRoute, runSnapshot } from "./snapshots";
@@ -249,6 +251,7 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
   const duffel = secret(env.DUFFEL_API_TOKEN);
   const hasData = secret(env.HASDATA_API_KEY);
   const providers = [
+    env.KLM_RENDERED_ENABLED === "true" ? createKlmCachedSource(publicCache) : null,
     env.RYANAIR_DIRECT_ENABLED === "true" ? createRyanairDirectSource(now, fetchFn, publicCache) : null,
     env.AEGEAN_PUBLISHED_ENABLED === "true" ? createAegeanPublishedSource(now, fetchFn, publicCache) : null,
     env.AIRCANADA_PUBLISHED_ENABLED === "true" ? createAirCanadaPublishedSource(now, fetchFn, publicCache) : null,
@@ -630,6 +633,7 @@ export default {
         marketFor: (origin) => marketForCountry(defaultResolver.countryOfAirport(origin)),
       });
       const [origin, destination] = pickSnapshotRoute(now);
+      ctx.waitUntil(collectRenderedKlm({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("rendered collection:", JSON.stringify(result))));
       ctx.waitUntil(collectPublishedPages({ env, repo, now, fetchFn,
         cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined,
       }).then(result => {

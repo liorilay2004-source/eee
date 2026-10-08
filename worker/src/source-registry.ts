@@ -336,7 +336,7 @@ export const SOURCE_REGISTRY: readonly SourceRegistryEntry[] = Object.freeze([
   entry("swiss", "SWISS", "manual-link", 69, ["IL", "EU", "US", "Asia"], "קישור חיפוש ישיר מתוכנן."),
   entry("austrian", "Austrian Airlines", "manual-link", 68, ["IL", "EU", "US", "Asia"], "קישור חיפוש ישיר מתוכנן."),
   entry("airfrance", "Air France", "manual-link", 67, ["IL", "EU", "US", "Asia"], "קישור חיפוש ישיר מתוכנן."),
-  entry("klm", "KLM", "manual-link", 66, ["IL", "EU", "US", "Asia"], "קישור חיפוש ישיר מתוכנן."),
+  { ...entry("klm", "KLM", "manual-link", 66, ["IL", "EU", "US", "Asia"], "מחירי הלוך וחזור מתוארכים נאספים ברקע מהעמוד הרשמי בתל אביב. החיפוש משתמש בנתונים שמורים; יש לאמת מחיר סופי."), capabilities: { ...manual, cachedPrice: true } },
   entry("emirates", "Emirates", "manual-link", 65, ["IL", "ME", "Asia", "Oceania"], "מקור עדיפות גבוהה לאסיה ואוקיאניה."),
   entry("etihad", "Etihad Airways", "manual-link", 64, ["IL", "ME", "Asia", "Oceania"], "מקור עדיפות גבוהה לאסיה ואוקיאניה."),
   entry("qatar", "Qatar Airways", "manual-link", 63, ["ME", "Asia", "Oceania"], "מקור עדיפות גבוהה לאסיה ואוקיאניה."),
