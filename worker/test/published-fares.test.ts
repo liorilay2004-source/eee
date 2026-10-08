@@ -82,3 +82,14 @@ describe("Aeromexico browser-rendered economy advertisements", () => {
     expect(parsePublishedFares(html([{ ...fare, travelClass: "MAIN_BASIC" }]), query)).toEqual([]);
   });
 });
+
+describe("Copa Airlines observed economy round-trip advertisements", () => {
+  const cm = {...query,airline:"CM",origin:"PTY",destination:"MCO",sourceUrl:"https://www.copaair.com/en/flights-from-panama-city",allDestinations:true};
+  const observed = {...fare,originAirportCode:"PTY",destinationAirportCode:"MCO",departureDate:"2027-03-15",returnDate:"2027-03-19",flightType:"ROUND_TRIP",travelClass:"Economy",totalPrice:619.99,currencyCode:"USD"};
+  it("preserves both exact dates and amount from the rendered official record", () => {
+    expect(parsePublishedFares(html([observed]),cm)).toMatchObject([{airline:"CM",origin:"PTY",destination:"MCO",departDate:"2027-03-15",returnDate:"2027-03-19",amount:619.99,currency:"USD",structure:"roundtrip"}]);
+  });
+  it("rejects unsupported same-day round trips, premium cabins and other origins", () => {
+    expect(parsePublishedFares(html([{...observed,returnDate:observed.departureDate},{...observed,travelClass:"Business"},{...observed,originAirportCode:"DAV"}]),cm)).toEqual([]);
+  });
+});

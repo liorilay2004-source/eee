@@ -189,3 +189,20 @@ the bounded rerun passed every test. A registry expectation was updated for the 
 Both browser collectors have ten-second navigation bounds. Hourly scheduled Aeromexico
 execution has not yet been observed; the actual collector was verified by a one-time run.
 Coverage is only the published LAX-origin dated fares, not all airline routes or final checkout.
+
+## Hosted browser expansion probes — 2026-10-08
+
+- United official TLV–Orange County page: content action returned HTTP 422,
+  success false, error code 6002 and no fare records. The error's meaning is not
+  established; do not classify the entire airline as unavailable from this result.
+- Qatar official LHR–DOH destination page: successful render, 353953 characters,
+  no challenge, no __NEXT_DATA__ or Fare records. This page is not yet a price source;
+  absence of that schema does not prove no other structured prices or endpoint exists.
+- Copa official https://www.copaair.com/en/flights-from-panama-city:
+  successful render, 889959 characters, no challenge, 20 raw dated Fare records.
+  Observed PTY–MCO March 15–19 2027 USD 619.99 Economy ROUND_TRIP;
+  PTY–JFK November 15–27 2026 USD 647.79; PTY–MIA December 2–9 USD 465.99.
+  Visible official page identifies these as economy round-trip advertisements
+  collected within 48 hours, not guaranteed checkout prices. Parser host support
+  and exact-date fixtures are added. Scheduled collection and production search
+  integration remain outstanding. Same-day round-trip records remain excluded.
