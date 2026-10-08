@@ -62,3 +62,17 @@ The current user explicitly requested automatic collection of public airline pri
 - The isolated probe was stopped after inspecting the result. Existing production bindings and source behavior were preserved.
 - Aeromexico official origin page discovered from its own indexed page: `https://www.aeromexico.com/en_us/flights-from-los-angeles`. A normal server request returned HTTP 403. Indexed prices were not imported or represented as fresh runtime prices. No Aeromexico adapter was enabled.
 - These results leave all-airline automatic coverage incomplete. Next work must establish a usable, repeatable runtime response before connecting either source.
+
+### Worker-origin verification supersedes desktop-only failures
+
+Normal requests were repeated from an isolated **remote Cloudflare Worker preview** (not a browser-cookie session). Results differ from desktop Python requests, so a desktop 403 alone must not mark an airline inaccessible in production.
+
+| Official page | Worker response | Dated structured records | Current action |
+| --- | --- | --- | --- |
+| `https://www.skyexpress.gr/en/flights-from-athens` | 200 | 43 raw records, including business fares | Economy-only adapter deployed; exact ATH–FCO December 13–18, 2026 price EUR 101.80 confirmed in production D1. Source participates in combinations and hourly collection. |
+| `https://www.aerlingus.com/en-ie/flights-from-dublin` | 200 | 14 raw records | Integration pending: cabin label `low` and each-way versus round-trip meaning must be validated. Explicit one-way examples exist; do not treat transatlantic each-way prices as complete round trips. |
+| `https://www.voegol.com.br/en/flights-from-sao-paulo` | 200 | 34 raw records | Integration pending: origin page mixes CGH, GRU and SAO. Parser/cache must preserve actual origins instead of attributing all records to one airport. |
+| `https://www.avianca.com/en_us/flights-from-miami-to-cali` | 403 | 0 | Not connected. |
+| `https://www.copaair.com/en/flights-from-panama-city` | 503 | 0 | Not connected. |
+
+The SKY express source returns official published advertisements, not held inventory or a final checkout. It remains limited to the dated fares actually exposed by its Athens origin page. This does not prove coverage of every route, date, passenger count, or airline.
