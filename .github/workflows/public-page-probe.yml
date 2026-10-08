@@ -18,7 +18,7 @@ jobs:
   probe:
     if: github.event_name == 'workflow_dispatch' || vars.EXTERNAL_PUBLISHED_ENABLED == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

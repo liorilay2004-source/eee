@@ -88,14 +88,19 @@ export function createPublishedSource(config: PublishedSourceConfig, now: Date, 
       return matchPublishedTrip((await Promise.all(pages.map(load))).flat(), q, config);
     },
   };
-  if(!sharedCache||!["TP","VS"].includes(config.airline))return source;
+  if(!sharedCache||!["TP","VS","GQ"].includes(config.airline))return source;
   const additional=async(q:QuoteQuery)=>{
     if(q.party.adults!==1||q.party.children||q.party.infants)return [];
-    const pages=EXTERNAL_PUBLISHED_PAGES.filter(page=>page.airline===config.airline&&page.origin===q.origin&&page.destination===q.destination&&!page.allDestinations);
+    const pages=EXTERNAL_PUBLISHED_PAGES.filter(page=>page.airline===config.airline&&!page.allDestinations&&(page.origin===q.origin&&page.destination===q.destination||page.origin===q.destination&&page.destination===q.origin));
     const values=await Promise.allSettled([...new Set(pages.map(page=>page.sourceUrl))].map(url=>sharedCache.get<PublishedFare>(url)));
     return values.flatMap(value=>value.status==="fulfilled"?value.value?.fares??[]:[]);
   };
-  return {...source,async quote(q){
+  return {...source,async oneWays(q){
+    const [base,extra]=await Promise.allSettled([source.oneWays?.(q)??Promise.resolve([]),additional(q)]);
+    const expanded=(extra.status==="fulfilled"?extra.value:[]).filter(f=>f.structure==="oneway"&&(f.origin===q.origin&&f.destination===q.destination&&f.departDate===q.departDate||f.origin===q.destination&&f.destination===q.origin&&f.departDate===q.returnDate)).map(f=>({source:config.source,airline:f.airline,origin:f.origin,destination:f.destination,date:f.departDate,amount:f.amount,currency:f.currency,checkedAt:f.checkedAt,bookingUrl:f.sourceUrl,leg:{departTime:null,arriveTime:null,durationMin:null,stops:null,airlines:[f.airline]}}));
+    if(base.status==="rejected"&&!expanded.length)throw base.reason;
+    return [...new Map([...(base.status==="fulfilled"?base.value:[]),...expanded].map(fare=>[JSON.stringify(fare),fare])).values()];
+  },async quote(q){
     const [base,extra]=await Promise.allSettled([source.quote(q),additional(q)]);
     const expanded=extra.status==="fulfilled"?matchPublishedTrip(extra.value,q,config):[];
     if(base.status==="rejected"&&!expanded.length)throw base.reason;
