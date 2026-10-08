@@ -1,0 +1,28 @@
+name: Observed official route prices
+on:
+  workflow_dispatch:
+    inputs:
+      airline:
+        description: Airline from observed route catalog
+        type: string
+        default: AC
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node collector/probe-discovered-routes.mjs
+        env:
+          PROBE_AIRLINE: ${{ inputs.airline }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: discovered-route-prices
+          path: discovered-route-prices.json
+          retention-days: 1
