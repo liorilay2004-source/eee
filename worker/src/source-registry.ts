@@ -382,7 +382,7 @@ export const SOURCE_REGISTRY: readonly SourceRegistryEntry[] = Object.freeze([
   entry("alaska", "Alaska Airlines", "planned", 44, ["US"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("spirit", "Spirit Airlines", "planned", 43, ["US"], "מתוכנן כקישור/אדפטר עתידי."),
   { ...entry("frontier", "Frontier Airlines", "manual-link", 52, ["US"], "מחירי כיוון אחד ממאגר הדפים הרשמיים, לחיבור עם חזור מתומחר."), capabilities: { ...manual, cachedPrice: true, combinations: true } },
-  entry("hawaiian", "Hawaiian Airlines", "planned", 43, ["US", "Oceania"], "מתוכנן כקישור/אדפטר עתידי."),
+  { ...entry("hawaiian", "Hawaiian / Alaska public fares", "manual-link", 43, ["US", "Oceania"], "מחירים מתוארכים מהאתר הרשמי נאספים ברקע. החברה המפעילה אינה מזוהה בכל הצעה; נדרש אימות מחיר וזמינות."), capabilities: { ...manual, cachedPrice: true, combinations: true } },
   { ...entry("aeromexico", "Aeromexico", "manual-link", 42, ["LATAM", "US"], "מחירי הלוך וחזור מתוארכים מלוס אנג׳לס נאספים ברקע. נדרש אימות מחיר וזמינות; ייתכנו דמי מזוודה."), capabilities: { ...manual, cachedPrice: true } },
   entry("latam", "LATAM Airlines", "planned", 42, ["LATAM"], "מתוכנן כקישור/אדפטר עתידי."),
   { ...entry("avianca", "Avianca", "manual-link", 42, ["LATAM"], "כרטיס מחיר הלוך וחזור מתוארך למיאמי–קאלי נאסף ברקע. נדרש אימות מחיר וזמינות."), capabilities: { ...manual, cachedPrice: true } },
