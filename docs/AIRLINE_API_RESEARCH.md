@@ -122,3 +122,19 @@ Parser now recognizes the official AA host and allows this carrier up to 3 MB HT
 ### American Airlines production source verified
 
 Commit 2b98838f8785 connected LAX–MEX dated published fares to quote comparisons, shared/isolate cache and hourly background collection. Full suite: 2,152 tests passed; TypeScript and frontend production build passed. Production exact 2027-01-20 to 2027-01-27 returned american enabled/ok, one call and one offer. AA airline row was ILS 1,388.31, corresponding to the official USD 451.63 fare. A competing USD 306 SerpApi offer won ranking; connecting the official source does not privilege it over a lower comparable fare. Repeated same query returned fromCache true with zero American calls. This proves current sparse exact-route source operation, not all American routes/dates or final checkout availability. Worker version 4e6d1724-81a6-4747-ab16-3adc845661a0; Pages deployment 2e7fab5c.
+
+## Automatic production collection observed — 2026-10-08 00:43 UTC
+
+Read-only production D1 inspection immediately after the hourly schedule found official published fare rows with identical job checked_at `2026-10-08T00:43:20.000Z`: air_baltic 8, air_canada 3, air_europa 16, air_new_zealand 25, american 8, ethiopian 29, gol 19, philippine 2, sky_express 20, tap 9, virgin_atlantic 12. Total 151 dated round-trip fare rows across 11 airline sources. This is authoritative evidence of the scheduled collector executing and persisting real official prices, rather than merely a deployed timer or manually requested search. Aer Lingus exposes one-way rows only, which the collector warms in the public cache but does not store as round-trip D1 offers; its cache warming is not independently proven by this query. The same timestamp also had 60 travelpayouts rows from the separate scheduled snapshot task, excluded from the official-airline total. No user searches were submitted during this job observation.
+
+## Remaining-source Cloudflare transport checks — 2026-10-08
+
+A fresh isolated remote Worker with ordinary HTTPS fetch (no authentication/cookies) requested these discovered official pages:
+
+| Source/page | HTTP | Evidence | Next action |
+| --- | --- | --- | --- |
+| United `/en/us/deals/flights-from-tel-aviv-to-orange-county` | 520 | 16 characters, no fares | Examine official browser booking/calendar transport or authorized distribution route; no usable price source yet. |
+| Qatar `/en-eg/destinations/flights-to-doha/from-london.html` | 520 | 16 characters, no fares | Examine official browser booking/calendar transport or authorized distribution route; no usable price source yet. |
+| American `/en-il/flights-from-tel-aviv` | 200 | 1,462,405 characters; only an incomplete Fare with null dates/airports/amount | Keep it excluded until the page actually publishes dated cash fares. Existing LAX–MEX source is not evidence for TLV coverage. |
+
+The remote preview was stopped. A failure for one page is not proof that every endpoint or source-access method for that airline is unavailable.
