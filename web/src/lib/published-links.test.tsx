@@ -17,3 +17,9 @@ it("keeps both observed Frontier links for independently booked tickets",()=>{
  const card={offer:{source:"frontier",deeplink:forward,returnDeeplink:reverse,ticketStructure:"split",origin:"DEN",destination:"PHX",departDate:"2026-10-28",returnDate:"2026-10-31"}} as any;
  const html=renderToStaticMarkup(<BookingActions card={card}/>);expect(html).toContain(`href="${forward}"`);expect(html).toContain(`href="${reverse}"`);
 });
+
+it("retains the observed Air Astana official price page",()=>{
+ const url="https://bestfares.airastana.com/en-kz/flights-from-almaty-to-london";
+ const card={offer:{source:"air_astana",deeplink:url,ticketStructure:"roundtrip",origin:"ALA",destination:"LHR",departDate:"2026-12-04",returnDate:"2026-12-06"}} as any;
+ expect(renderToStaticMarkup(<BookingActions card={card}/>)).toContain(`href="${url}"`);
+});
