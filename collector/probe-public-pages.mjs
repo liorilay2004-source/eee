@@ -1,7 +1,15 @@
 import {writeFile} from 'node:fs/promises';
 import {parsePublishedFares} from '../worker/src/sources/published-fares.ts';
 import {fareRecords} from './fare-records.mjs';
-import {EXTERNAL_PUBLISHED_PAGES as pages} from '../worker/src/external-published-catalog.ts';
+import {EXTERNAL_PUBLISHED_PAGES} from '../worker/src/external-published-catalog.ts';
+const candidateMode=process.env.PROBE_CANDIDATES==='true';
+const pages=candidateMode?[
+ {airline:'AA',origin:'LAX',destination:'MEX',sourceUrl:'https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city'},
+ {airline:'KL',origin:'TLV',destination:'AMS',sourceUrl:'https://www.klm.co.il/en-il/flights-from-tel-aviv',allDestinations:true},
+ {airline:'AM',origin:'LAX',destination:'MEX',sourceUrl:'https://www.aeromexico.com/en_us/flights-from-los-angeles',allDestinations:true},
+ {airline:'CM',origin:'PTY',destination:'MCO',sourceUrl:'https://www.copaair.com/en/flights-from-panama-city',allDestinations:true},
+ {airline:'FI',origin:'LHR',origins:['LHR','LGW'],destination:'KEF',sourceUrl:'https://www.icelandair.com/en-gb/flights/flights-from-london-to-iceland'},
+]:EXTERNAL_PUBLISHED_PAGES;
 const results=[];
 for(const page of pages){const now=new Date();try{
  const response=await fetch(page.sourceUrl,{redirect:'manual',signal:AbortSignal.timeout(15000)});
@@ -10,7 +18,7 @@ for(const page of pages){const now=new Date();try{
  try{for(;;){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>2000000){await reader.cancel();throw new Error('Response too large');}chunks.push(part.value);}}finally{reader.releaseLock();}
  const html=Buffer.concat(chunks).toString('utf8');
  const fares=parsePublishedFares(html,{...page,now});
- if(process.env.COLLECTOR_KEY){
+ if(process.env.COLLECTOR_KEY&&!candidateMode){
   if(!/^[a-f0-9]{64}$/.test(process.env.COLLECTOR_KEY))throw new Error('Invalid collector configuration');
   const payload=JSON.stringify({source:'published_page',airline:page.airline,page:page.sourceUrl,checkedAt:now.toISOString(),records:fareRecords(html)});
   if(Buffer.byteLength(payload)>128000)throw new Error('Ingest payload too large');

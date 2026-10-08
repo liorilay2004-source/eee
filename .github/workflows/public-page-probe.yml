@@ -1,6 +1,11 @@
 name: Official published fare page probe
 on:
   workflow_dispatch:
+    inputs:
+      candidates:
+        description: Probe additional approved pages without publishing
+        type: boolean
+        default: false
   schedule:
     - cron: '6,16,26,36,46,56 * * * *'
 permissions:
@@ -18,6 +23,7 @@ jobs:
       - run: node collector/probe-public-pages.mjs
         env:
           COLLECTOR_KEY: ${{ secrets.COLLECTOR_KEY }}
+          PROBE_CANDIDATES: ${{ inputs.candidates }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
