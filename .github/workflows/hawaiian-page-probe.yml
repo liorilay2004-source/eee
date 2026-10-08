@@ -1,6 +1,17 @@
 name: Inspect official Hawaiian public fare records
 on:
   workflow_dispatch:
+    inputs:
+      origins:
+        type: boolean
+        default: false
+        description: Inspect actually observed origin pages
+      offset:
+        type: number
+        default: 0
+      limit:
+        type: number
+        default: 20
 permissions:
   contents: read
 concurrency:
@@ -9,7 +20,7 @@ concurrency:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 6
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -17,6 +28,10 @@ jobs:
           node-version: 24
       - run: node --test collector/fare-records.test.mjs
       - run: node collector/probe-hawaiian-pages.mjs
+        env:
+          HAWAIIAN_ORIGINS: ${{ inputs.origins }}
+          HAWAIIAN_OFFSET: ${{ inputs.offset }}
+          HAWAIIAN_LIMIT: ${{ inputs.limit }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
