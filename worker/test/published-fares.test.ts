@@ -42,3 +42,19 @@ describe("Aer Lingus explicitly one-way published cash fares", () => {
     expect(parsePublishedFares(html([{ ...oneWay, originAirportCode: "ORK" }, { ...oneWay, travelClass: "BUSINESS" }, { ...oneWay, returnDate: "2027-01-30" }]), ei)).toEqual([]);
   });
 });
+
+describe("American Airlines exact published round-trip fares", () => {
+  const aa = { ...query, airline: "AA", origin: "LAX", destination: "MEX", sourceUrl: "https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city" };
+  const observed = { ...fare, originAirportCode: "LAX", destinationAirportCode: "MEX", departureDate: "2027-01-20", returnDate: "2027-01-27", flightType: "ROUND_TRIP", travelClass: "ECONOMY", totalPrice: 451.63, currencyCode: "USD" };
+  it("retains both observed dates and the unrounded cash amount", () => {
+    expect(parsePublishedFares(html([observed, observed]), aa)).toMatchObject([{ airline: "AA", origin: "LAX", destination: "MEX", departDate: "2027-01-20", returnDate: "2027-01-27", amount: 451.63, currency: "USD", structure: "roundtrip" }]);
+  });
+  it("accepts the observed larger official page while bounding parsing", () => {
+    expect(parsePublishedFares(" ".repeat(2_170_000) + html([observed]), aa)).toHaveLength(1);
+    expect(() => parsePublishedFares(" ".repeat(3_000_001), aa)).toThrow("too large");
+    expect(() => parsePublishedFares(" ".repeat(2_000_001), query)).toThrow("too large");
+  });
+  it("does not turn monthly minima, miles or incomplete fares into cash trips", () => {
+    expect(parsePublishedFares(html([{ totalPrice: 451.63, currencyCode: "USD" }, { ...observed, redemption: { unit: "MILES" } }, { ...observed, returnDate: null }]), aa)).toEqual([]);
+  });
+});

@@ -14,7 +14,7 @@ export interface PublishedFare {
   checkedAt: string;
   pricing: "published_advertisement";
 }
-const officialHosts: Readonly<Record<string, string>> = { A3: "flights.aegeanair.com", AC: "www.aircanada.com", TP: "www.flytap.com", ET: "www.ethiopianairlines.com", UX: "www.aireuropa.com", PR: "flights.philippineairlines.com", VS: "flights.virginatlantic.com", NZ: "www.airnewzealand.com", BT: "www.airbaltic.com", GQ: "www.skyexpress.gr", G3: "www.voegol.com.br", EI: "www.aerlingus.com" };
+const officialHosts: Readonly<Record<string, string>> = { A3: "flights.aegeanair.com", AC: "www.aircanada.com", TP: "www.flytap.com", ET: "www.ethiopianairlines.com", UX: "www.aireuropa.com", PR: "flights.philippineairlines.com", VS: "flights.virginatlantic.com", NZ: "www.airnewzealand.com", BT: "www.airbaltic.com", GQ: "www.skyexpress.gr", G3: "www.voegol.com.br", EI: "www.aerlingus.com", AA: "www.aa.com" };
 const record = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v);
 const date = (v: unknown): v is string => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && Number.isFinite(Date.parse(v)) && new Date(v).toISOString().slice(0, 10) === v;
 
@@ -28,7 +28,7 @@ export function parsePublishedFares(html: string, query: { airline: string; orig
   publishedFareUrl(query.sourceUrl, query.airline);
   if (!/^[A-Z]{3}$/.test(query.origin) || !/^[A-Z]{3}$/.test(query.destination)) throw new Error("Invalid airport");
   if (query.origins && (query.origins.length > 10 || query.origins.some(origin => !/^[A-Z]{3}$/.test(origin)))) throw new Error("Invalid origins");
-  if (html.length > 2_000_000) throw new Error("Official page too large");
+  if (html.length > (query.airline === "AA" ? 3_000_000 : 2_000_000)) throw new Error("Official page too large");
   const scripts = html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi);
   let data: unknown;
   for (const script of scripts) {
