@@ -1,6 +1,19 @@
 name: Authenticated Frontier price publication probe
 on:
   workflow_dispatch:
+    inputs:
+      batch:
+        description: Refresh a bounded batch of approved pages
+        type: boolean
+        default: false
+      offset:
+        description: First approved page index
+        type: number
+        default: 0
+      limit:
+        description: Pages to refresh, at most sixty
+        type: number
+        default: 10
   schedule:
     - cron: '4,14,24,34,44,54 * * * *'
 concurrency:
@@ -21,3 +34,6 @@ jobs:
       - run: node collector/publish-frontier-page.mjs
         env:
           COLLECTOR_KEY: ${{ secrets.COLLECTOR_KEY }}
+          FRONTIER_BATCH: ${{ inputs.batch || false }}
+          FRONTIER_OFFSET: ${{ inputs.offset || 0 }}
+          FRONTIER_LIMIT: ${{ inputs.limit || 10 }}

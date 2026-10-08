@@ -1,7 +1,9 @@
+import {frontierBatch} from './frontier-batch.mjs';
 import {FRONTIER_PUBLISHED_PAGES} from '../worker/src/frontier-published-catalog.ts';
 import {parsePublishedFares} from '../worker/src/sources/published-fares.ts';
 import {fareRecords} from './fare-records.mjs';
-const pages=process.env.FRONTIER_PAGE?[process.env.FRONTIER_PAGE]:['https://flights.flyfrontier.com/en/flights-from-denver-to-phoenix','https://flights.flyfrontier.com/en/flights-from-phoenix-to-denver'];
+const batch=process.env.FRONTIER_BATCH==='true'?frontierBatch([...new Set(FRONTIER_PUBLISHED_PAGES.map(p=>p.sourceUrl))].sort().map(url=>({url})),Number(process.env.FRONTIER_OFFSET??0),Number(process.env.FRONTIER_LIMIT??10)).map(p=>p.url):null;
+const pages=batch??(process.env.FRONTIER_PAGE?[process.env.FRONTIER_PAGE]:['https://flights.flyfrontier.com/en/flights-from-denver-to-phoenix','https://flights.flyfrontier.com/en/flights-from-phoenix-to-denver']);
 for(const page of pages){
 const configs=FRONTIER_PUBLISHED_PAGES.filter(p=>p.sourceUrl===page);
 if(!configs.length||!/^[a-f0-9]{64}$/.test(process.env.COLLECTOR_KEY??''))throw new Error('Invalid collector configuration');
