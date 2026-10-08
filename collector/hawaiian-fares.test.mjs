@@ -11,3 +11,8 @@ test('rejects unofficial URLs and deduplicates identical advertisements',()=>{
  assert.throws(()=>hawaiianFares({...row,page:'https://evil.test/en/flights-from-honolulu'}));
  assert.equal(hawaiianFares({...row,records:[fare,fare]}).length,1);
 });
+test('accepts explicit cash Saver economy while rejecting ambiguous fare classes',()=>{
+ const saver={...fare,travelClass:'saver',farenetTravelClass:'ECONOMY',formattedTravelClass:'Saver'};
+ assert.equal(hawaiianFares({...row,records:[saver]}).length,1);
+ assert.deepEqual(hawaiianFares({...row,records:[{...saver,farenetTravelClass:null}]}),[]);
+});

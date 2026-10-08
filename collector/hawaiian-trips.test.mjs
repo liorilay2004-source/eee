@@ -14,3 +14,12 @@ test('does not revive expired observations or combine currencies and unsupported
  assert.throws(()=>hawaiianTrips(index,{...q,adults:2},now));
  const changed={...row,records:[fare,{...row.records[1],currencyCode:'EUR'}]};assert.deepEqual(hawaiianTrips(hawaiianIndex([changed],now),q,now),[]);
 });
+test('a newer empty successful page removes old advertised prices without renewing timestamps',()=>{
+ const later=new Date(now.getTime()+1000),empty={...row,fetchedAt:later.toISOString(),records:[]};
+ assert.deepEqual(hawaiianIndex([row,empty],later).byDate,{});
+ assert.deepEqual(hawaiianIndex([empty,row],later).byDate,{});
+ const failure={...empty,error:'HTTP 503'};
+ const index=hawaiianIndex([row,failure],later);
+ assert.equal(Object.values(index.byDate).flat()[0].fetchedAt,row.fetchedAt);
+ assert.deepEqual(hawaiianTrips(index,q,new Date(now.getTime()+600000)),[]);
+});
