@@ -22,6 +22,7 @@ import {
 } from "../lib/builder";
 import { demoResult } from "../lib/demo";
 import { exactVacationForm } from "../lib/date-selection";
+import {MAX_REFRESH_POLLS,refreshPollDelay} from "../lib/refresh-wait";
 import {
   emptyForm, formatShortDate, isFillOnly, loadStoredForm, readSearchUrl, sameRequest, storeForm,
   toRequest, todayISO, updateSearchUrl, validateForm, type SearchForm,
@@ -34,7 +35,7 @@ type Run =
   | { status: "idle" }
   | { status: "loading"; submitted: Submitted }
   | { status: "done"; submitted: Submitted; response: SearchResponse }
-  | { status: "failed"; submitted: Submitted; failure: FailureView; retryAt: number | null }
+  | { status: "failed"; submitted: Submitted; failure: FailureView; retryAt: number | null; refreshAttempt?:number }
   | { status: "cancelled"; submitted: Submitted };
 
 const SEARCH_TIMEOUT_MS = 25_000;
@@ -112,6 +113,11 @@ export function SearchPage() {
   const controller = useRef<AbortController | null>(null);
   const searchSeq = useRef(0);
   const autoRan = useRef(false);
+  useEffect(()=>()=>{
+    searchSeq.current++;
+    controller.current?.abort();
+    controller.current=null;
+  },[]);
 
   useEffect(() => { document.title = `${PRODUCT_NAME} · מוצאים את הטיסה הזולה`; }, []);
 
@@ -161,7 +167,7 @@ export function SearchPage() {
     }
   }, [openQuestion]);
 
-  const runSearch = useCallback(async (nextForm: SearchForm) => {
+  const runSearch = useCallback(async (nextForm: SearchForm,refreshAttempt=0) => {
     nextForm = exactVacationForm(nextForm);
     controller.current?.abort();
     const seq = ++searchSeq.current;
@@ -210,9 +216,10 @@ export function SearchPage() {
         requestResultsFocus();
         return;
       }
-      const failure = describeFailure(toFailure(error, timedOut));
+      let failure = describeFailure(toFailure(error, timedOut));
+      if(failure.kind==="refresh_pending"&&refreshAttempt>=MAX_REFRESH_POLLS)failure={...failure,title:"הבדיקה עדיין לא הושלמה",body:"עדיין אין מחיר שאפשר להציג לתאריכים שבחרתם. אפשר לנסות שוב בהמשך או לשנות את החיפוש."};
       const retryAt = failure.retryAfterSec !== null ? Date.now() + failure.retryAfterSec * 1000 : null;
-      setRun({ status: "failed", submitted, failure, retryAt });
+      setRun({ status: "failed", submitted, failure, retryAt,refreshAttempt });
       const wasEditing = editingRef.current;
       if (failure.kind === "invalid") {
         setFieldErrors(failure.fields);
@@ -225,6 +232,14 @@ export function SearchPage() {
       if (controller.current === abort) controller.current = null;
     }
   }, [requestFocus, requestResultsFocus, setEditing]);
+
+  useEffect(()=>{
+    if(run.status!=="failed"||!online||editing)return;
+    const delay=refreshPollDelay(run.failure.kind,run.refreshAttempt??0,run.retryAt,Date.now());
+    if(delay===null)return;
+    const timer=window.setTimeout(()=>{void runSearch(run.submitted.form,(run.refreshAttempt??0)+1);},delay);
+    return ()=>window.clearTimeout(timer);
+  },[run,online,editing,runSearch]);
 
   /** Shows client validation errors on their chips and opens the first question that needs fixing. */
   const showValidation = useCallback((errors: Record<string, string>) => {
@@ -272,6 +287,7 @@ export function SearchPage() {
   }
 
   function editSearch() {
+    if(run.status==="failed"&&run.failure.kind==="refresh_pending")setRun({status:"cancelled",submitted:run.submitted});
     setEditing(true);
     setEditedAfterResults(run.status === "done");
     setOpenQuestion(null);
@@ -289,7 +305,14 @@ export function SearchPage() {
     requestResultsFocus();
   }
 
-  function cancelSearch() { controller.current?.abort(); }
+  function cancelSearch() {
+    controller.current?.abort();
+    if(run.status==="failed"&&run.failure.kind==="refresh_pending"){
+      searchSeq.current++;
+      setRun({status:"cancelled",submitted:run.submitted});
+      announce("ההמתנה בוטלה.");
+    }
+  }
 
   async function share() {
     try {
@@ -345,7 +368,7 @@ export function SearchPage() {
             <button type="button" className="btn btn-primary" onClick={() => trySearch(run.submitted.form)}><RefreshCw size={18} aria-hidden="true" />חיפוש שוב</button>
             <button type="button" className="btn btn-ghost" onClick={editSearch}><PencilLine size={18} aria-hidden="true" />שינוי חיפוש</button>
           </StateCard>}
-          {run.status === "failed" && <FailureCard failure={run.failure} retryAt={run.retryAt} onRetry={() => trySearch(run.submitted.form)} onEdit={editSearch} showEdit={!showBuilder} />}
+          {run.status === "failed" && <FailureCard failure={run.failure} retryAt={run.retryAt} onRetry={() => trySearch(run.submitted.form)} onEdit={editSearch} showEdit={!showBuilder} onCancel={run.failure.kind==="refresh_pending"&&(run.refreshAttempt??0)<MAX_REFRESH_POLLS?cancelSearch:undefined} />}
           {run.status === "done" && (run.response.cards.length
             ? <Results submitted={run.submitted} response={run.response} dimmed={stale} announce={announce} knownSources={knownSources} />
             : <EmptyState submitted={run.submitted} response={run.response} knownSources={knownSources} onTry={trySearch} onEdit={editSearch} />)}
@@ -512,7 +535,7 @@ function StateCard({ icon, title, body, children, tone = "neutral" }: { icon: Re
   </div>;
 }
 
-function FailureCard({ failure, retryAt, onRetry, onEdit, showEdit }: { failure: FailureView; retryAt: number | null; onRetry: () => void; onEdit: () => void; showEdit: boolean }) {
+function FailureCard({ failure, retryAt, onRetry, onEdit, showEdit,onCancel }: { failure: FailureView; retryAt: number | null; onRetry: () => void; onEdit: () => void; showEdit: boolean;onCancel?:()=>void }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (retryAt === null || retryAt <= Date.now()) return;
@@ -521,11 +544,13 @@ function FailureCard({ failure, retryAt, onRetry, onEdit, showEdit }: { failure:
   }, [retryAt]);
   const waiting = retryAt !== null && now < retryAt;
   const icon = failure.kind === "offline" ? <WifiOff size={24} aria-hidden="true" />
+    : failure.kind === "refresh_pending" ? <Hourglass size={24} aria-hidden="true" />
     : failure.kind === "rate_limited" ? <Hourglass size={24} aria-hidden="true" />
       : failure.kind === "source_unavailable" ? <Moon size={24} aria-hidden="true" />
         : <CircleAlert size={24} aria-hidden="true" />;
   return <StateCard icon={icon} title={failure.title} body={failure.body} tone={failure.kind === "invalid" || failure.kind === "error" ? "warn" : "neutral"}>
     {failure.canRetry && <button type="button" className="btn btn-primary" onClick={onRetry} disabled={waiting}><RefreshCw size={18} aria-hidden="true" />{waiting ? "אפשר לנסות שוב בקרוב" : "נסו שוב"}</button>}
+    {onCancel&&<button type="button" className="btn btn-ghost" onClick={onCancel}><X size={18} aria-hidden="true" />ביטול המתנה</button>}
     {showEdit && <button type="button" className="btn btn-ghost" onClick={onEdit}><PencilLine size={18} aria-hidden="true" />שינוי חיפוש</button>}
   </StateCard>;
 }

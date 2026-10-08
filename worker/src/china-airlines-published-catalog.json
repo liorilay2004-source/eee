@@ -1,0 +1,16 @@
+[
+  {
+    "airline": "CI",
+    "origin": "TSA",
+    "destination": "HND",
+    "sourceUrl": "https://flights.china-airlines.com/en-tw/flights-from-taipei-to-tokyo",
+    "collector": "china_airlines"
+  },
+  {
+    "airline": "CI",
+    "origin": "TPE",
+    "destination": "NRT",
+    "sourceUrl": "https://flights.china-airlines.com/en-tw/flights-from-taipei-to-tokyo",
+    "collector": "china_airlines"
+  }
+]

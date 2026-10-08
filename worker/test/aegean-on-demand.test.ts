@@ -1,5 +1,6 @@
 import {it,expect,vi} from "vitest";
 import {createAegeanPublishedSource} from "../src/sources/aegean-published";
+import {hasPendingAegean} from "../src/aegean-on-demand";
 import {aegeanCalendarUrl} from "../src/aegean-lowfare";
 import type {QuoteQuery} from "../src/quotes";
 const now=new Date("2026-10-08T05:30:00Z");
@@ -12,7 +13,7 @@ it("quotes a collected exact trip even with failed D1 and never calls the market
  const offers=await source.quote(q);
  expect(offers).toHaveLength(1);expect(offers[0]).toMatchObject({priceAmount:232.37,priceCurrency:"EUR",outbound:{airlines:[],stops:null},inbound:{airlines:[],stops:null}});
  expect(fetcher).not.toHaveBeenCalled();expect(onDemand).toHaveBeenCalledTimes(1);
- expect(source.callCount()).toBe(1);expect(source.nextQuoteRequests(q)).toBe(5);
+ expect(source.callCount()).toBe(3);expect(source.nextQuoteRequests(q)).toBe(7);
 });
 it("does not collect for multiple passengers and reads an existing selected fare without collection",async()=>{
  const onDemand=vi.fn(async()=>fare),fetcher=vi.fn(async()=>new Response("",{status:404})) as unknown as typeof fetch;
@@ -20,4 +21,11 @@ it("does not collect for multiple passengers and reads an existing selected fare
  const source=createAegeanPublishedSource(now,fetcher,cache as never,undefined,onDemand);
  expect(await source.quote(q)).toHaveLength(1);expect(onDemand).not.toHaveBeenCalled();
  await source.quote({...q,party:{adults:2,children:0,infants:0}});expect(onDemand).not.toHaveBeenCalled();
+});
+it('confirms exact active queue demand after a later search-cache hit without an airline request',async()=>{
+ const pending=vi.fn(async()=>null),onDemand=vi.fn(async()=>null),fetcher=vi.fn();
+ const cache={get:async()=>null,put:async()=>{}};
+ const source=createAegeanPublishedSource(now,fetcher as never,cache as never,undefined,onDemand,()=>now,async trip=>{if(await hasPendingAegean({getByName:()=>({hasPendingAegean:async()=>trip.origin===q.origin&&trip.destination===q.destination})} as never,trip))pending();});
+ expect(await source.quoteCached(q)).toEqual([]);expect(pending).toHaveBeenCalledOnce();
+ expect(onDemand).not.toHaveBeenCalled();expect(fetcher).not.toHaveBeenCalled();
 });

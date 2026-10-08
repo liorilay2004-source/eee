@@ -11,7 +11,8 @@ export interface PublicFareCache {
 const TTL_MS = 10 * 60_000;
 export const BACKGROUND_FARE_TTL_MS = 36 * 3_600_000;
 const MAX_BYTES = 500_000;
-const hosts = new Set(["flights.evaair.com", "www.vietnamairlines.com", "www.kenya-airways.com", "bestfares.airastana.com", "asha.hawaiianairlines.com", "flights.flyfrontier.com", "www.singaporeair.com", "www.jetblue.com", "services-api.ryanair.com", "flights.aegeanair.com", "www.aircanada.com", "www.flytap.com", "www.ethiopianairlines.com", "www.aireuropa.com", "flights.philippineairlines.com", "flights.virginatlantic.com", "www.airnewzealand.com", "www.airbaltic.com", "www.skyexpress.gr", "www.voegol.com.br", "www.finnair.com", "www.iberia.com", "www.avianca.com", "www.copaair.com", "www.aeromexico.com", "www.klm.co.il", "www.aa.com", "www.aerlingus.com", "www.airserbia.com", "www.norwegian.com", "www.lufthansa.com", "www.swiss.com", "www.austrian.com", "www.brusselsairlines.com", "www.icelandair.com", "www.eurowings.com", "www.turkishairlines.com"]);
+const catalogOnlyHosts = new Set(["www.royalairmaroc.com", "flights.china-airlines.com", "www.koreanair.com"]);
+const hosts = new Set(["www.royalairmaroc.com", "flights.china-airlines.com", "www.koreanair.com", "flights.evaair.com", "www.vietnamairlines.com", "www.kenya-airways.com", "bestfares.airastana.com", "asha.hawaiianairlines.com", "flights.flyfrontier.com", "www.singaporeair.com", "www.jetblue.com", "services-api.ryanair.com", "flights.aegeanair.com", "www.aircanada.com", "www.flytap.com", "www.ethiopianairlines.com", "www.aireuropa.com", "flights.philippineairlines.com", "flights.virginatlantic.com", "www.airnewzealand.com", "www.airbaltic.com", "www.skyexpress.gr", "www.voegol.com.br", "www.finnair.com", "www.iberia.com", "www.avianca.com", "www.copaair.com", "www.aeromexico.com", "www.klm.co.il", "www.aa.com", "www.aerlingus.com", "www.airserbia.com", "www.norwegian.com", "www.lufthansa.com", "www.swiss.com", "www.austrian.com", "www.brusselsairlines.com", "www.icelandair.com", "www.eurowings.com", "www.turkishairlines.com"]);
 export function cacheRequest(key: string): Request {
   const url = new URL(key);
   if(url.hostname==="www.flydubai.com"){
@@ -24,6 +25,7 @@ export function cacheRequest(key: string): Request {
     return new Request(`https://eee-api.liorilay2004.workers.dev/__public_fares/v1/${encodeURIComponent(key)}`);
   }
   if (url.protocol !== "https:" || !hosts.has(url.hostname) || url.username || url.password || url.port || url.hash) throw new Error("Unsupported public fare source");
+  if(catalogOnlyHosts.has(url.hostname)&&!EXTERNAL_PUBLISHED_PAGES.some(page=>page.sourceUrl===key))throw new Error("Unsupported published fare page");
   if(isSingaporeCacheKey(key))return new Request(`https://eee-api.liorilay2004.workers.dev/__public_fares/v1/${encodeURIComponent(key)}`);
   if(EXTERNAL_PUBLISHED_PAGES.some(page=>page.sourceUrl===key)||HAWAIIAN_PAGES.some(page=>page.url===key))return new Request(`https://eee-api.liorilay2004.workers.dev/__public_fares/${url.hostname==="flights.aegeanair.com"?"v2":"v1"}/${encodeURIComponent(key)}`);
   if (url.hostname === "www.turkishairlines.com") {
@@ -113,7 +115,16 @@ export function createPublicFareCache(storage: Pick<Cache, "match" | "put">, now
       try {
         if (fares.length > publicFareMaximumRows(key)) return;
         const lifetime = Math.min(ttlMs, publicFareMaximumAge(key));
-        const body = JSON.stringify({ expires: now.getTime() + lifetime, storedAt: now.getTime(), fares });
+        // A cache write must not reset the age of an observation captured upstream earlier.
+        const captures=fares.flatMap(fare=>{
+          if(typeof fare!=="object"||fare===null||!("checkedAt" in fare)||typeof fare.checkedAt!=="string")return [];
+          const parsed=Date.parse(fare.checkedAt);
+          return Number.isFinite(parsed)&&new Date(parsed).toISOString()===fare.checkedAt&&parsed<=now.getTime()?[parsed]:[];
+        });
+        const expires=Math.min(now.getTime()+lifetime,...captures.map(capturedAt=>capturedAt+publicFareMaximumAge(key)));
+        // A delayed or replayed collection may never extend, or overwrite an older still-valid page with an expired capture.
+        if(expires<=now.getTime())return;
+        const body = JSON.stringify({ expires, storedAt: now.getTime(), fares });
         if (body.length > MAX_BYTES) return;
         await storage.put(cacheRequest(key), new Response(body, { headers: { "content-type": "application/json", "cache-control": `public, max-age=${Math.floor(lifetime / 1000)}` } }));
       } catch { /* Cache failures never turn a valid source response into a search failure. */ }

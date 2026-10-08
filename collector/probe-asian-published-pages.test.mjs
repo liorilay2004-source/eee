@@ -5,11 +5,12 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { collectAsianPublishedPages, selectAsianObservedPages } from './probe-asian-published-pages.mjs';
 test('publication selects only empirically approved pages while diagnostic selection supports the broader observed inventory', () => {
-  assert.equal(selectAsianObservedPages('eva', 0, 20, true).length, 10);
+  assert.equal(selectAsianObservedPages('eva', 0, 20, true).length, 20);
+  assert.equal(selectAsianObservedPages('eva', 0, 50, true).length, 50);
   assert.equal(selectAsianObservedPages('eva', 100, 20, false).length, 16);
   assert.equal(selectAsianObservedPages('vietnam', 0, 20, true).length, 1);
   assert.throws(() => selectAsianObservedPages('eva', 0, 21));
-  assert.throws(() => selectAsianObservedPages('eva', 11, 1, true));
+  assert.throws(() => selectAsianObservedPages('eva', 51, 1, true));
 });
 test('checkpoints raw observations before later failures and does not convert a failed page into a successful empty publication', async () => {
   const outputDirectory = await mkdtemp(join(tmpdir(), 'asian-fare-collector-'));

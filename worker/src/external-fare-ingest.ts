@@ -1,5 +1,5 @@
 import {singaporeObservations,SINGAPORE_PAGE,singaporeCacheKey} from "./sources/singapore-fares";
-import {keyMatches} from "./access";
+import {collectorAccessStatus} from "./collector-access";
 import {parseLhgAdvertisements} from "./brussels-advertisements";
 import {EXTERNAL_FARE_PAGES} from "./external-fare-catalog";
 import {parseRyanairCalendar,ryanairCalendarUrl} from "./sources/ryanair-direct";
@@ -16,15 +16,14 @@ import FLYDUBAI_PAGES from "./flydubai-published-catalog.json";
 import {normalizeFlydubaiFares} from "../../collector/flydubai-fares.mjs";
 import {aegeanHttpCalendarUrl,parseAegeanHttpCalendar} from "./aegean-http-calendar";
 import {aegeanCalendarUrl} from "./aegean-lowfare";
+import {AEGEAN_DEMAND_OBJECT} from "./aegean-on-demand";
 const TTL=600000;
 const reply=(status:number,body:unknown)=>Response.json(body,{status,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}});
 /** Machine-only ingestion: authentication precedes body reads; never fetch caller URLs or write D1. */
 export async function ingestPublicFares(request:Request,env:Env,now=new Date()):Promise<Response>{
  if(request.method!=="POST")return reply(405,{error:"method_not_allowed"});
- const keys=[env.COLLECTOR_KEY,env.LOCAL_COLLECTOR_KEY].filter((key):key is string=>typeof key==="string"&&/^[a-f0-9]{64}$/.test(key));
- if(!keys.length)return reply(503,{error:"collector_unavailable"});
- const given=/^Bearer ([a-f0-9]{64})$/.exec(request.headers.get("Authorization")??"")?.[1];
- if(!given||!(await Promise.all(keys.map(key=>keyMatches(given,key)))).some(Boolean))return reply(401,{error:"unauthorized"});
+ const denied=await collectorAccessStatus(request,env);
+ if(denied)return reply(denied,{error:denied===401?"unauthorized":"collector_unavailable"});
  if(!env.PUBLIC_FARES)return reply(503,{error:"storage_unavailable"});
  if(!(request.headers.get("Content-Type")??"").startsWith("application/json"))return reply(415,{error:"unsupported_media_type"});
  if(!request.body)return reply(400,{error:"invalid_payload"});
@@ -48,6 +47,8 @@ export async function ingestPublicFares(request:Request,env:Env,now=new Date()):
   // Empty extraction, unavailable selected days and unknown cost schemas must not erase a saved offer.
   if(!fare)return reply(422,{error:"no_valid_prices"});
   try{await env.PUBLIC_FARES.getByName(cacheRequest(key).url).write(key,JSON.stringify({storedAt:at,expires:at+TTL,fares:[fare]}));}catch{return reply(503,{error:"storage_unavailable"});}
+  // A failed acknowledgement never discards an already published original capture.
+  try{await env.PUBLIC_FARES.getByName(AEGEAN_DEMAND_OBJECT).completeAegean?.(trip,v.checkedAt);}catch{}
   return reply(200,{source:v.source,fares:1,checkedAt:v.checkedAt});
  }
  if(v.source==="singapore"){

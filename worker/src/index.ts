@@ -3,11 +3,15 @@ import evaPages from './eva-published-catalog.json';
 import flydubaiPages from './flydubai-published-catalog.json';
 import {createEvaCachedSource} from './sources/eva-cached';
 import {createVietnamCachedSource} from './sources/vietnam-cached';
+import chinaAirlinesPages from './china-airlines-published-catalog.json';
+import {createRoyalAirMarocCachedSource} from './sources/royal-air-maroc-cached';
+import {createChinaAirlinesCachedSource} from './sources/china-airlines-cached';
+import {createKoreanCachedSource} from './sources/korean-cached';
 import {createFlydubaiCachedSource} from './sources/flydubai-cached';
 import {createKenyaCachedSource} from './sources/kenya-cached';
 import {usesExternalPublishedCollector} from "./external-collection";
 import {ingestPublicFares,externalLhgCache} from "./external-fare-ingest";
-import {getOrCollectAegean} from "./aegean-on-demand";
+import {getOrCollectAegean,hasPendingAegean} from "./aegean-on-demand";
 export {FareStore} from "./fare-store";
 import {createSharedFareCache} from "./shared-fare-cache";
 import {supplementKztFx} from './kzt-fx-supplement';
@@ -93,6 +97,7 @@ import { createAirNzPublishedSource } from "./sources/airnz-published";
 import { createVirginPublishedSource } from "./sources/virgin-published";
 import { createDirectCombinationSource } from "./sources/direct-combination";
 import { BACKGROUND_FARE_TTL_MS } from "./public-fare-cache";
+import {handleAegeanDemand} from "./aegean-demand-handler";
 import { runCollectionQueue } from "./collection-queue";
 import { collectRenderedKlm } from "./rendered-collection";
 import { collectRenderedFinnair } from "./finnair-rendered";
@@ -287,7 +292,7 @@ const secret = (value: unknown): string | undefined => (typeof value === "string
  * them: the scheduled job never does. The hard request caps live in the adapters and are counted in D1 (migration 0004);
  * the daily shares (rate_limits) come on top.
  */
-function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: typeof fetch, now: Date): FareQuoteSource[] {
+function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: typeof fetch, now: Date,onPending?:()=>void): FareQuoteSource[] {
   const publicCache = typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now) : undefined;
   const marker = env.TRAVELPAYOUTS_MARKER;
   // Every vendor request also takes one unit of that vendor's daily share first (see withDailyShare): a client that dodges the
@@ -317,7 +322,7 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
     env.AEROMEXICO_RENDERED_ENABLED === "true" ? createAeromexicoCachedSource(publicCache) : null,
     env.KLM_RENDERED_ENABLED === "true" ? createKlmCachedSource(publicCache) : null,
     env.RYANAIR_DIRECT_ENABLED === "true" ? createRyanairDirectSource(now, fetchFn, publicCache) : null,
-    env.AEGEAN_PUBLISHED_ENABLED === "true" ? createAegeanPublishedSource(now, fetchFn, publicCache,env.DB,env.AEGEAN_ON_DEMAND_ENABLED==="true"&&env.PUBLIC_FARES?trip=>getOrCollectAegean(env.PUBLIC_FARES!,trip):undefined,()=>new Date()) : null,
+    env.AEGEAN_PUBLISHED_ENABLED === "true" ? createAegeanPublishedSource(now, fetchFn, publicCache,env.DB,env.AEGEAN_ON_DEMAND_ENABLED==="true"&&env.PUBLIC_FARES?trip=>getOrCollectAegean(env.PUBLIC_FARES!,trip,onPending):undefined,()=>new Date(),async trip=>{if(await hasPendingAegean(env.PUBLIC_FARES,trip))onPending?.();}) : null,
     env.AIRCANADA_PUBLISHED_ENABLED === "true" ? createAirCanadaPublishedSource(now, fetchFn, publicCache) : null,
     env.TAP_PUBLISHED_ENABLED === "true" ? createTapPublishedSource(now, fetchFn, publicCache) : null,
     env.ETHIOPIAN_PUBLISHED_ENABLED === "true" ? createEthiopianPublishedSource(now, fetchFn, publicCache) : null,
@@ -330,6 +335,9 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
     env.GOL_PUBLISHED_ENABLED === "true" ? createGolPublishedSource(now, fetchFn, publicCache) : null,
     env.EVA_PUBLISHED_ENABLED === "true" ? createEvaCachedSource(now,publicCache) : null,
     env.VIETNAM_PUBLISHED_ENABLED === "true" ? createVietnamCachedSource(now,publicCache) : null,
+    env.ROYAL_AIR_MAROC_PUBLISHED_ENABLED === "true" ? createRoyalAirMarocCachedSource(now,publicCache) : null,
+    env.CHINA_AIRLINES_PUBLISHED_ENABLED === "true" ? createChinaAirlinesCachedSource(now,publicCache) : null,
+    env.KOREAN_PUBLISHED_ENABLED === "true" ? createKoreanCachedSource(now,publicCache) : null,
     env.FLYDUBAI_PUBLISHED_ENABLED === "true" ? createFlydubaiCachedSource(now,publicCache) : null,
     env.KENYA_PUBLISHED_ENABLED === "true" ? createKenyaCachedSource(now,publicCache) : null,
     env.AIRASTANA_PUBLISHED_ENABLED === "true" ? createAirAstanaCachedSource(now,publicCache) : null,
@@ -405,12 +413,14 @@ async function handleSearch(request: Request, env: Env, ctx: ExecutionContext): 
   });
   const searchCurrencies = [
     ...(env.EVA_PUBLISHED_ENABLED === "true" && evaPages.some(p=>p.origin===parsed.req.origin&&p.destination===parsed.req.destination||p.origin===parsed.req.destination&&p.destination===parsed.req.origin) ? ["TWD"] : []),
+    ...(env.CHINA_AIRLINES_PUBLISHED_ENABLED === "true" && chinaAirlinesPages.some(p=>p.origin===parsed.req.origin&&p.destination===parsed.req.destination||p.origin===parsed.req.destination&&p.destination===parsed.req.origin) ? ["TWD"] : []),
     ...(env.FLYDUBAI_PUBLISHED_ENABLED === "true" && flydubaiPages.some(p=>p.origin===parsed.req.origin&&p.destination===parsed.req.destination||p.origin===parsed.req.destination&&p.destination===parsed.req.origin) ? ["AED"] : []),
     ...(env.AIRASTANA_PUBLISHED_ENABLED === "true" && airAstanaPages.some(p=>p.origin===parsed.req.origin&&p.destination===parsed.req.destination||p.origin===parsed.req.destination&&p.destination===parsed.req.origin) ? ["KZT"] : []),
     ...(env.TURKISH_RENDERED_ENABLED === "true" && parsed.req.origin === "IST" && parsed.req.destination === "ATH" ? ["TRY"] : []),
     ...(env.SINGAPORE_PUBLISHED_ENABLED === "true" && parsed.req.origin === "SIN" && ["HND","NRT","TYO"].includes(parsed.req.destination) ? ["SGD"] : []),
   ];
   const ecbCurrencies=searchCurrencies.filter(code=>code==="TRY"||code==="SGD");
+  let publicRefreshPending=false;
   try {
     const result = await runSearch(
       {
@@ -428,7 +438,8 @@ async function handleSearch(request: Request, env: Env, ctx: ExecutionContext): 
         resolver: defaultResolver,
         waitUntil: (p) => ctx.waitUntil(p),
         scanBudget: () => scanBudgetLeft(repo, now),
-        quoteSources: quoteSources(env, repo, fetchFn, now),
+        quoteSources: quoteSources(env, repo, fetchFn, now,()=>{publicRefreshPending=true;}),
+        pendingRefresh:()=>publicRefreshPending,
         // A cache row past its TTL (up to 24h) answers at once, marked meta.stale, and is rescanned in the background.
         staleWhileRevalidate: true,
         // Round-trip cards get the signed token POST /api/party-check needs (only when that check can run: see partycheck.ts).
@@ -792,6 +803,7 @@ export default {
     let cors: Record<string, string> = {};
     try {
       if(new URL(request.url).pathname==="/api/internal/public-fares")return await ingestPublicFares(request,env);
+      if(new URL(request.url).pathname==="/api/internal/aegean-demand")return await handleAegeanDemand(request,env);
       cors = corsHeaders(request, env);
       // The private-use lock comes before everything else: no rate-limit row, D1 read or cache lookup for a refused request.
       // Its answers carry the CORS headers too, so the web can read them.

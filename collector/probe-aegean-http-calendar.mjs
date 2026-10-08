@@ -19,7 +19,7 @@ export async function publishAegeanHttpCalendar(snapshot,key,fetchFn=fetch){
  return {published:1,checkedAt:result.checkedAt};
 }
 
-export async function collectAegeanHttpCalendar({trips=DEFAULT_TRIPS,key,outputDirectory='.',fetchFn=fetch,now=()=>new Date(),log=console.log}){
+export async function collectAegeanHttpCalendar({trips=DEFAULT_TRIPS,key,outputDirectory='.',fetchFn=fetch,now=()=>new Date(),log=console.log,claim}){
  if(!Array.isArray(trips)||!trips.length||trips.length>12)throw Error('Invalid Aegean calendar trip selection');
  const selected=new Set();
  for(const trip of trips){const url=aegeanHttpCalendarUrl(trip);if(selected.has(url))throw Error('Duplicate Aegean calendar trip');selected.add(url);}
@@ -29,6 +29,7 @@ export async function collectAegeanHttpCalendar({trips=DEFAULT_TRIPS,key,outputD
  const checkpoint=()=>writeFile(output,JSON.stringify(results,null,2));
  for(const trip of trips){const checkedAt=now().toISOString();let snapshot;
   try{
+   if(claim&&!await claim(trip)){results.push({trip,checkedAt,skipped:'claim_declined'});await checkpoint();continue;}
    snapshot=await fetchAegeanHttpCalendarSnapshot(trip,checkedAt,fetchFn);
    if(!snapshot.fare)throw Error('No validated selected Aegean calendar price');
    if(key)snapshot.publication=await publishAegeanHttpCalendar(snapshot,key,fetchFn);

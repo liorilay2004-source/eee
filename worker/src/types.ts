@@ -10,7 +10,7 @@
  */
 
 export type TicketStructure = "roundtrip" | "split";
-export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "ryanair" | "aegean" | "air_canada" | "tap" | "ethiopian" | "air_europa" | "philippine" | "virgin_atlantic" | "air_new_zealand" | "air_baltic" | "sky_express" | "gol" | "aeromexico" | "copa" | "brussels_airlines" | "turkish" | "lufthansa" | "swiss" | "austrian" | "icelandair" | "eurowings" | "finnair" | "norwegian" | "iberia" | "avianca" | "klm" | "american" | "aer_lingus" | "jetblue" | "eva" | "vietnam" | "flydubai" | "kenya" | "air_astana" | "hawaiian" | "frontier" | "singapore" | "air_serbia" | "elal" | "direct_combination";
+export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "ryanair" | "aegean" | "air_canada" | "tap" | "ethiopian" | "air_europa" | "philippine" | "virgin_atlantic" | "air_new_zealand" | "air_baltic" | "sky_express" | "gol" | "aeromexico" | "copa" | "brussels_airlines" | "turkish" | "lufthansa" | "swiss" | "austrian" | "icelandair" | "eurowings" | "finnair" | "norwegian" | "iberia" | "avianca" | "klm" | "american" | "aer_lingus" | "jetblue" | "eva" | "vietnam" | "royal_air_maroc" | "china_airlines" | "korean_air" | "flydubai" | "kenya" | "air_astana" | "hawaiian" | "frontier" | "singapore" | "air_serbia" | "elal" | "direct_combination";
 export type Cabin = "economy" | "premium-economy" | "business" | "first";
 export type RecKind = "cheapest" | "best_value" | "my_times";
 
@@ -624,6 +624,9 @@ export interface Env {
   SINGAPORE_PUBLISHED_ENABLED?: string;
   EVA_PUBLISHED_ENABLED?: string;
   VIETNAM_PUBLISHED_ENABLED?: string;
+  ROYAL_AIR_MAROC_PUBLISHED_ENABLED?: string;
+  CHINA_AIRLINES_PUBLISHED_ENABLED?: string;
+  KOREAN_PUBLISHED_ENABLED?: string;
   FLYDUBAI_PUBLISHED_ENABLED?: string;
   KENYA_PUBLISHED_ENABLED?: string;
   AIRASTANA_PUBLISHED_ENABLED?: string;

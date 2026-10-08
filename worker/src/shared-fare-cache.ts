@@ -1,7 +1,15 @@
 import {cacheRequest,createPublicFareCache,type PublicFareCache} from "./public-fare-cache";
 import type {AegeanCalendarFare,AegeanCalendarTrip} from "./aegean-lowfare";
 export interface FareStoreNamespace {
- getByName(name:string):{read(key:string):Promise<string|null>;write(key:string,payload:string):Promise<void>;reserveAegean():Promise<boolean>;collectAegean(trip:AegeanCalendarTrip):Promise<AegeanCalendarFare|null>};
+ getByName(name:string):{read(key:string):Promise<string|null>;write(key:string,payload:string):Promise<void>;reserveAegean():Promise<boolean>;collectAegean(trip:AegeanCalendarTrip):Promise<AegeanCalendarFare|null>;
+  /** Global bounded demand queue; omitted by older deployments and cache-only test doubles. */
+  enqueueAegean?(trip:AegeanCalendarTrip):Promise<boolean>;
+  pendingAegean?(limit?:number):Promise<AegeanCalendarTrip[]>;
+  /** Exact active unfulfilled demand, including a collector attempt currently in flight. */
+  hasPendingAegean?(trip:AegeanCalendarTrip):Promise<boolean>;
+  claimAegean?(trip:AegeanCalendarTrip):Promise<boolean>;
+  completeAegean?(trip:AegeanCalendarTrip,checkedAt:string):Promise<boolean>;
+ };
 }
 /** Sharded by validated official page/calendar, with original expiry preserved across regions. */
 export function createSharedFareCache(namespace:FareStoreNamespace|undefined,edge:Pick<Cache,"match"|"put">,now:Date,ttlMs?:number):PublicFareCache {

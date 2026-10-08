@@ -1,0 +1,9 @@
+[
+  {
+    "airline": "KE",
+    "origin": "LAX",
+    "destination": "ICN",
+    "sourceUrl": "https://www.koreanair.com/flights/en-us/flights-from-los-angeles-to-seoul",
+    "collector": "korean_air"
+  }
+]

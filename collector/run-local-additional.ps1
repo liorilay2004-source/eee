@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet('eva', 'vietnam')][string]$Provider,
+    [Parameter(Mandatory)][ValidateSet('royal_air_maroc', 'china_airlines', 'korean_air')][string]$Provider,
     [string]$RepoPath = (Split-Path -Parent $PSScriptRoot),
     [string]$OutputRoot,
     [ValidateRange(30, 270)][int]$TimeoutSeconds = 270
@@ -8,7 +8,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) { $OutputRoot = Join-Path $env:USERPROFILE ".codex\eee-local-collector\$Provider" }
-$taskMutex = [System.Threading.Mutex]::new($false, "Global\EEE.Asian.$Provider.PublicCollector")
+$taskMutex = [System.Threading.Mutex]::new($false, "Global\EEE.Additional.$Provider.PublicCollector")
 $taskLockHeld = $false
 $taskProcess = $null
 $taskProcessStarted = $false
@@ -27,12 +27,13 @@ try {
     if (-not $taskLockHeld) { exit 0 }
 
     $taskRepo = (Resolve-Path -LiteralPath $RepoPath).Path
-    $taskCollector = Join-Path $taskRepo 'collector\probe-asian-published-pages.mjs'
-    $taskCatalogPath = Join-Path $taskRepo "worker\src\$Provider-published-catalog.json"
+    $taskCollector = Join-Path $taskRepo 'collector\probe-additional-published-pages.mjs'
+    $taskCatalogName = @{royal_air_maroc="royal-air-maroc";china_airlines="china-airlines";korean_air="korean"}[$Provider]
+    $taskCatalogPath = Join-Path $taskRepo "worker\src\$taskCatalogName-published-catalog.json"
     if (-not (Test-Path -LiteralPath $taskCollector -PathType Leaf)) { throw 'Collector script is missing' }
     $taskCatalog = @(Get-Content -LiteralPath $taskCatalogPath -Raw | ConvertFrom-Json)
     $taskApprovedPages = @($taskCatalog | Select-Object -ExpandProperty sourceUrl -Unique)
-    $taskPageLimit = if ($Provider -eq 'eva') { 50 } else { 20 }
+    $taskPageLimit = 20
     if ($taskApprovedPages.Count -lt 1 -or $taskApprovedPages.Count -gt $taskPageLimit) {
         throw 'Local publication coverage needs a refresh feasibility audit'
     }
@@ -76,10 +77,8 @@ try {
     $taskStart.RedirectStandardError = $true
     $taskStart.ArgumentList.Add($taskCollector)
     $taskStart.Environment['COLLECTOR_KEY'] = $taskSecretValue
-    $taskStart.Environment['ASIAN_PUBLIC_PROVIDER'] = $Provider
-    $taskStart.Environment['ASIAN_PUBLIC_OFFSET'] = '0'
-    $taskStart.Environment['ASIAN_PUBLIC_LIMIT'] = [string]$taskPageLimit
-    $taskStart.Environment['ASIAN_PUBLIC_OUTPUT_DIRECTORY'] = $taskRunDirectory
+    $taskStart.Environment['PUBLIC_PAGE_PROVIDER'] = $Provider
+    $taskStart.Environment['PUBLIC_PAGE_OUTPUT_DIRECTORY'] = $taskRunDirectory
     $taskSecretValue = $null
     [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($taskSecretPointer)
     $taskSecretPointer = [IntPtr]::Zero

@@ -1,0 +1,184 @@
+[
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "BCN",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  },
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "IST",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  },
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "AGP",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  },
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "TLS",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  },
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "MRS",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  },
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "MAD",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  },
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "ERH",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  },
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "AMS",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  },
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "YUL",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  },
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "CDG",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  },
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "EUN",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  },
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "BRU",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  },
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "LYS",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  },
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "FCO",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  },
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "VIL",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  },
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "OUD",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  },
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "AGA",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  },
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "MXP",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  },
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "BLQ",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  },
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "ORY",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  },
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "MPL",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  },
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "GVA",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  },
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "NTE",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  },
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "DSS",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  },
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "MED",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  },
+  {
+    "airline": "AT",
+    "origin": "CMN",
+    "destination": "TRN",
+    "sourceUrl": "https://www.royalairmaroc.com/fr/vols-au-depart-de-casablanca",
+    "collector": "royal_air_maroc"
+  }
+]

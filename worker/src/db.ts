@@ -92,7 +92,7 @@ const INSERT_PRICE =
   "ticket_structure, airlines_json, legs_json, includes_json, deeplink, verify_link, checked_at) " +
   "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-const SOURCES: readonly string[] = ["travelpayouts", "google_flights", "ignav", "wego", "searchapi", "serpapi", "duffel", "hasdata", "ryanair", "aegean", "air_canada", "tap", "ethiopian", "air_europa", "philippine", "virgin_atlantic", "air_new_zealand", "air_baltic", "sky_express", "gol", "aeromexico", "copa", "brussels_airlines", "turkish", "lufthansa", "swiss", "austrian", "icelandair", "eurowings", "finnair", "norwegian", "iberia", "avianca", "klm", "american", "aer_lingus", "jetblue", "eva", "vietnam", "flydubai", "kenya", "air_astana", "hawaiian", "frontier", "singapore", "air_serbia", "elal", "direct_combination"];
+const SOURCES: readonly string[] = ["travelpayouts", "google_flights", "ignav", "wego", "searchapi", "serpapi", "duffel", "hasdata", "ryanair", "aegean", "air_canada", "tap", "ethiopian", "air_europa", "philippine", "virgin_atlantic", "air_new_zealand", "air_baltic", "sky_express", "gol", "aeromexico", "copa", "brussels_airlines", "turkish", "lufthansa", "swiss", "austrian", "icelandair", "eurowings", "finnair", "norwegian", "iberia", "avianca", "klm", "american", "aer_lingus", "jetblue", "eva", "vietnam", "royal_air_maroc", "china_airlines", "korean_air", "flydubai", "kenya", "air_astana", "hawaiian", "frontier", "singapore", "air_serbia", "elal", "direct_combination"];
 const STRUCTURES: readonly string[] = ["roundtrip", "split"];
 
 function serializeLeg(leg: Leg | undefined): Leg {

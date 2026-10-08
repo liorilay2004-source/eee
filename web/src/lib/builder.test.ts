@@ -159,6 +159,15 @@ describe("400 field mapping", () => {
 });
 
 describe("error-state mapping", () => {
+  it("describes a queued exact-date refresh neutrally and uses only a validated server retry interval", () => {
+    const view = describeFailure({ type: "http", status: 503, code: "source_refresh_pending", retryAfterSec: 60 });
+    expect(view).toMatchObject({ kind: "refresh_pending", title: "בודקים את התאריכים שבחרתם", body: "הבקשה נשמרה לבדיקה ברקע. ננסה לקבל את המחיר שוב אוטומטית; אפשר גם לבטל את ההמתנה.", retryAfterSec: 60, canRetry: true });
+    expect(view.fields).toEqual({ byQuestion: {}, general: [] });
+    for (const retryAfterSec of [undefined, 0, -1, NaN, Infinity]) {
+      expect(describeFailure({ type: "http", status: 503, code: "source_refresh_pending", retryAfterSec }).retryAfterSec).toBeNull();
+    }
+    expect(view.body).not.toMatch(/ימצא|מובטח|דקה|דקות/);
+  });
   it("uses retryAfterSec only when the server sent it", () => {
     const withWait = describeFailure({ type: "http", status: 429, code: "rate_limited", retryAfterSec: 240 });
     expect(withWait).toMatchObject({ kind: "rate_limited", retryAfterSec: 240 });
@@ -199,6 +208,11 @@ describe("error-state mapping", () => {
 });
 
 describe("results helpers", () => {
+  it("keeps unknown baggage terms for new published sources even after storage removes advertisement tags", () => {
+    for (const source of ["royal_air_maroc", "china_airlines", "korean_air"] as const) {
+      expect(bagView({ source, tags: [], includes: {}, extrasAmountIls: 0 }, { checkedBag: false })).toEqual({ text: "תנאי המזוודה לא נמסרו במקור; בדקו באתר החברה", short: "מזוודה: בדקו באתר", tone: "warn" });
+    }
+  });
   const source = (error: string | null, ok = true): SourceStatus => ({ name: "travelpayouts", enabled: true, ok, calls: 3, offers: 5, error });
 
   it("detects truncation notes even when the source is ok", () => {

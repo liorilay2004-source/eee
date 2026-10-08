@@ -321,7 +321,7 @@ export type Failure =
   | { type: "network" }
   | { type: "http"; status: number; code: string; retryAfterSec?: number; fields?: Record<string, string> };
 
-export type FailureKind = "offline" | "rate_limited" | "source_unavailable" | "invalid" | "timeout" | "error";
+export type FailureKind = "offline" | "rate_limited" | "source_unavailable" | "refresh_pending" | "invalid" | "timeout" | "error";
 
 export interface FailureView {
   kind: FailureKind;
@@ -350,6 +350,11 @@ export function describeFailure(failure: Failure): FailureView {
     case "network":
       return { ...base, kind: "error", title: "לא הצלחנו להתחבר לשירות", body: "בדקו את החיבור ונסו שוב בעוד רגע." };
     case "http": {
+      if (failure.code === "source_refresh_pending") {
+        const seconds = typeof failure.retryAfterSec === "number" && Number.isFinite(failure.retryAfterSec) && failure.retryAfterSec > 0
+          ? Math.ceil(failure.retryAfterSec) : null;
+        return { ...base, kind: "refresh_pending", title: "בודקים את התאריכים שבחרתם", body: "הבקשה נשמרה לבדיקה ברקע. ננסה לקבל את המחיר שוב אוטומטית; אפשר גם לבטל את ההמתנה.", retryAfterSec: seconds };
+      }
       if (failure.code === "rate_limited" || failure.status === 429) {
         const seconds = typeof failure.retryAfterSec === "number" && Number.isFinite(failure.retryAfterSec) && failure.retryAfterSec > 0
           ? Math.ceil(failure.retryAfterSec) : null;
@@ -450,7 +455,7 @@ export function bagView(
 ): BagView {
   const tags = new Set(offer.tags);
   if (tags.has("bonus_checked_bag")) return { text: "מזוודה נגררת כלולה במחיר", short: "כולל מזוודה", tone: "good" };
-  const advertised = tags.has("published_advertisement") || ["aegean", "air_canada", "tap", "ethiopian", "air_europa", "philippine", "virgin_atlantic", "air_new_zealand", "air_baltic", "sky_express", "gol", "aeromexico", "copa", "brussels_airlines", "turkish", "lufthansa", "swiss", "austrian", "icelandair", "eurowings", "finnair", "iberia", "avianca", "klm", "american", "aer_lingus", "jetblue", "eva", "vietnam", "flydubai", "kenya", "air_astana", "hawaiian", "frontier", "singapore", "air_serbia", "elal", "direct_combination"].includes(offer.source ?? "");
+  const advertised = tags.has("published_advertisement") || ["aegean", "air_canada", "tap", "ethiopian", "air_europa", "philippine", "virgin_atlantic", "air_new_zealand", "air_baltic", "sky_express", "gol", "aeromexico", "copa", "brussels_airlines", "turkish", "lufthansa", "swiss", "austrian", "icelandair", "eurowings", "finnair", "iberia", "avianca", "klm", "american", "aer_lingus", "jetblue", "eva", "vietnam", "royal_air_maroc", "china_airlines", "korean_air", "flydubai", "kenya", "air_astana", "hawaiian", "frontier", "singapore", "air_serbia", "elal", "direct_combination"].includes(offer.source ?? "");
   if (!request.checkedBag && advertised && offer.includes.checkedBag === undefined) return { text: "תנאי המזוודה לא נמסרו במקור; בדקו באתר החברה", short: "מזוודה: בדקו באתר", tone: "warn" };
   if (!request.checkedBag) return { text: "המחיר בלי מזוודה נגררת", short: "בלי מזוודה", tone: "plain" };
   if (offer.includes?.checkedBag === true) return { text: "מזוודה נגררת כלולה במחיר", short: "כולל מזוודה", tone: "good" };

@@ -5,6 +5,7 @@ import {readAegeanCalendar,validateAegeanCalendar} from "../aegean-calendar-cach
 import {olderOf,sourceUpdatedTimestamp} from "../freshness";
 import type {Leg,Offer} from "../types";
 import type {QuoteQuery} from "../quotes";
+import {aegeanHttpCalendarUrl} from "../aegean-http-calendar";
 export { matchPublishedTrip } from "./published-source";
 const pages = [
   { origin: "TLV", destination: "ATH", sourceUrl: "https://flights.aegeanair.com/he/flights-from-tel-aviv-to-athens" },
@@ -30,13 +31,14 @@ function selectedCalendarLink(link:string|null):boolean {
   try{const url=new URL(link);return url.hostname==="en.aegeanair.com"&&url.pathname==="/flight-deals/low-fare-calendar/";}catch{return false;}
 }
 
-export function createAegeanPublishedSource(now: Date, fetchFn: typeof fetch, sharedCache?: PublicFareCache,db?:D1Database,onDemand?:(trip:AegeanCalendarTrip)=>Promise<AegeanCalendarFare|null>,clock:()=>Date=()=>now) {
+export function createAegeanPublishedSource(now: Date, fetchFn: typeof fetch, sharedCache?: PublicFareCache,db?:D1Database,onDemand?:(trip:AegeanCalendarTrip)=>Promise<AegeanCalendarFare|null>,clock:()=>Date=()=>now,onCachedMiss?:(trip:AegeanCalendarTrip)=>Promise<void>) {
   const base=createPublishedSource({ source: "aegean", airline: "A3", routes: { "TLV:ATH": pages, "ATH:TLV": pages, "ATH:FCO": romePages, "FCO:ATH": romePages } }, now, fetchFn, sharedCache);
   let coordinationCalls=0;
-  return {...base,callCount:()=>base.callCount()+coordinationCalls,nextQuoteRequests:(q:Parameters<typeof base.quote>[0])=>(base.nextQuoteRequests?.(q)??0)+(onDemand?1:0),
+  return {...base,callCount:()=>base.callCount()+coordinationCalls,nextQuoteRequests:(q:Parameters<typeof base.quote>[0])=>(base.nextQuoteRequests?.(q)??0)+(onDemand?3:0),
     async quoteCached(q:QuoteQuery):Promise<Offer[]> {
       if(!singleAdult(q))return [];
       const fare=await readAegeanCalendar(sharedCache,q,clock(),undefined);
+      if(!fare&&onCachedMiss)try{aegeanHttpCalendarUrl(q);if(q.departDate>=clock().toISOString().slice(0,10))await onCachedMiss(q);}catch{/* A failed queue read cannot manufacture a pending state or fail this cached quote. */}
       return fare?[calendarOffer(fare)]:[];
     },
     async validatesStoredOffer(offer:Offer):Promise<boolean> {
@@ -51,7 +53,7 @@ export function createAegeanPublishedSource(now: Date, fetchFn: typeof fetch, sh
     async quote(q:QuoteQuery):Promise<Offer[]> {
       if(singleAdult(q)) {
         let fare=await readAegeanCalendar(sharedCache,q,clock(),db);
-        if(!fare&&onDemand){coordinationCalls++;try{const collected=await onDemand(q);fare=validateAegeanCalendar(collected,q,clock());}catch{fare=null;}}
+        if(!fare&&onDemand){coordinationCalls+=3;try{const collected=await onDemand(q);fare=validateAegeanCalendar(collected,q,clock());}catch{fare=null;}}
         if(fare)return [calendarOffer(fare)];
       }
       return base.quote(q);

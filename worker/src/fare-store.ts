@@ -3,8 +3,22 @@ import {cacheRequest,publicFareMaximumAge,publicFareMaximumRows} from "./public-
 import {aegeanCalendarUrl,type AegeanCalendarTrip,type AegeanCalendarFare} from "./aegean-lowfare";
 import {AEGEAN_CALENDAR_MAX_AGE_MS,validateAegeanCalendar} from "./aegean-calendar-cache";
 import {loadRenderedAegeanCalendar} from "./aegean-lowfare-rendered";
-import {loadHttpAegeanCalendar} from "./aegean-http-calendar";
+import {aegeanHttpCalendarUrl,loadHttpAegeanCalendar} from "./aegean-http-calendar";
 import type {Env} from "./types";
+export const AEGEAN_DEMAND_MAX_PENDING=64;
+export const AEGEAN_DEMAND_ACTIVE_MS=30*60_000;
+export const AEGEAN_DEMAND_ATTEMPT_COOLDOWN_MS=5*60_000;
+
+/** Only the two observed public controller routes; extra caller fields never enter storage. */
+function demandTrip(raw:unknown,now:Date):AegeanCalendarTrip|null {
+ if(!raw||typeof raw!=="object"||Array.isArray(raw))return null;
+ const input=raw as Record<string,unknown>;
+ if(["origin","destination","departDate","returnDate"].some(field=>typeof input[field]!=="string"))return null;
+ const trip={origin:input.origin as string,destination:input.destination as string,departDate:input.departDate as string,returnDate:input.returnDate as string};
+ try{aegeanHttpCalendarUrl(trip);}catch{return null;}
+ return trip.departDate>=now.toISOString().slice(0,10)?trip:null;
+}
+
 /** One bounded snapshot per official page/calendar. No search logs, credentials or passengers. */
 export class FareStore extends DurableObject<Record<string,unknown>> {
  private collection:Promise<AegeanCalendarFare|null>|null=null;
@@ -14,7 +28,43 @@ export class FareStore extends DurableObject<Record<string,unknown>> {
    ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS snapshot (id INTEGER PRIMARY KEY CHECK(id=1), source_key TEXT NOT NULL, payload TEXT NOT NULL, stored_at INTEGER NOT NULL, expires INTEGER NOT NULL)");
    ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS allowance (day TEXT PRIMARY KEY, used INTEGER NOT NULL)");
    ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS collection_state (id INTEGER PRIMARY KEY CHECK(id=1), attempted_at INTEGER NOT NULL)");
+   ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS aegean_pending (source_key TEXT PRIMARY KEY, origin TEXT NOT NULL, destination TEXT NOT NULL, depart_date TEXT NOT NULL, return_date TEXT NOT NULL, requested_at INTEGER NOT NULL, requested_order INTEGER NOT NULL, expires INTEGER NOT NULL, attempted_at INTEGER, completed_at INTEGER)");
   });
+ }
+ /** New requests renew activity, while duplicate requests keep any outstanding attempt's cooldown. */
+ async enqueueAegean(input:AegeanCalendarTrip):Promise<boolean>{
+  const now=new Date(),trip=demandTrip(input,now);if(!trip)return false;
+  const time=now.getTime(),key=aegeanCalendarUrl(trip);
+  this.ctx.storage.sql.exec("DELETE FROM aegean_pending WHERE expires<=?",time);
+  this.ctx.storage.sql.exec("INSERT INTO aegean_pending (source_key,origin,destination,depart_date,return_date,requested_at,requested_order,expires) VALUES (?,?,?,?,?,?,(SELECT COALESCE(MAX(requested_order),0)+1 FROM aegean_pending),?) ON CONFLICT(source_key) DO UPDATE SET requested_at=excluded.requested_at,requested_order=excluded.requested_order,expires=excluded.expires,completed_at=CASE WHEN aegean_pending.completed_at>? THEN aegean_pending.completed_at ELSE NULL END",key,trip.origin,trip.destination,trip.departDate,trip.returnDate,time,time+AEGEAN_DEMAND_ACTIVE_MS,time-AEGEAN_CALENDAR_MAX_AGE_MS);
+  // At most 64 rows, including fulfilled tombstones. Recent demand has priority over older requests.
+  this.ctx.storage.sql.exec("DELETE FROM aegean_pending WHERE source_key IN (SELECT source_key FROM aegean_pending ORDER BY requested_order DESC LIMIT -1 OFFSET ?)",AEGEAN_DEMAND_MAX_PENDING);
+  return this.ctx.storage.sql.exec("SELECT source_key FROM aegean_pending WHERE source_key=? AND completed_at IS NULL",key).toArray().length===1;
+ }
+ /** Read-only polling. A separate atomic claim records attempts before external collection. */
+ async pendingAegean(limit=12):Promise<AegeanCalendarTrip[]>{
+  if(!Number.isSafeInteger(limit)||limit<1||limit>12)return [];
+  const now=new Date(),time=now.getTime();
+  const rows=this.ctx.storage.sql.exec<{origin:string;destination:string;depart_date:string;return_date:string}>("SELECT origin,destination,depart_date,return_date FROM aegean_pending WHERE requested_at<=? AND expires>? AND completed_at IS NULL AND (attempted_at IS NULL OR attempted_at<=?) ORDER BY requested_order ASC LIMIT ?",time,time,time-AEGEAN_DEMAND_ATTEMPT_COOLDOWN_MS,limit).toArray();
+  return rows.flatMap(row=>{const trip=demandTrip({origin:row.origin,destination:row.destination,departDate:row.depart_date,returnDate:row.return_date},now);return trip?[trip]:[];});
+ }
+ /** Read-only exact status. Claim cooldown does not remove an unfinished request from the waiting UI. */
+ async hasPendingAegean(input:AegeanCalendarTrip):Promise<boolean>{
+  const now=new Date(),trip=demandTrip(input,now);if(!trip)return false;
+  const time=now.getTime();
+  return this.ctx.storage.sql.exec("SELECT source_key FROM aegean_pending WHERE source_key=? AND requested_at<=? AND expires>? AND completed_at IS NULL",aegeanCalendarUrl(trip),time,time).toArray().length===1;
+ }
+ async claimAegean(input:AegeanCalendarTrip):Promise<boolean>{
+  const now=new Date(),trip=demandTrip(input,now);if(!trip)return false;
+  const time=now.getTime();
+  return this.ctx.storage.sql.exec("UPDATE aegean_pending SET attempted_at=? WHERE source_key=? AND requested_at<=? AND expires>? AND completed_at IS NULL AND (attempted_at IS NULL OR attempted_at<=?) RETURNING source_key",time,aegeanCalendarUrl(trip),time,time,time-AEGEAN_DEMAND_ATTEMPT_COOLDOWN_MS).toArray().length===1;
+ }
+ /** Acknowledges a stored exact-trip observation using its original capture, never the ingestion clock. */
+ async completeAegean(input:AegeanCalendarTrip,checkedAt:string):Promise<boolean>{
+  const now=new Date(),trip=demandTrip(input,now);if(!trip||typeof checkedAt!=="string")return false;
+  const captured=Date.parse(checkedAt),age=now.getTime()-captured;
+  if(!Number.isFinite(captured)||new Date(captured).toISOString()!==checkedAt||age<0||age>=AEGEAN_CALENDAR_MAX_AGE_MS)return false;
+  return this.ctx.storage.sql.exec("UPDATE aegean_pending SET completed_at=? WHERE source_key=? AND expires>? AND (completed_at IS NULL OR completed_at<=?) RETURNING source_key",captured,aegeanCalendarUrl(trip),now.getTime(),captured).toArray().length===1;
  }
  /** A separate daily coordination object reserves BEFORE any browser request, even failed ones. */
  async reserveAegean():Promise<boolean>{

@@ -27,5 +27,5 @@ test('clears only explicit Fare records with no matching economy fares and rejec
   await assert.rejects(publishAsianObservation({ provider: 'eva', page, checkedAt: '2026-10-08', records: [] }, 'a'.repeat(64)));
   await assert.rejects(publishAsianObservation({ provider: 'eva', page, checkedAt, records: [record] }, 'a'.repeat(64),
     async () => Response.json({ fares: 0, checkedAt })));
-  assert.equal(asianPublicationPages('eva').size, 10); assert.equal(asianPublicationPages('vietnam').size, 1);
+  assert.equal(asianPublicationPages('eva').size, 50); assert.equal(asianPublicationPages('vietnam').size, 1);
 });

@@ -4,12 +4,26 @@ import {BookingActions} from "../components/OfferCards";
 import FLYDUBAI_PAGES from '../../../worker/src/flydubai-published-catalog.json';
 import EVA_PAGES from '../../../worker/src/eva-published-catalog.json';
 import VIETNAM_PAGES from '../../../worker/src/vietnam-published-catalog.json';
+import ROYAL_AIR_MAROC_PAGES from '../../../worker/src/royal-air-maroc-published-catalog.json';
+import CHINA_AIRLINES_PAGES from '../../../worker/src/china-airlines-published-catalog.json';
+import KOREAN_PAGES from '../../../worker/src/korean-published-catalog.json';
 it('retains only approved flydubai, EVA and Vietnam official links',()=>{
  for(const [source,pages] of [['flydubai',FLYDUBAI_PAGES],['eva',EVA_PAGES],['vietnam',VIETNAM_PAGES]] as const){
   const page=pages[0]!;
   const offer={source,deeplink:page.sourceUrl,ticketStructure:'roundtrip',origin:page.origin,destination:page.destination,departDate:'2027-06-13',returnDate:'2027-06-17',outbound:{airlines:[]},inbound:{airlines:[]}};
   expect(renderToStaticMarkup(<BookingActions card={{offer} as any}/>)).toContain(`href="${page.sourceUrl}"`);
   expect(renderToStaticMarkup(<BookingActions card={{offer:{...offer,deeplink:new URL('/account',page.sourceUrl).href}} as any}/>)).not.toContain('href=');
+ }
+});
+it('labels three new official publishers and rejects unobserved pages, credentials and altered URLs',()=>{
+ for(const [source,label,pages] of [['royal_air_maroc','Royal Air Maroc',ROYAL_AIR_MAROC_PAGES],['china_airlines','China Airlines',CHINA_AIRLINES_PAGES],['korean_air','Korean Air',KOREAN_PAGES]] as const){
+  const page=pages[0]!;
+  const offer={source,deeplink:page.sourceUrl,ticketStructure:'roundtrip',origin:page.origin,destination:page.destination,departDate:'2027-06-04',returnDate:'2027-06-11',outbound:{airlines:[]},inbound:{airlines:[]}};
+  const html=renderToStaticMarkup(<BookingActions card={{offer} as any}/>);
+  expect(html).toContain(`href="${page.sourceUrl}"`);expect(html).toContain(label);expect(html).toContain('למחיר שפורסם');expect(html).toContain('הקישור אינו הזמנה שמורה');
+  for(const deeplink of [page.sourceUrl+'?tracking=1',page.sourceUrl+'#top',page.sourceUrl.replace('https://','https://user:pass@'),new URL('/en/flights-from-unobserved-to-unobserved',page.sourceUrl).href,page.sourceUrl.replace(new URL(page.sourceUrl).host,'unrelated.example')]){
+   expect(renderToStaticMarkup(<BookingActions card={{offer:{...offer,deeplink}} as any}/>)).not.toContain('href=');
+  }
  }
 });
 it('keeps the approved Hawaiian source link without implying an operating carrier',()=>{

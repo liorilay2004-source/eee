@@ -112,13 +112,13 @@ export const REFRESH_LOCK_SECONDS = 600;
 
 /** Failures the caller can act on; index.ts maps both to HTTP 503. */
 export class PipelineError extends Error {
-  readonly code: "source_unavailable" | "fx_unavailable" | "storage_daily_limit";
+  readonly code: "source_unavailable" | "fx_unavailable" | "storage_daily_limit" | "source_refresh_pending";
   /** ADDITIVE: why the fare source is unavailable (source_unavailable only). */
   readonly reason?: SourceUnavailableReason;
   /** ADDITIVE: seconds until a retry can succeed, only when that is actually known (the global scan budget's window). */
   readonly retryAfterSec?: number;
   constructor(
-    code: "source_unavailable" | "fx_unavailable" | "storage_daily_limit",
+    code: "source_unavailable" | "fx_unavailable" | "storage_daily_limit" | "source_refresh_pending",
     message: string,
     extra: { reason?: SourceUnavailableReason; retryAfterSec?: number } = {},
   ) {
@@ -166,6 +166,8 @@ export interface SearchDeps {
   scanBudget?: () => Promise<ScanBudgetVerdict>;
   /** Optional live fare sources (quotes.ts). Asked on complete fresh scans only, and only those with a key. */
   quoteSources?: FareQuoteSource[];
+  /** True only after an exact public fare request was accepted by the external collector queue. */
+  pendingRefresh?:()=>boolean;
   /**
    * Serve a cache row older than the TTL (up to STALE_MAX_AGE_HOURS) at once, marked `meta.stale`, and rescan in the
    * background (waitUntil required; one rescan per key per REFRESH_LOCK_SECONDS; the global scan budget applies). Off by
@@ -621,7 +623,7 @@ function historyRows(live: Offer[], fx: FxRates, pax: number, now: Date): Offer[
 
 /** Local retention is distinct from a vendor promise of fare freshness. */
 export function storedQuoteWithinAge(o:Pick<Offer,"source"|"checkedAt">,now:Date):boolean {
-  if(!["turkish","aegean","lufthansa","swiss","austrian","brussels_airlines","ryanair","air_serbia","air_canada","tap","philippine","aer_lingus", "jetblue", "eva", "vietnam", "flydubai", "kenya", "air_astana", "hawaiian", "frontier", "singapore","virgin_atlantic","air_new_zealand","air_baltic","sky_express","gol","ethiopian","copa","american","iberia"].includes(o.source))return ageHours(o.checkedAt,now)<=QUOTE_MAX_AGE_HOURS;
+  if(!["turkish","aegean","lufthansa","swiss","austrian","brussels_airlines","ryanair","air_serbia","air_canada","tap","philippine","aer_lingus", "jetblue", "eva", "vietnam", "royal_air_maroc", "china_airlines", "korean_air", "flydubai", "kenya", "air_astana", "hawaiian", "frontier", "singapore","virgin_atlantic","air_new_zealand","air_baltic","sky_express","gol","ethiopian","copa","american","iberia"].includes(o.source))return ageHours(o.checkedAt,now)<=QUOTE_MAX_AGE_HOURS;
   const age=now.getTime()-Date.parse(o.checkedAt);
   return Number.isFinite(age)&&age>=0&&age<(o.source==="turkish"?3600000:10*60_000);
 }
@@ -1022,6 +1024,10 @@ export async function runSearch(deps: SearchDeps, req: SearchRequest): Promise<S
   // ...but a quote that does not state its return flight cannot pass the user's return-hour window or max stops: the cached fare it replaced stays a 🎯 candidate.
   const guarded = applyPriceGuard(ranking, timeCandidates(working, ranking, req), guard);
   const cards = recommend(guarded.pool, req, SCORING, guarded.timeOnly);
+  if(cards.length===0&&deps.pendingRefresh?.()===true){
+    // This is a polling interval, not a promise that the source will return a price.
+    throw new PipelineError("source_refresh_pending","Selected dates queued for a public fare refresh",{retryAfterSec:60});
+  }
   if (cards.length === 0 && storedReadFailed) {
     if (storedDailyLimit) {
       const midnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
