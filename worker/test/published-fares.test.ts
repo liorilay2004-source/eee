@@ -69,3 +69,16 @@ describe("KLM browser-rendered official dated fare data", () => {
     expect(parsePublishedFares(html([{totalPrice:419.17,currencyCode:"USD"},{...observed,travelClass:"BUSINESS"}]),kl)).toEqual([]);
   });
 });
+
+describe("Aeromexico browser-rendered economy advertisements", () => {
+  const am = { ...query, airline: "AM", origin: "LAX", destination: "MEX", sourceUrl: "https://www.aeromexico.com/en_us/flights-from-los-angeles" };
+  const observed = { ...fare, originAirportCode: "LAX", destinationAirportCode: "MEX", departureDate: "2027-06-02", returnDate: "2027-06-09", flightType: "ROUND_TRIP", travelClass: "MAIN_BASIC", totalPrice: 431.63, currencyCode: "USD" };
+  it("keeps the observed exact-date basic economy round-trip amount", () => {
+    expect(parsePublishedFares(html([observed]), am)).toMatchObject([{ airline: "AM", departDate: "2027-06-02", returnDate: "2027-06-09", amount: 431.63, structure: "roundtrip", pricing: "published_advertisement" }]);
+    expect(parsePublishedFares(html([{ ...observed, travelClass: "MAIN_CLASSIC" }]), am)).toHaveLength(1);
+  });
+  it("rejects premium, missing return dates and same-day unsupported round trips", () => {
+    expect(parsePublishedFares(html([{ ...observed, travelClass: "PREMIER" }, { ...observed, returnDate: null }, { ...observed, returnDate: observed.departureDate }]), am)).toEqual([]);
+    expect(parsePublishedFares(html([{ ...fare, travelClass: "MAIN_BASIC" }]), query)).toEqual([]);
+  });
+});

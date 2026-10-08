@@ -154,3 +154,18 @@ Both isolated rendering probes completed in about six seconds each and the dev p
 Commit 20a6acfe87c1 added a fixed-page, 20-second navigation, one-render-per-hour background collector with Browser Run binding. Search adapter reads public cache only (zero network/browser calls); pipeline D1 enrichment supplies longer-lived stored dated offers. The collector unwraps success/result HTML, limits envelope and HTML size, persists exact dated economy fare rows and contains failures so other cron tasks continue. No billing upgrade, arbitrary URLs or browser launch per user query.
 
 A one-use verification harness invoked the same collector with remote production D1 and Browser Run: ok true, 7 fares, 7 saved. The harness was stopped. Production exact TLV–AMS 2026-12-07 to 12-14 returned KLM enabled/ok, calls 0, offers 1 and a displayed KLM card USD 419.17 (ILS 1,288.53). A competing SerpApi USD 405 card ranked ahead. Worker version 8fdaae60-40f3-465c-8ab7-51dc9719587f; Pages 9d7b691f. The deployed hourly timer has not yet been independently observed firing this new rendered collector; manual harness execution and actual production search are proven. Other routes/dates and checkout inventory remain unproven.
+
+## Aeromexico hosted-browser evidence — 2026-10-08
+
+The standard Cloudflare Browser Run content action successfully rendered
+https://www.aeromexico.com/en_us/flights-from-los-angeles in approximately eight seconds.
+The response was successful, contained dated Fare records in __NEXT_DATA__, and showed no challenge.
+Selected records include LAX–MEX, 2027-06-02 through 2027-06-09, USD 431.63,
+MAIN_BASIC, ROUND_TRIP; and LAX–ACA, 2027-01-17 through 2027-01-23,
+USD 775.50, MAIN_CLASSIC, ROUND_TRIP.
+The visible official page identifies these as economy round-trip advertisements
+available within the previous 48 hours, with possible extra baggage charges.
+The parser now supports only the observed economy cabin identifiers for AM.
+Automatic collection, search-source wiring, cache integration and production verification
+remain outstanding; this evidence does not imply Aeromexico is enabled in production.
+Same-day round-trip records remain unsupported rather than receiving invented dates.
