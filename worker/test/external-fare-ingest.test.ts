@@ -46,3 +46,11 @@ it("does not replace valid snapshots with empty prices",async()=>{const e=env();
 it("bounds payloads and tolerates storage failure",async()=>{const e=env();expect((await ingestPublicFares(request({text:"x".repeat(128001)}),e.value,now)).status).toBe(413);e.write.mockRejectedValue(new Error());expect((await ingestPublicFares(request(),e.value,now)).status).toBe(503);});
 it("bypasses regional data for shared external updates",async()=>{const e=env();expect(externalLhgCache(e.value,now)).toBeUndefined();e.value.EXTERNAL_LHG_COLLECTOR="true";e.read.mockResolvedValue(JSON.stringify({storedAt:now.getTime(),expires:now.getTime()+600000,fares:[{amount:304}]}));expect(await externalLhgCache(e.value,now)!.get(entry.page)).toMatchObject({fares:[{amount:304}]});});
 it.each(["lufthansa","swiss","austrian","brussels_airlines","ryanair","air_serbia","air_canada","tap","philippine","aer_lingus","virgin_atlantic","air_new_zealand","air_baltic","sky_express","gol","ethiopian","copa","american"] as const)("expires stored %s prices at ten minutes",source=>{expect(storedQuoteWithinAge({source,checkedAt:now.toISOString()},new Date(now.getTime()+599999))).toBe(true);expect(storedQuoteWithinAge({source,checkedAt:now.toISOString()},new Date(now.getTime()+600000))).toBe(false);expect(storedQuoteWithinAge({source,checkedAt:now.toISOString()},new Date(now.getTime()-1))).toBe(false);});
+
+it("validates raw Singapore airport/date/cabin rows before saving the larger snapshot",async()=>{
+ const e=env(),row={origin:"SIN",destination:"HND",departureDate:"2027-07-14",returnDate:"2027-07-20",fare:973.6,currency:"SGD",cabinClass:"Y"};
+ const value={source:"singapore",page:"https://www.singaporeair.com/sg/en/plan-travel/destinations/flights-from-singapore-to-tokyo/",checkedAt:now.toISOString(),records:[row,{...row,cabinClass:"J"},{...row,destination:"TYO"}]};
+ expect((await ingestPublicFares(request(value),e.value,now)).status).toBe(200);expect(JSON.parse(e.write.mock.calls[0]![1]).fares).toHaveLength(1);
+ expect((await ingestPublicFares(request({...value,page:"https://evil.example"}),e.value,now)).status).toBe(400);
+ expect((await ingestPublicFares(request({...value,records:[]}),e.value,now)).status).toBe(422);
+});

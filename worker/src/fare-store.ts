@@ -1,5 +1,5 @@
 import {DurableObject} from "cloudflare:workers";
-import {cacheRequest,publicFareMaximumAge} from "./public-fare-cache";
+import {cacheRequest,publicFareMaximumAge,publicFareMaximumRows} from "./public-fare-cache";
 import {aegeanCalendarUrl,type AegeanCalendarTrip,type AegeanCalendarFare} from "./aegean-lowfare";
 import {AEGEAN_CALENDAR_MAX_AGE_MS,validateAegeanCalendar} from "./aegean-calendar-cache";
 import {loadRenderedAegeanCalendar} from "./aegean-lowfare-rendered";
@@ -53,7 +53,7 @@ export class FareStore extends DurableObject<Record<string,unknown>> {
   cacheRequest(key);
   if(typeof payload!=="string"||new TextEncoder().encode(payload).byteLength>500000)throw new Error("Invalid public fare snapshot");
   const data=JSON.parse(payload),now=Date.now();
-  if(!Number.isFinite(data.storedAt)||data.storedAt>now||!Number.isFinite(data.expires)||data.expires<=now||data.expires>data.storedAt+publicFareMaximumAge(key)||!Array.isArray(data.fares)||data.fares.length>500)throw new Error("Invalid public fare lifetime");
+  if(!Number.isFinite(data.storedAt)||data.storedAt>now||!Number.isFinite(data.expires)||data.expires<=now||data.expires>data.storedAt+publicFareMaximumAge(key)||!Array.isArray(data.fares)||data.fares.length>publicFareMaximumRows(key))throw new Error("Invalid public fare lifetime");
   const previous=this.ctx.storage.sql.exec<{stored_at:number}>("SELECT stored_at FROM snapshot WHERE id=1").toArray()[0];
   if(previous&&previous.stored_at>data.storedAt)return;
   this.ctx.storage.sql.exec("INSERT INTO snapshot (id,source_key,payload,stored_at,expires) VALUES (1,?,?,?,?) ON CONFLICT(id) DO UPDATE SET source_key=excluded.source_key,payload=excluded.payload,stored_at=excluded.stored_at,expires=excluded.expires",key,payload,data.storedAt,data.expires);

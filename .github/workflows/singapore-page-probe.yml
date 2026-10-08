@@ -1,10 +1,16 @@
 name: Observed Singapore Airlines public fare data probe
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '8,18,28,38,48,58 * * * *'
+concurrency:
+  group: singapore-external-fares
+  cancel-in-progress: false
 permissions:
   contents: read
 jobs:
   probe:
+    if: github.event_name == 'workflow_dispatch' || vars.EXTERNAL_SINGAPORE_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -14,6 +20,8 @@ jobs:
           node-version: 24
       - run: node --test collector/singapore-observations.test.mjs
       - run: node collector/probe-singapore-pages.mjs
+        env:
+          COLLECTOR_KEY: ${{ secrets.COLLECTOR_KEY }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:

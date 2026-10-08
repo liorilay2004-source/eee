@@ -1,3 +1,4 @@
+import {SINGAPORE_PAGE} from "./sources/singapore-fares";
 import {aegeanCalendarUrl} from "./aegean-lowfare";
 import {EXTERNAL_PUBLISHED_PAGES} from "./external-published-catalog";
 /** Shared public data only. No vendor keys, passenger details or pending promises. */
@@ -8,7 +9,7 @@ export interface PublicFareCache {
 const TTL_MS = 10 * 60_000;
 export const BACKGROUND_FARE_TTL_MS = 36 * 3_600_000;
 const MAX_BYTES = 500_000;
-const hosts = new Set(["www.jetblue.com", "services-api.ryanair.com", "flights.aegeanair.com", "www.aircanada.com", "www.flytap.com", "www.ethiopianairlines.com", "www.aireuropa.com", "flights.philippineairlines.com", "flights.virginatlantic.com", "www.airnewzealand.com", "www.airbaltic.com", "www.skyexpress.gr", "www.voegol.com.br", "www.finnair.com", "www.iberia.com", "www.avianca.com", "www.copaair.com", "www.aeromexico.com", "www.klm.co.il", "www.aa.com", "www.aerlingus.com", "www.airserbia.com", "www.norwegian.com", "www.lufthansa.com", "www.swiss.com", "www.austrian.com", "www.brusselsairlines.com", "www.icelandair.com", "www.eurowings.com", "www.turkishairlines.com"]);
+const hosts = new Set(["www.singaporeair.com", "www.jetblue.com", "services-api.ryanair.com", "flights.aegeanair.com", "www.aircanada.com", "www.flytap.com", "www.ethiopianairlines.com", "www.aireuropa.com", "flights.philippineairlines.com", "flights.virginatlantic.com", "www.airnewzealand.com", "www.airbaltic.com", "www.skyexpress.gr", "www.voegol.com.br", "www.finnair.com", "www.iberia.com", "www.avianca.com", "www.copaair.com", "www.aeromexico.com", "www.klm.co.il", "www.aa.com", "www.aerlingus.com", "www.airserbia.com", "www.norwegian.com", "www.lufthansa.com", "www.swiss.com", "www.austrian.com", "www.brusselsairlines.com", "www.icelandair.com", "www.eurowings.com", "www.turkishairlines.com"]);
 export function cacheRequest(key: string): Request {
   const url = new URL(key);
   if(url.hostname==="en.aegeanair.com") {
@@ -83,6 +84,7 @@ export function cacheRequest(key: string): Request {
   return new Request(`https://eee-api.liorilay2004.workers.dev/__public_fares/${version}/${encodeURIComponent(key)}`);
 }
 
+export const publicFareMaximumRows=(key:string)=>key===SINGAPORE_PAGE?1000:500;
 export const publicFareMaximumAge = (key: string) => EXTERNAL_PUBLISHED_PAGES.some(page=>page.sourceUrl===key) ? TTL_MS : new URL(key).hostname === "www.turkishairlines.com" ? 3600000 : new URL(key).hostname === "en.aegeanair.com" ? TTL_MS : ["services-api.ryanair.com", "www.airserbia.com", "flights.aegeanair.com"].includes(new URL(key).hostname) ? TTL_MS : BACKGROUND_FARE_TTL_MS;
 export function createPublicFareCache(storage: Pick<Cache, "match" | "put">, now: Date, ttlMs = TTL_MS): PublicFareCache {
   if (!Number.isFinite(ttlMs) || ttlMs < TTL_MS || ttlMs > BACKGROUND_FARE_TTL_MS) throw new Error("Invalid public cache lifetime");
@@ -96,13 +98,13 @@ export function createPublicFareCache(storage: Pick<Cache, "match" | "put">, now
         const data = JSON.parse(text) as { expires?: unknown; storedAt?: unknown; fares?: unknown };
         const storedAt = typeof data.storedAt === "number" ? data.storedAt : now.getTime();
         const lifetime = data.storedAt === undefined ? TTL_MS : publicFareMaximumAge(key);
-        if (!Number.isFinite(storedAt) || storedAt > now.getTime() || typeof data.expires !== "number" || !Number.isFinite(data.expires) || data.expires <= now.getTime() || data.expires > storedAt + lifetime || !Array.isArray(data.fares) || data.fares.length > 500) return null;
+        if (!Number.isFinite(storedAt) || storedAt > now.getTime() || typeof data.expires !== "number" || !Number.isFinite(data.expires) || data.expires <= now.getTime() || data.expires > storedAt + lifetime || !Array.isArray(data.fares) || data.fares.length > publicFareMaximumRows(key)) return null;
         return { fares: data.fares as T[], expires: data.expires };
       } catch { return null; }
     },
     async put<T>(key: string, fares: T[]): Promise<void> {
       try {
-        if (fares.length > 500) return;
+        if (fares.length > publicFareMaximumRows(key)) return;
         const lifetime = Math.min(ttlMs, publicFareMaximumAge(key));
         const body = JSON.stringify({ expires: now.getTime() + lifetime, storedAt: now.getTime(), fares });
         if (body.length > MAX_BYTES) return;

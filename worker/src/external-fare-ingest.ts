@@ -1,3 +1,4 @@
+import {singaporeObservations,SINGAPORE_PAGE} from "./sources/singapore-fares";
 import {keyMatches} from "./access";
 import {parseLhgAdvertisements} from "./brussels-advertisements";
 import {EXTERNAL_FARE_PAGES} from "./external-fare-catalog";
@@ -27,6 +28,13 @@ export async function ingestPublicFares(request:Request,env:Env,now=new Date()):
  if(!raw||typeof raw!=="object"||Array.isArray(raw))return reply(400,{error:"invalid_payload"});
  const v=raw as Record<string,unknown>,entry=EXTERNAL_FARE_PAGES.find(p=>p.source===v.source&&p.page===v.page);
  const at=typeof v.checkedAt==="string"?Date.parse(v.checkedAt):NaN,age=now.getTime()-at;
+ if(v.source==="singapore"){
+  if(v.page!==SINGAPORE_PAGE||!Number.isFinite(age)||age<0||age>120000||!Array.isArray(v.records)||v.records.length>1000)return reply(400,{error:"invalid_payload"});
+  let fares;try{fares=singaporeObservations(v.records,new Date(at).toISOString());}catch{return reply(400,{error:"invalid_records"});}
+  if(!fares.length)return reply(422,{error:"no_valid_prices"});
+  try{await env.PUBLIC_FARES.getByName(cacheRequest(SINGAPORE_PAGE).url).write(SINGAPORE_PAGE,JSON.stringify({storedAt:at,expires:at+TTL,fares}));}catch{return reply(503,{error:"storage_unavailable"});}
+  return reply(200,{source:v.source,fares:fares.length,checkedAt:new Date(at).toISOString()});
+ }
  if(v.source==="published_page"){
   const pages=EXTERNAL_PUBLISHED_PAGES.filter(p=>p.airline===v.airline&&p.sourceUrl===v.page),page=pages[0];
   if(!page)return reply(400,{error:"unapproved_page"});
