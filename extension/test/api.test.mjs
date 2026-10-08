@@ -80,6 +80,29 @@ describe("what is sent", () => {
     assert.deepEqual([...(exp?.searchParams ?? [])], [["origin", "TLV"], ["month", "2026-11"], ["limit", "3"]]);
   });
 
+  it("shares only an explicit fare tuple, with no page URL, text, cookies, referrer or retry", async () => {
+    const env = setup(() => response(201, { saved: true }));
+    const observation = { host: "www.lufthansa.com", origin: "TLV", destination: "FRA", departDate: "2027-06-01", returnDate: "2027-06-08", priceAmount: 489.9, currency: "EUR", pageUrl: "https://www.lufthansa.com/?session=secret", pageText: "private text" };
+    assert.deepEqual(await env.client.shareObservation(observation), { ok: true, status: 201 });
+    assert.equal(env.calls.length, 1);
+    const call = env.calls[0];
+    assert.equal(new URL(call.url).pathname, "/api/community-fares");
+    assert.equal(call.init.method, "POST");
+    assert.equal(call.init.credentials, "omit");
+    assert.equal(call.init.referrerPolicy, "no-referrer");
+    assert.equal(call.init.cache, "no-store");
+    assert.equal(call.init.redirect, "error");
+    assert.deepEqual(JSON.parse(call.init.body), { host: "www.lufthansa.com", origin: "TLV", destination: "FRA", departDate: "2027-06-01", returnDate: "2027-06-08", priceAmount: 489.9, currency: "EUR" });
+    assert.equal(call.init.body.includes("session"), false);
+    assert.equal(call.init.body.includes("private text"), false);
+  });
+
+  it("does not share malformed observations", async () => {
+    const env = setup(() => response(201, { saved: true }));
+    assert.deepEqual(await env.client.shareObservation({ host: "invalid host", origin: "TLV", destination: "FRA", departDate: "2027-06-01", returnDate: "2027-06-08", priceAmount: 489.9, currency: "EUR" }), { ok: false, status: 0 });
+    assert.equal(env.calls.length, 0);
+  });
+
   it("no cookies, no referrer, no body, no custom identity: GET with Accept only", async () => {
     const env = setup(() => calendarOk());
     await env.client.lookup(CAL);

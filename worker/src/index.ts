@@ -9,7 +9,6 @@ import {createChinaAirlinesCachedSource} from './sources/china-airlines-cached';
 import {createKoreanCachedSource} from './sources/korean-cached';
 import {createFlydubaiCachedSource} from './sources/flydubai-cached';
 import {createKenyaCachedSource} from './sources/kenya-cached';
-import {usesExternalPublishedCollector} from "./external-collection";
 import {ingestPublicFares,externalLhgCache} from "./external-fare-ingest";
 import {getOrCollectAegean,hasPendingAegean} from "./aegean-on-demand";
 export {FareStore} from "./fare-store";
@@ -64,6 +63,7 @@ import { EXPLORE_RATE_LIMIT_MAX, EXPLORE_RATE_LIMIT_WINDOW_SECONDS, ExploreError
 import { getFxRates } from "./fx";
 import { readFxCache } from "./fx-cache";
 import { handleFlightLinks } from "./flight-links";
+import { handleCommunityFares } from "./community-fares";
 import { checkHealth } from "./health";
 import { handlePartyCheck, signPartyToken } from "./partycheck";
 import { defaultResolver, PipelineError, runSearch, sha256Hex, type ScanBudgetVerdict } from "./pipeline";
@@ -96,39 +96,22 @@ import { createGolPublishedSource } from "./sources/gol-published";
 import { createAirNzPublishedSource } from "./sources/airnz-published";
 import { createVirginPublishedSource } from "./sources/virgin-published";
 import { createDirectCombinationSource } from "./sources/direct-combination";
-import { BACKGROUND_FARE_TTL_MS } from "./public-fare-cache";
 import {handleAegeanDemand} from "./aegean-demand-handler";
-import { runCollectionQueue } from "./collection-queue";
-import { collectRenderedKlm } from "./rendered-collection";
-import { collectRenderedFinnair } from "./finnair-rendered";
 import { createFinnairCachedSource } from "./sources/finnair-cached";
-import {collectRenderedAustrian} from "./austrian-rendered";
 import {createAustrianCachedSource} from "./sources/austrian-cached";
-import {collectRenderedSwiss} from "./swiss-rendered";
 import {createSwissCachedSource} from "./sources/swiss-cached";
-import { collectRenderedLufthansa } from "./lufthansa-rendered";
 import { createLufthansaCachedSource } from "./sources/lufthansa-cached";
-import { collectRenderedBrussels } from "./brussels-rendered";
 import { createBrusselsCachedSource } from "./sources/brussels-cached";
-import { collectRenderedIcelandair } from "./icelandair-rendered";
-import { collectRenderedEurowings } from "./eurowings-rendered";
 import { createEurowingsCachedSource } from "./sources/eurowings-cached";
 import { createIcelandairCachedSource } from "./sources/icelandair-cached";
 import { createNorwegianCachedSource, norwegianCollectionMonth } from "./sources/norwegian-cached";
-import { collectNorwegianMonth } from "./norwegian-rendered";
-import { collectRenderedIberia } from "./iberia-rendered";
 import { createIberiaCachedSource } from "./sources/iberia-cached";
-import { collectRenderedAvianca } from "./avianca-rendered";
 import { createAviancaCachedSource } from "./sources/avianca-cached";
-import { collectRenderedCopa } from "./copa-rendered";
 import { createCopaCachedSource } from "./sources/copa-cached";
-import { collectRenderedAeromexico } from "./aeromexico-rendered";
 import { createAeromexicoCachedSource } from "./sources/aeromexico-cached";
 import { createKlmCachedSource } from "./sources/klm-cached";
-import { collectPublishedPages } from "./published-collection";
 import { createWegoSource } from "./sources/wego";
 import { pickSnapshotRoute, runSnapshot } from "./snapshots";
-import {collectRecentAegeanCalendar} from "./aegean-calendar-collection";
 import { secretMatches, telegramConfig } from "./telegram";
 import { createTravelpayoutsClient, marketForCountry } from "./travelpayouts";
 import type { Env } from "./types";
@@ -653,6 +636,7 @@ const ROUTES: Record<string, string> = {
   "/api/sources": "GET",
   "/api/source-setup": "GET",
   "/api/flight-links": "GET, POST",
+  "/api/community-fares": "GET, POST",
   "/api/health": "GET",
   "/api/watches": "POST",
   "/api/telegram/webhook": "POST",
@@ -713,6 +697,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext): Promise
   if (path === "/api/sources") return { status: 200, body: { sources: sourceRegistry(), generatedAt: new Date().toISOString() } };
   if (path === "/api/source-setup") return { status: 200, body: sourceSetup(env, new Date()) };
   if (path === "/api/flight-links") return handleFlightLinks({ env, now: new Date(), ip: request.headers.get("CF-Connecting-IP") ?? "unknown" }, request.method as "GET" | "POST", () => readJson(request));
+  if (path === "/api/community-fares") return handleCommunityFares(request, env, new Date(), request.headers.get("CF-Connecting-IP") ?? "unknown");
   if (path === "/api/calendar") return handleCalendar(request, url, env, ctx);
   if (path === "/api/explore") return handleExplore(request, url, env, ctx);
   return handleHealth(env);
@@ -736,32 +721,8 @@ export default {
         marketFor: (origin) => marketForCountry(defaultResolver.countryOfAirport(origin)),
       });
       const [origin, destination] = pickSnapshotRoute(now);
-      const browserJobs: Array<() => Promise<unknown>> = [];
-      if(env.TURKISH_RENDERED_ENABLED==="true" && env.BROWSER && typeof caches!=="undefined") browserJobs.push(()=>collectTurkishFares(env.BROWSER!,createSharedFareCache(env.PUBLIC_FARES,caches.default,now,BACKGROUND_FARE_TTL_MS),now).then(fares=>console.log("Turkish public collection:",JSON.stringify({fares}))));
-      if(env.AEGEAN_PUBLISHED_ENABLED==="true"&&now.getUTCHours()%12===5&&typeof caches!=="undefined")browserJobs.push(()=>collectRecentAegeanCalendar(env,now,createSharedFareCache(env.PUBLIC_FARES,caches.default,now,6*3600000)).then(result=>console.log("Aegean exact calendar collection:",JSON.stringify(result))));
-      if (now.getUTCHours() % 6 === 4) browserJobs.push(() => collectRenderedEurowings({env, now, destination: now.getUTCHours() % 12 === 4 ? "DUS" : "ATH", cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined}).then(result => console.log("Eurowings collection:", JSON.stringify(result))));
-      if (env.EXTERNAL_LHG_COLLECTOR!=="true" && env.AUSTRIAN_RENDERED_ENABLED === "true" && now.getUTCHours() % 12 === 11) browserJobs.push(() => collectRenderedAustrian({env,now,cache:typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default,now,BACKGROUND_FARE_TTL_MS) : undefined}).then(result => console.log("Austrian collection:",JSON.stringify(result))));
-      if (env.EXTERNAL_LHG_COLLECTOR!=="true" && env.SWISS_RENDERED_ENABLED === "true" && now.getUTCHours() % 12 === 9) browserJobs.push(() => collectRenderedSwiss({env,now,cache:typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default,now,BACKGROUND_FARE_TTL_MS) : undefined}).then(result => console.log("SWISS collection:",JSON.stringify(result))));
-      if (env.EXTERNAL_LHG_COLLECTOR!=="true" && now.getUTCHours() % 12 === 7) browserJobs.push(() => collectRenderedLufthansa({ env, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Lufthansa collection:", JSON.stringify(result))));
-      if (env.EXTERNAL_LHG_COLLECTOR!=="true" && now.getUTCHours() % 12 === 6) browserJobs.push(() => collectRenderedBrussels({ env, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Brussels collection:", JSON.stringify(result))));
-      if (now.getUTCHours() % 6 === 2) browserJobs.push(() => collectRenderedIcelandair({ env, repo, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Icelandair collection:", JSON.stringify(result))));
-      if (env.NORWEGIAN_RENDERED_ENABLED === "true") browserJobs.push(() => collectNorwegianMonth(env, norwegianCollectionMonth(now), now, typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined).then(result => console.log("Norwegian collection:", JSON.stringify(result))).catch(() => console.error("Norwegian collection unavailable")));
-      if (!usesExternalPublishedCollector(env,"iberia") && now.getUTCHours() === 3) browserJobs.push(() => collectRenderedIberia({ env, repo, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Iberia collection:", JSON.stringify(result))));
-      if (now.getUTCHours() === 1) browserJobs.push(() => collectRenderedFinnair({ env, repo, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Finnair collection:", JSON.stringify(result))));
-      if (now.getUTCHours() % 6 === 0) browserJobs.push(() => collectRenderedAvianca({ env, repo, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Avianca collection:", JSON.stringify(result))));
-      if (!usesExternalPublishedCollector(env,"copa") && now.getUTCHours() % 4 === 0) browserJobs.push(() => collectRenderedCopa({ env, repo, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Copa collection:", JSON.stringify(result))));
-      if (now.getUTCHours() % 2 === 0) browserJobs.push(() => collectRenderedAeromexico({ env, repo, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Aeromexico collection:", JSON.stringify(result))));
-      if (now.getUTCHours() % 2 === 0) browserJobs.push(() => collectRenderedKlm({ env, repo, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("rendered collection:", JSON.stringify(result))));
-      // Airline pages do not expose a general fare-change push feed. Do not scrape them on a timer by default;
-      // enable this only for a source with an explicit feed/collection agreement. User-initiated searches remain separate.
-      if (env.AIRLINE_BACKGROUND_COLLECTION_ENABLED === "true") {
-        ctx.waitUntil(runCollectionQueue(browserJobs));
-        ctx.waitUntil(collectPublishedPages({ env, repo, now, fetchFn,
-          cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined,
-        }).then(result => {
-          console.log("published collection:", JSON.stringify(result));
-        }));
-      }
+      // Airline sites are observed only in a user-open tab through DOM/navigation events.
+      // The scheduled snapshot below uses the configured price API; it never visits airline pages.
       // Then the route's deal report, as of AFTER the scan (a fresh Date, not the scheduled time: see detectDeals).
       // Only D1 reads and one upsert; it runs even when the scan was skipped or failed (user searches add history too).
       ctx.waitUntil(

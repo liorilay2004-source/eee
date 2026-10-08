@@ -661,7 +661,28 @@
       return authInflight;
     }
 
-    return { lookup, checkAuth };
+    /** Share one locally captured fare only after a direct click in the toolbar popup. No URL or page text is sent. */
+    async function shareObservation(input) {
+      if (!isRecord(input) || typeof input.host !== "string" || !/^(?:[a-z0-9-]+\.)+[a-z]{2,}$/i.test(input.host)
+        || typeof input.origin !== "string" || !IATA.test(input.origin)
+        || typeof input.destination !== "string" || !IATA.test(input.destination) || input.origin === input.destination
+        || typeof input.departDate !== "string" || !DAY.test(input.departDate)
+        || typeof input.returnDate !== "string" || !DAY.test(input.returnDate) || input.returnDate <= input.departDate
+        || typeof input.priceAmount !== "number" || !Number.isFinite(input.priceAmount) || input.priceAmount < 1 || input.priceAmount > 250000
+        || typeof input.currency !== "string" || !/^[A-Z]{3}$/.test(input.currency)) return { ok: false, status: 0 };
+      try {
+        const access = deps.access ? await deps.access.load().catch(() => ({ key: null, rejected: false })) : { key: null, rejected: false };
+        if (access.rejected) return { ok: false, status: 401 };
+        const headers = { Accept: "application/json", "Content-Type": "application/json", ...(access.key ? { Authorization: `Bearer ${access.key}` } : {}) };
+        const body = JSON.stringify({ host: input.host, origin: input.origin, destination: input.destination, departDate: input.departDate, returnDate: input.returnDate, priceAmount: input.priceAmount, currency: input.currency });
+        const res = await deps.fetch(new URL("/api/community-fares", API_BASE).toString(), {
+          method: "POST", credentials: "omit", referrerPolicy: "no-referrer", cache: "no-store", redirect: "error", headers, body,
+        });
+        return { ok: res.status === 201, status: res.status };
+      } catch { return { ok: false, status: 0 }; }
+    }
+
+    return { lookup, checkAuth, shareObservation };
   }
 
   EEE.api = Object.freeze({

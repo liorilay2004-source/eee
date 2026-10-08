@@ -744,7 +744,7 @@ export const PRICES_GRACE_DAYS = 7;
 /** Search log kept for analytics only (docs/WEB_APP_SPEC.md D11). */
 export const SEARCHES_RETENTION_DAYS = 90;
 
-export type PruneResult = Record<"prices" | "searches" | "search_cache" | "rate_limits", number>;
+export type PruneResult = Record<"prices" | "searches" | "search_cache" | "rate_limits" | "community_fares", number>;
 
 /**
  * Retention for the tables that only ever grow. Meant for the daily cron trigger (index.ts `scheduled`): the
@@ -763,7 +763,8 @@ export async function pruneHistory(db: D1Database, now: Date): Promise<PruneResu
     db.prepare("DELETE FROM searches WHERE created_at < ?").bind(searchCutoff),
     db.prepare("DELETE FROM search_cache WHERE created_at < ?").bind(cacheCutoff),
     db.prepare("DELETE FROM rate_limits WHERE window_start < ?").bind(rateCutoff),
+    db.prepare("DELETE FROM community_fares WHERE observed_at < ?").bind(new Date(ms - 7 * DAY_MS).toISOString()),
   ]);
   const changed = (i: number): number => results[i]?.meta.changes ?? 0;
-  return { prices: changed(0), searches: changed(1), search_cache: changed(2), rate_limits: changed(3) };
+  return { prices: changed(0), searches: changed(1), search_cache: changed(2), rate_limits: changed(3), community_fares: changed(4) };
 }

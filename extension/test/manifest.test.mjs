@@ -76,6 +76,7 @@ describe("content scripts", () => {
     assert.match(listener, /new MutationObserver/);
     assert.doesNotMatch(listener, /setInterval\s*\(/);
     assert.match(listener, /chrome\.runtime\.sendMessage\(\{ type: "siteObservation"/);
+    assert.match(read("popup/popup.js"), /type: "shareObservation", key: row\.key/);
   });
 
   it("classic scripts: no import/export statements in anything a content script loads", () => {

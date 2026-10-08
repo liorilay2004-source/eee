@@ -205,6 +205,27 @@ export interface FlightLinksResponse {
   generatedAt: string;
 }
 
+/** A browser-shared price is intentionally separate from Offer/Card and is never treated as a verified booking quote. */
+export interface CommunityFareObservation {
+  host: string;
+  origin: string;
+  destination: string;
+  departDate: string;
+  returnDate: string;
+  priceAmount: number;
+  currency: string;
+  observations: number;
+  observedAt: string;
+  verification: "unverified";
+  link: string;
+}
+
+export interface CommunityFaresResponse {
+  fares: CommunityFareObservation[];
+  generatedAt: string;
+  noticeHe: string;
+}
+
 export interface SourceSetupStatus {
   id: string;
   name: string;
@@ -579,8 +600,6 @@ export interface Env {
   LOCAL_COLLECTOR_KEY?: string;
   EXTERNAL_LHG_COLLECTOR?: string;
   EXTERNAL_PUBLISHED_COLLECTOR?: string;
-  /** Opt-in only: scheduled collection of airline pages is disabled unless a feed contract requires it. */
-  AIRLINE_BACKGROUND_COLLECTION_ENABLED?: string;
   PUBLIC_FARES?: import("./shared-fare-cache").FareStoreNamespace;
   DB: D1Database;
   BROWSER?: { quickAction(action: "content", options: { url: string; gotoOptions: { waitUntil: "networkidle2" | "domcontentloaded"; timeout: number }; waitForSelector?: { selector: string; timeout: number }; waitForTimeout?: number; rejectResourceTypes: string[] }): Promise<Response> };

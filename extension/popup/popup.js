@@ -189,7 +189,25 @@
       details.textContent = `${row.departDate} – ${row.returnDate} · ${row.priceAmount} ${row.currency}`;
       const host = document.createElement("small");
       host.textContent = row.host;
-      item.append(route, details, host);
+      const share = document.createElement("button");
+      share.type = "button";
+      share.textContent = row.sharedAt ? "שותף למנוע" : "שלח למנוע";
+      share.disabled = Boolean(row.sharedAt);
+      share.setAttribute("aria-label", `${share.textContent}: ${row.origin} אל ${row.destination}`);
+      share.addEventListener("click", () => {
+        share.disabled = true;
+        host.textContent = "שולחים תצפית לא מאומתת…";
+        chrome.runtime.sendMessage({ type: "shareObservation", key: row.key }, (result) => {
+          if (result?.ok) {
+            host.textContent = "נשלח למנוע, מסומן כלא מאומת";
+            share.textContent = "שותף למנוע";
+          } else {
+            host.textContent = result?.status === 429 ? "אפשר לשתף תצפית פעם בדקה" : "לא נשלח. בדקו חיבור או מפתח גישה ונסו שוב.";
+            share.disabled = false;
+          }
+        });
+      });
+      item.append(route, details, host, share);
       if (typeof row.previousPriceAmount === "number") {
         const change = document.createElement("small");
         change.textContent = `המחיר השתנה מ־${row.previousPriceAmount} ${row.currency}`;
@@ -206,7 +224,7 @@
       const sitesResponse = await fetch(chrome.runtime.getURL("data/airline-sites.json"));
       const sites = sitesResponse.ok ? await sitesResponse.json() : [];
       const supported = url?.protocol === "https:" && Array.isArray(sites)
-        && sites.some((site) => url.hostname === site.host || url.hostname.endsWith(`.${site.host}`));
+        && sites.some((site) => url.hostname.replace(/^www\./, "") === site.host.replace(/^www\./, ""));
       siteButton.disabled = !supported || activeTabId === null;
       siteButton.textContent = supported ? "התחל / הפסק האזנה בטאב הזה" : "פתחו עמוד של חברת תעופה";
       siteStatus.textContent = supported ? `עמוד מזוהה: ${url.hostname}` : "ההאזנה זמינה באתרי חברות התעופה שבקטלוג.";

@@ -11,8 +11,8 @@ import { BoardingPass, CompactCard, FlightDetailsCard, PassSkeleton } from "../c
 import { WatchPanel } from "../components/WatchPanel";
 import { metaNotes, staleBadge } from "../lib/cards";
 import { clearPrefillNotice, peekPrefillNotice } from "../lib/prefill";
-import { fetchFlightLinks, fetchSources, RequestError, saveFlightLink, searchFlights } from "../api/client";
-import type { CardView, FlightLinkMemory, SearchRequest, SearchResponse, SourceRegistryEntry, SourceRegistryStatus, SourceStatus } from "../api/contract";
+import { fetchCommunityFares, fetchFlightLinks, fetchSources, RequestError, saveFlightLink, searchFlights } from "../api/client";
+import type { CardView, CommunityFareObservation, FlightLinkMemory, SearchRequest, SearchResponse, SourceRegistryEntry, SourceRegistryStatus, SourceStatus } from "../api/contract";
 import { he } from "../copy/he";
 import { PRODUCT_NAME } from "../config";
 import {
@@ -565,8 +565,41 @@ function EmptyState({ submitted, response, knownSources, onTry, onEdit }: { subm
         <MapPinned size={20} aria-hidden="true" /><span><strong>גם שדות תעופה קרובים</strong><small>במוצא וביעד</small></span></button>}
     </div>
     <OfficialAirlineLinks sources={registry} />
+    <CommunityFarePanel request={submitted.request} />
     <button type="button" className="btn btn-ghost" onClick={onEdit}><PencilLine size={18} aria-hidden="true" />שינוי חיפוש</button>
   </StateCard>;
+}
+
+function CommunityFarePanel({ request }: { request: SearchRequest }) {
+  const [fares, setFares] = useState<CommunityFareObservation[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    const abort = new AbortController();
+    setLoaded(false);
+    void fetchCommunityFares(request, abort.signal).then((data) => {
+      setFares(data.fares.filter((fare) => fare.verification === "unverified" && /^https:\/\//.test(fare.link)));
+      setLoaded(true);
+    }, () => { if (!abort.signal.aborted) { setFares([]); setLoaded(true); } });
+    return () => abort.abort();
+  }, [request]);
+  if (!loaded || fares.length === 0) return null;
+  return <section className="community-fares" aria-labelledby="community-fares-title">
+    <h3 id="community-fares-title">מחירים שנצפו באתרי חברות תעופה</h3>
+    <p>תצפיות ששיתפו משתמשים, לא מאומתות. המחיר, מספר הנוסעים, הכבודה והזמינות עשויים להיות שונים; בדקו באתר החברה. הסכומים מסודרים בתוך כל מטבע.</p>
+    <ol>
+      {fares.map((fare) => {
+        let price = `${fare.priceAmount} ${fare.currency}`;
+        try { price = new Intl.NumberFormat("he-IL", { style: "currency", currency: fare.currency }).format(fare.priceAmount); } catch { /* keep the safe amount and code */ }
+        const date = (value: string) => formatShortDate(value);
+        const host = fare.host.replace(/^www\./, "");
+        return <li key={`${fare.host}-${fare.departDate}-${fare.returnDate}-${fare.priceAmount}-${fare.currency}`}>
+          <span><strong>{host}</strong><small><span dir="ltr" className="num">{date(fare.departDate)} – {date(fare.returnDate)}</span> · {checkedAtText(fare.observedAt)} · {fare.observations === 1 ? "דיווח אחד" : `${fare.observations} דיווחים`}</small></span>
+          <b className="num" dir="ltr">{price}</b>
+          <a href={fare.link} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">בדיקה באתר <ExternalLink size={15} aria-hidden="true" /></a>
+        </li>;
+      })}
+    </ol>
+  </section>;
 }
 
 
@@ -715,6 +748,7 @@ function Results({ submitted, response, dimmed, announce, knownSources }: { subm
     {truncated && <p className="calm-note"><Info size={18} aria-hidden="true" /><span>{he.truncated}</span></p>}
     <FlightDetailsCard card={hero} request={request} originLabel={originLabel} destinationLabel={destinationLabel} />
     <AirlinePriceLinksPanel response={response} />
+    <CommunityFarePanel request={request} />
     {others.length > 0 && <>
       <h3 className="minis-title">עוד אפשרויות ששווה להכיר</h3>
       <div className="flight-details-list">{others.map((card) => <FlightDetailsCard key={`${card.offer.departDate}-${card.offer.returnDate}-${card.kinds.join("-")}`} card={card} request={request} originLabel={originLabel} destinationLabel={destinationLabel} />)}</div>

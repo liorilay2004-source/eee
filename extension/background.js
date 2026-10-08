@@ -96,7 +96,7 @@ async function rememberSiteObservation(value, sender) {
   if (!sender.tab || sender.frameId !== 0 || !sender.url || !value || typeof value !== "object") return { saved: false };
   let host;
   try { host = new URL(sender.url).hostname.toLowerCase(); } catch { return { saved: false }; }
-  if (!(await airlineHosts()).some((allowed) => host === allowed || host.endsWith(`.${allowed}`))) return { saved: false };
+  if (!(await airlineHosts()).some((allowed) => host.replace(/^www\./, "") === allowed.replace(/^www\./, ""))) return { saved: false };
   const { origin, destination, departDate, returnDate, priceAmount, currency } = value;
   if (typeof origin !== "string" || !/^[A-Z]{3}$/.test(origin)
     || typeof destination !== "string" || !/^[A-Z]{3}$/.test(destination) || origin === destination
@@ -126,6 +126,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // An extension page (the toolbar popup), never a content script: those always run in a tab.
     if (message.type === "authCheck") {
       client.checkAuth().then(sendResponse, () => sendResponse({ outcome: "offline" }));
+      return true;
+    }
+    if (message.type === "shareObservation" && typeof message.key === "string") {
+      chrome.storage.local.get(SITE_OBSERVATIONS_KEY).then(async (storage) => {
+        const rows = Array.isArray(storage[SITE_OBSERVATIONS_KEY]) ? storage[SITE_OBSERVATIONS_KEY] : [];
+        const row = rows.find((item) => item?.key === message.key);
+        if (!row) return { ok: false, status: 400 };
+        const result = await client.shareObservation({ host: row.host, origin: row.origin, destination: row.destination, departDate: row.departDate, returnDate: row.returnDate, priceAmount: row.priceAmount, currency: row.currency });
+        if (result.ok) {
+          const next = rows.map((item) => item?.key === row.key ? { ...item, sharedAt: new Date().toISOString() } : item);
+          await chrome.storage.local.set({ [SITE_OBSERVATIONS_KEY]: next });
+        }
+        return result;
+      }).then(sendResponse, () => sendResponse({ ok: false, status: 0 }));
       return true;
     }
     return false;

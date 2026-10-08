@@ -1,5 +1,7 @@
 export type {
   CardView,
+  CommunityFareObservation,
+  CommunityFaresResponse,
   FlightLinkMemory,
   FlightLinkParse,
   FlightLinkRequest,

@@ -1,7 +1,7 @@
 /**
  * Privacy and page-content guarantees, checked in the source:
  *  - Google content scripts never make a network request and read only location/title;
- *  - the user-activated airline listener reads a visible fare candidate and sends only a small tuple to local extension storage;
+ *  - the user-activated airline listener reads visible fare candidates into local storage; the toolbar shares one only after a separate click;
  *  - the only network code is lib/api.js; the popup and service worker read packaged JSON locally.
  */
 import assert from "node:assert/strict";
@@ -96,7 +96,7 @@ describe("network code", () => {
     assert.deepEqual(fetches, ["url, init", 'chrome.runtime.getURL("data/index.json"', 'chrome.runtime.getURL("data/airline-sites.json"']);
     const api = code("lib/api.js");
     // Two call sites, both to the API: the lookup, and the popup's key check (through the service worker).
-    assert.deepEqual([...api.matchAll(/\bfetch\s*\(/g)].length, 2);
+    assert.deepEqual([...api.matchAll(/\bfetch\s*\(/g)].length, 3);
     assert.match(api, /deps\.fetch\(buildUrl\(req\)/);
     assert.match(api, /deps\.fetch\(new URL\(AUTH_CHECK_PATH, API_BASE\)\.toString\(\)/);
     assert.deepEqual([...code("popup/popup.js").matchAll(/\bfetch\s*\(([^)]*)/g)].map((m) => m[1].trim()), ['chrome.runtime.getURL("data/airline-sites.json"']);
@@ -119,16 +119,23 @@ describe("network code", () => {
     assert.match(main, /const req = Q\.apiRequest\(lookup\)/);
   });
 
-  it("the airline listener sends only extracted fare fields, and the background stores no page URL or content", () => {
+  it("the airline listener stores only extracted fare fields, and sharing posts only that explicit tuple", () => {
     const listener = code("content/site-listener.js");
     for (const field of ["origin", "destination", "departDate", "returnDate", "priceAmount", "currency"]) assert.ok(listener.includes(field));
     assert.doesNotMatch(listener, /pageText|document\.URL|location\.href.*sendMessage|sendMessage.*location\.href/);
     const bg = code("background.js");
     assert.match(bg, /message\.type === "siteObservation"/);
     assert.match(bg, /sender\.frameId !== 0/);
-    assert.match(bg, /host === allowed \|\| host\.endsWith/);
+    assert.match(bg, /host\.replace\(\/\^www\\\.\/, ""\).*allowed\.replace\(\/\^www\\\.\/, ""\)/);
+    assert.doesNotMatch(bg, /host\.endsWith\(`\.\$\{allowed\}`\)/);
     assert.match(bg, /chrome\.storage\.local\.set\(\{ \[SITE_OBSERVATIONS_KEY\]: next \}\)/);
     assert.doesNotMatch(bg, /url:\s*sender\.url|pageText|bodyText/);
+    const api = code("lib/api.js");
+    assert.match(api, /new URL\("\/api\/community-fares", API_BASE\)/);
+    assert.doesNotMatch(api, /pageText|location\.href|document\.URL/, "the network client must not read page context");
+    const share = api.slice(api.indexOf("async function shareObservation"), api.indexOf("return { lookup, checkAuth, shareObservation }"));
+    assert.match(share, /body = JSON\.stringify\(\{ host: input\.host, origin: input\.origin, destination: input\.destination, departDate: input\.departDate, returnDate: input\.returnDate, priceAmount: input\.priceAmount, currency: input\.currency \}\)/);
+    assert.match(share, /method: "POST", credentials: "omit", referrerPolicy: "no-referrer", cache: "no-store", redirect: "error"/);
   });
 
   it("the service worker answers only this extension's own scripts: page lookups/observations, key checks only from popup", () => {
@@ -142,6 +149,7 @@ describe("network code", () => {
     assert.match(noTabBlock, /return false;\s*\}\s*$/);
     assert.doesNotMatch(noTabBlock, /"index"|"lookup"/);
     assert.match(bg, /message\.type === "siteObservation"/);
+    assert.match(bg, /message\.type === "shareObservation"/);
     assert.equal(manifest.externally_connectable, undefined);
   });
 

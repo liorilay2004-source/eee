@@ -825,6 +825,14 @@ p { text-wrap: pretty; }
 .alert-card .calm-note { margin: 0; }
 .alert-fail p { margin: 0; color: var(--ink-2); }
 .results > .disclaimer { max-width: 760px; margin-inline: auto; margin-top: 18px; }
+.community-fares { max-width: 760px; margin: 18px auto; padding: 16px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.community-fares h3 { margin: 0; font-size: 18px; }
+.community-fares > p { margin: 5px 0 12px; color: var(--ink-2); font-size: 14px; }
+.community-fares ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.community-fares li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.community-fares li > span { display: grid; gap: 3px; }
+.community-fares li small { color: var(--ink-2); }
+.community-fares li > a { grid-column: 1 / -1; width: fit-content; display: inline-flex; align-items: center; gap: 5px; color: var(--brand); font-weight: 700; text-decoration: underline; }
 
 /* ------------------------------------------------------------------ legal */
 .legal { padding-top: 12px; }

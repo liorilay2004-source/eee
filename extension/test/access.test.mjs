@@ -601,7 +601,7 @@ describe("review fixes: the service worker itself (background.js, with a fake ch
     const levels = [];
     /** @type {((m: any, s: any, r: (v: unknown) => void) => boolean)[]} */
     const listeners = [];
-    const store = area({ [K.KEY]: { key: KEY, rejected: false } });
+    const store = area({ [K.KEY]: { key: KEY, rejected: false }, "eee.siteObservations": [{ key: "saved-row", host: "www.lufthansa.com", origin: "TLV", destination: "FRA", departDate: "2027-06-01", returnDate: "2027-06-08", priceAmount: 489.9, currency: "EUR", pageUrl: "must-not-send" }] });
     const chrome = {
       runtime: { id: "eee-test", getURL: (/** @type {string} */ p) => `chrome-extension://eee-test/${p}`, onMessage: { addListener: (/** @type {any} */ fn) => void listeners.push(fn) } },
       storage: {
@@ -613,7 +613,7 @@ describe("review fixes: the service worker itself (background.js, with a fake ch
     /** @type {any} */ (globalThis).chrome = chrome;
     /** @type {{ url: string, init: any }[]} */
     const fetches = [];
-    /** @type {any} */ (globalThis).fetch = async (/** @type {string} */ url, /** @type {any} */ init) => (fetches.push({ url, init }), response(204, ""));
+    /** @type {any} */ (globalThis).fetch = async (/** @type {string} */ url, /** @type {any} */ init) => (fetches.push({ url, init }), response(url.includes("/api/community-fares") ? 201 : 204, ""));
     await import("../background.js"); // a rejected setAccessLevel (an older Chrome) must not break the start
     assert.deepEqual(levels, [{ accessLevel: "TRUSTED_CONTEXTS" }]);
     assert.match(code("background.js"), /chrome\.storage\.local\.setAccessLevel\?\.\(\{ accessLevel: "TRUSTED_CONTEXTS" \}\)/);
@@ -625,11 +625,18 @@ describe("review fixes: the service worker itself (background.js, with a fake ch
         if (!handled) resolve("unhandled");
       });
     assert.equal(await ask({ type: "authCheck" }, { id: "eee-test", tab: { id: 1 } }), "unhandled"); // a content script (a tab) cannot check
+    assert.equal(await ask({ type: "shareObservation", key: "saved-row" }, { id: "eee-test", tab: { id: 1 } }), "unhandled"); // only the user-operated popup can share
     assert.equal(await ask({ type: "lookup", req: CAL }, { id: "eee-test" }), "unhandled"); // the popup does not look up
     assert.equal(await ask({ type: "authCheck" }, { id: "other" }), "unhandled"); // another extension
     assert.deepEqual(await ask({ type: "authCheck" }, { id: "eee-test" }), { outcome: "ok" }); // the toolbar popup
-    assert.equal(fetches.length, 1);
+    assert.deepEqual(await ask({ type: "shareObservation", key: "saved-row" }, { id: "eee-test" }), { ok: true, status: 201 });
+    assert.equal(fetches.length, 2);
     assert.equal(new URL(fetches[0].url).pathname, A.AUTH_CHECK_PATH);
     assert.deepEqual(fetches[0].init.headers, { Accept: "application/json", Authorization: `Bearer ${KEY}` });
+    assert.equal(new URL(fetches[1].url).pathname, "/api/community-fares");
+    assert.deepEqual(JSON.parse(fetches[1].init.body), { host: "www.lufthansa.com", origin: "TLV", destination: "FRA", departDate: "2027-06-01", returnDate: "2027-06-08", priceAmount: 489.9, currency: "EUR" });
+    assert.equal(fetches[1].init.headers.Authorization, `Bearer ${KEY}`);
+    assert.equal(fetches[1].init.body.includes("must-not-send"), false);
+    assert.ok((await store.get("eee.siteObservations"))["eee.siteObservations"][0].sharedAt);
   });
 });

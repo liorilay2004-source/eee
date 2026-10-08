@@ -833,14 +833,14 @@ describe("pruneHistory (daily retention)", () => {
     const nowSec = Math.floor(NOW.getTime() / 1000);
     await db.prepare("INSERT INTO rate_limits (key, window_start, count) VALUES (?, ?, 1), (?, ?, 1)").bind("dead", nowSec - 2 * 86_400, "live", nowSec - 60).run();
     const res = await pruneHistory(db, NOW);
-    expect(res).toEqual({ prices: 0, searches: 1, search_cache: 1, rate_limits: 1 });
+    expect(res).toEqual({ prices: 0, searches: 1, search_cache: 1, rate_limits: 1, community_fares: 0 });
     expect(await count(db, "searches")).toBe(1);
     expect(await count(db, "search_cache")).toBe(1);
     expect(await count(db, "rate_limits")).toBe(1);
   });
 
   it("is a no-op on an empty database", async () => {
-    expect(await pruneHistory(createTestD1(), NOW)).toEqual({ prices: 0, searches: 0, search_cache: 0, rate_limits: 0 });
+    expect(await pruneHistory(createTestD1(), NOW)).toEqual({ prices: 0, searches: 0, search_cache: 0, rate_limits: 0, community_fares: 0 });
   });
 });
 
@@ -962,7 +962,7 @@ describe("pruneHistory leaves the quota counters alone", () => {
     await db.prepare("INSERT INTO search_cache (search_key, offers_json, created_at) VALUES (?, ?, ?)").bind("stale", "[]", ago(8 * DAY)).run();
 
     const res = await pruneHistory(db, NOW);
-    expect(res).toEqual({ prices: 0, searches: 0, search_cache: 1, rate_limits: 0 });
+    expect(res).toEqual({ prices: 0, searches: 0, search_cache: 1, rate_limits: 0, community_fares: 0 });
     expect((await db.prepare("SELECT source, period, used, updated_at FROM source_quota ORDER BY source").all()).results).toEqual([
       { source: "ignav", period: "lifetime", used: 1, updated_at: long.toISOString() },
       { source: "serpapi", period: "2020-01", used: 2, updated_at: long.toISOString() },

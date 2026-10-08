@@ -9,6 +9,7 @@ import { clearAccessKey, emitAccessEvent, getAccessKey } from "../lib/access-key
 import type {
   AirportLookup, AirportSuggestion, ApiError, CountrySuggestion, CalendarResponse, CreateWatchRequest, CreateWatchResponse, DealsResponse, ExploreResponse,
   FlightLinkRequest, FlightLinkResponse, FlightLinksResponse, GetWatchResponse, PartyCheckRequest, PartyCheckResult, SearchRequest, SearchResponse, SourceRegistryEntry,
+  CommunityFaresResponse,
 } from "./contract";
 
 export class RequestError extends Error {
@@ -129,6 +130,13 @@ export async function findAirports(query: string, signal: AbortSignal): Promise<
 
 export function searchFlights(request: SearchRequest, signal: AbortSignal): Promise<SearchResponse> {
   return postJson<SearchResponse>("/api/search", request, signal);
+}
+
+export function fetchCommunityFares(request: SearchRequest, signal: AbortSignal): Promise<CommunityFaresResponse> {
+  return getJson<CommunityFaresResponse>("/api/community-fares", {
+    origin: request.origin, destination: request.destination, windowStart: request.windowStart, windowEnd: request.windowEnd,
+    stayMin: String(request.stayMin), stayMax: String(request.stayMax),
+  }, signal);
 }
 
 export interface SourcesResponse {
