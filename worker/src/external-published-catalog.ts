@@ -13,4 +13,8 @@ export const EXTERNAL_PUBLISHED_PAGES=[
  {airline:'CM',origin:'PTY',destination:'MCO',sourceUrl:'https://www.copaair.com/en/flights-from-panama-city',allDestinations:true},
  {airline:'AA',origin:'LAX',destination:'MEX',sourceUrl:'https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city'},
  {airline:'IB',origin:'MAD',destination:'TLV',sourceUrl:'https://www.iberia.com/es/cheap-flights/Madrid-Tel-Aviv/'},
+ {airline:'A3',origin:'TLV',destination:'ATH',sourceUrl:'https://flights.aegeanair.com/en/flights-from-tel-aviv-to-athens'},
+ {airline:'A3',origin:'ATH',destination:'TLV',sourceUrl:'https://flights.aegeanair.com/en/flights-from-athens-to-tel-aviv'},
+ {airline:'A3',origin:'ATH',destination:'FCO',sourceUrl:'https://flights.aegeanair.com/en/flights-from-athens-to-rome'},
+ {airline:'A3',origin:'FCO',destination:'ATH',sourceUrl:'https://flights.aegeanair.com/en/flights-from-rome-to-athens'},
 ];
