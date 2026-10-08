@@ -42,5 +42,6 @@ for(const page of [...new Map(pages.filter(page=>!selection||page.airline===sele
  const discoveredPages=routeLinks(html,page.sourceUrl);
  const result={airline:page.airline,page:page.sourceUrl,checkedAt:now.toISOString(),fares,discoveredPages};results.push(result);
  console.log(JSON.stringify({airline:page.airline,status:200,fares:fares.length,bytes:size,discoveredPages:discoveredPages.length}));
-}catch(error){results.push({airline:page.airline,error:error.message});console.log(JSON.stringify({airline:page.airline,error:error.message}));process.exitCode=1;}}
+}catch(error){results.push({airline:page.airline,error:error.message});console.log(JSON.stringify({airline:page.airline,error:error.message}));process.exitCode=1;}
+await writeFile('public-page-probe.json',JSON.stringify(results,null,2));}
 await writeFile('public-page-probe.json',JSON.stringify(results,null,2));
