@@ -169,3 +169,10 @@ The parser now supports only the observed economy cabin identifiers for AM.
 Automatic collection, search-source wiring, cache integration and production verification
 remain outstanding; this evidence does not imply Aeromexico is enabled in production.
 Same-day round-trip records remain unsupported rather than receiving invented dates.
+
+The reusable Aeromexico background loader was subsequently run with the real
+remote Cloudflare browser binding and its ten-second navigation bound. It returned
+28 valid dated fares, including the exact LAX–MEX June 2–9, 2027 USD 431.63 record.
+The loader bounds the rendering payload at four million bytes before JSON parsing.
+Eighteen targeted tests and the Worker typecheck pass. Production scheduling and
+search integration are still pending; no additional hourly browser usage is enabled.
