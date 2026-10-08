@@ -18,6 +18,7 @@ command = "node scripts/gen-build-info.mjs || node worker/scripts/gen-build-info
 ALLOWED_ORIGIN = "https://eee-web-bly.pages.dev"
 RYANAIR_DIRECT_ENABLED = "true"
 AEGEAN_PUBLISHED_ENABLED = "true"
+AEGEAN_ON_DEMAND_ENABLED = "true"
 AIRCANADA_PUBLISHED_ENABLED = "true"
 TAP_PUBLISHED_ENABLED = "true"
 ETHIOPIAN_PUBLISHED_ENABLED = "true"

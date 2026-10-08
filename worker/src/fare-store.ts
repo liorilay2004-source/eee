@@ -1,12 +1,48 @@
 import {DurableObject} from "cloudflare:workers";
 import {cacheRequest,publicFareMaximumAge} from "./public-fare-cache";
+import {aegeanCalendarUrl,type AegeanCalendarTrip,type AegeanCalendarFare} from "./aegean-lowfare";
+import {validateAegeanCalendar} from "./aegean-calendar-cache";
+import {loadRenderedAegeanCalendar} from "./aegean-lowfare-rendered";
+import type {Env} from "./types";
 /** One bounded snapshot per official page/calendar. No search logs, credentials or passengers. */
 export class FareStore extends DurableObject<Record<string,unknown>> {
+ private collection:Promise<AegeanCalendarFare|null>|null=null;
  constructor(ctx:DurableObjectState,env:Record<string,unknown>){
   super(ctx,env);
   ctx.blockConcurrencyWhile(async()=>{
    ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS snapshot (id INTEGER PRIMARY KEY CHECK(id=1), source_key TEXT NOT NULL, payload TEXT NOT NULL, stored_at INTEGER NOT NULL, expires INTEGER NOT NULL)");
+   ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS allowance (day TEXT PRIMARY KEY, used INTEGER NOT NULL)");
+   ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS collection_state (id INTEGER PRIMARY KEY CHECK(id=1), attempted_at INTEGER NOT NULL)");
   });
+ }
+ /** A separate daily coordination object reserves BEFORE any browser request, even failed ones. */
+ async reserveAegean():Promise<boolean>{
+  const day=new Date().toISOString().slice(0,10);
+  return this.ctx.storage.sql.exec("INSERT INTO allowance(day,used) VALUES (?,1) ON CONFLICT(day) DO UPDATE SET used=used+1 WHERE used<8 RETURNING used",day).toArray().length===1;
+ }
+ async collectAegean(input:AegeanCalendarTrip):Promise<AegeanCalendarFare|null>{
+  const trip={origin:input.origin,destination:input.destination,departDate:input.departDate,returnDate:input.returnDate};
+  const key=aegeanCalendarUrl(trip),now=new Date();
+  if(trip.departDate<now.toISOString().slice(0,10))return null;
+  if(this.collection)return this.collection;
+  const bindings=this.env as Pick<Env,"BROWSER"|"PUBLIC_FARES">;
+  if(!bindings.BROWSER||!bindings.PUBLIC_FARES)return null;
+  this.collection=(async()=>{
+   const stored=await this.read(key);
+   if(stored){const fare=validateAegeanCalendar(JSON.parse(stored).fares?.[0],trip,now);if(fare)return fare;}
+   const prior=this.ctx.storage.sql.exec<{attempted_at:number}>("SELECT attempted_at FROM collection_state WHERE id=1").toArray()[0];
+   if(prior&&now.getTime()-prior.attempted_at<300000)return null;
+   this.ctx.storage.sql.exec("INSERT INTO collection_state(id,attempted_at) VALUES (1,?) ON CONFLICT(id) DO UPDATE SET attempted_at=excluded.attempted_at",now.getTime());
+   const allowed=await bindings.PUBLIC_FARES!.getByName("aegean-browser-budget:"+now.toISOString().slice(0,10)).reserveAegean();
+   if(!allowed)return null;
+   try {
+    const fare=await loadRenderedAegeanCalendar(bindings.BROWSER!,trip,now);
+    if(!fare)return null;
+    await this.write(key,JSON.stringify({storedAt:now.getTime(),expires:now.getTime()+6*3600000,fares:[fare]}));
+    return fare;
+   }catch{return null;}
+  })();
+  try{return await this.collection;}finally{this.collection=null;}
  }
  async read(key:string):Promise<string|null>{
   cacheRequest(key);

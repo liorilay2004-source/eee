@@ -1,3 +1,5 @@
+import * as renderer from "../src/aegean-lowfare-rendered";
+import {aegeanCalendarUrl} from "../src/aegean-lowfare";
 import {afterEach,it,expect,vi} from "vitest";
 import {DatabaseSync} from "node:sqlite";
 import {FareStore} from "../src/fare-store";
@@ -6,14 +8,14 @@ import {TURKISH_ATHENS_PAGE} from "../src/turkish-rendered";
 const now=new Date("2026-10-08T05:30:00Z");
 const key=TURKISH_ATHENS_PAGE;
 const payload=(at=now.getTime(),expires=at+3600000)=>JSON.stringify({storedAt:at,expires,fares:[{amount:7237.73,currency:"TRY",checkedAt:now.toISOString()}]});
-afterEach(()=>vi.useRealTimers());
-function instance(db:DatabaseSync):FareStore {
+afterEach(()=>{vi.useRealTimers();vi.restoreAllMocks();});
+function instance(db:DatabaseSync,env:Record<string,unknown>={}):FareStore {
  const ctx={blockConcurrencyWhile:(fn:()=>Promise<unknown>)=>fn(),storage:{sql:{exec:(sql:string,...args:(string|number)[])=>{
   const statement=db.prepare(sql);
   const rows=/^(SELECT|INSERT.*RETURNING)/.test(sql)?statement.all(...args):(statement.run(...args),[]);
   return {toArray:()=>rows};
  }}}};
- return new FareStore(ctx as unknown as DurableObjectState,{});
+ return new FareStore(ctx as unknown as DurableObjectState,env);
 }
 it("retains the single latest snapshot across object reconstruction, without appending history",async()=>{
  vi.useFakeTimers();vi.setSystemTime(now);
@@ -52,4 +54,36 @@ it("keeps regional data usable when shared storage fails, and rejects unknown ke
  const cache=createSharedFareCache({getByName},edge,now,3600000);
  await cache.put(key,[{amount:1}]);expect((await cache.get(key))?.fares).toEqual([{amount:1}]);
  getByName.mockClear();expect(await cache.get("https://evil.example/x")).toBeNull();expect(getByName).not.toHaveBeenCalled();
+});
+
+it("atomically reserves no more than eight Aegean browser attempts in a day",async()=>{
+ vi.useFakeTimers();vi.setSystemTime(now);const db=new DatabaseSync(":memory:"),store=instance(db);
+ const claims=await Promise.all(Array.from({length:12},()=>store.reserveAegean()));
+ expect(claims.filter(Boolean)).toHaveLength(8);
+ expect(await instance(db).reserveAegean()).toBe(false);
+ vi.setSystemTime(new Date(now.getTime()+86400000));expect(await store.reserveAegean()).toBe(true);db.close();
+});
+it("coalesces exact-date collection and retains its result without D1",async()=>{
+ vi.useFakeTimers();vi.setSystemTime(now);
+ const trip={origin:"TLV",destination:"ATH",departDate:"2027-06-01",returnDate:"2027-06-05"};
+ const fare={...trip,amount:232.37,currency:"EUR" as const,outboundAmount:104.63,inboundAmount:127.74,bookingUrl:aegeanCalendarUrl(trip),checkedAt:now.toISOString(),pricing:"published_advertisement" as const,carrier:null};
+ const load=vi.spyOn(renderer,"loadRenderedAegeanCalendar").mockResolvedValue(fare);
+ const objects=new Map<string,FareStore>(),dbs:DatabaseSync[]=[];
+ const ns:FareStoreNamespace={getByName(name){if(!objects.has(name)){const db=new DatabaseSync(":memory:");dbs.push(db);objects.set(name,instance(db,{BROWSER:{quickAction:vi.fn()},PUBLIC_FARES:ns}));}return objects.get(name)!;}};
+ const store=ns.getByName("trip");
+ expect(await Promise.all([store.collectAegean(trip),store.collectAegean(trip)])).toEqual([fare,fare]);
+ expect(load).toHaveBeenCalledTimes(1);
+ expect(await store.collectAegean(trip)).toEqual(fare);expect(load).toHaveBeenCalledTimes(1);
+ for(const db of dbs)db.close();
+});
+it("failed renders consume quota and cannot repeat immediately",async()=>{
+ vi.useFakeTimers();vi.setSystemTime(now);
+ const load=vi.spyOn(renderer,"loadRenderedAegeanCalendar").mockRejectedValue(Error("unavailable"));
+ const db=new DatabaseSync(":memory:"),budgetDb=new DatabaseSync(":memory:"),budget=instance(budgetDb);
+ const ns={getByName:()=>budget};
+ const store=instance(db,{BROWSER:{quickAction:vi.fn()},PUBLIC_FARES:ns});
+ const trip={origin:"TLV",destination:"ATH",departDate:"2027-06-01",returnDate:"2027-06-05"};
+ expect(await store.collectAegean(trip)).toBeNull();expect(await store.collectAegean(trip)).toBeNull();
+ expect(load).toHaveBeenCalledTimes(1);expect(budgetDb.prepare("SELECT used FROM allowance").get()?.used).toBe(1);
+ db.close();budgetDb.close();
 });

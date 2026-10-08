@@ -1,6 +1,7 @@
 import {cacheRequest,createPublicFareCache,type PublicFareCache} from "./public-fare-cache";
+import type {AegeanCalendarFare,AegeanCalendarTrip} from "./aegean-lowfare";
 export interface FareStoreNamespace {
- getByName(name:string):{read(key:string):Promise<string|null>;write(key:string,payload:string):Promise<void>};
+ getByName(name:string):{read(key:string):Promise<string|null>;write(key:string,payload:string):Promise<void>;reserveAegean():Promise<boolean>;collectAegean(trip:AegeanCalendarTrip):Promise<AegeanCalendarFare|null>};
 }
 /** Sharded by validated official page/calendar, with original expiry preserved across regions. */
 export function createSharedFareCache(namespace:FareStoreNamespace|undefined,edge:Pick<Cache,"match"|"put">,now:Date,ttlMs?:number):PublicFareCache {

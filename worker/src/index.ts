@@ -1,3 +1,4 @@
+import {getOrCollectAegean} from "./aegean-on-demand";
 export {FareStore} from "./fare-store";
 import {createSharedFareCache} from "./shared-fare-cache";
 import {supplementFx} from "./fx-supplement";
@@ -298,7 +299,7 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
     env.AEROMEXICO_RENDERED_ENABLED === "true" ? createAeromexicoCachedSource(publicCache) : null,
     env.KLM_RENDERED_ENABLED === "true" ? createKlmCachedSource(publicCache) : null,
     env.RYANAIR_DIRECT_ENABLED === "true" ? createRyanairDirectSource(now, fetchFn, publicCache) : null,
-    env.AEGEAN_PUBLISHED_ENABLED === "true" ? createAegeanPublishedSource(now, fetchFn, publicCache,env.DB) : null,
+    env.AEGEAN_PUBLISHED_ENABLED === "true" ? createAegeanPublishedSource(now, fetchFn, publicCache,env.DB,env.AEGEAN_ON_DEMAND_ENABLED==="true"&&env.PUBLIC_FARES?trip=>getOrCollectAegean(env.PUBLIC_FARES!,trip):undefined) : null,
     env.AIRCANADA_PUBLISHED_ENABLED === "true" ? createAirCanadaPublishedSource(now, fetchFn, publicCache) : null,
     env.TAP_PUBLISHED_ENABLED === "true" ? createTapPublishedSource(now, fetchFn, publicCache) : null,
     env.ETHIOPIAN_PUBLISHED_ENABLED === "true" ? createEthiopianPublishedSource(now, fetchFn, publicCache) : null,
