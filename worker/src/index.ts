@@ -274,8 +274,8 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
   const hasData = secret(env.HASDATA_API_KEY);
   const providers = [
     env.FINNAIR_RENDERED_ENABLED === "true" ? createFinnairCachedSource(publicCache, env.DB, now) : null,
-    env.LUFTHANSA_RENDERED_ENABLED === "true" ? createLufthansaCachedSource(now, publicCache) : null,
-    env.BRUSSELS_RENDERED_ENABLED === "true" ? createBrusselsCachedSource(now, publicCache) : null,
+    env.LUFTHANSA_RENDERED_ENABLED === "true" ? createLufthansaCachedSource(now, publicCache, env.DB) : null,
+    env.BRUSSELS_RENDERED_ENABLED === "true" ? createBrusselsCachedSource(now, publicCache, env.DB) : null,
     env.ICELANDAIR_RENDERED_ENABLED === "true" ? createIcelandairCachedSource(publicCache) : null,
     env.EUROWINGS_RENDERED_ENABLED === "true" ? createEurowingsCachedSource(env.DB, now, publicCache) : null,
     env.NORWEGIAN_RENDERED_ENABLED === "true" ? createNorwegianCachedSource(env.DB, now, publicCache) : null,

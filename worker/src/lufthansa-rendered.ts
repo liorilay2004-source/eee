@@ -1,3 +1,4 @@
+import {saveLhgSnapshots} from "./lhg-snapshots";
 import type {Env} from "./types";
 import type {PublicFareCache} from "./public-fare-cache";
 import {loadRenderedLhgAnchors} from "./brussels-rendered";
@@ -10,7 +11,8 @@ export async function collectRenderedLufthansa(deps:{env:Env;now:Date;cache?:Pub
     if(!fares.length)return {source:"lufthansa",ok:false,fares:0};
     if(!deps.cache)return {source:"lufthansa",ok:false,fares:fares.length,cacheUnavailable:true};
     await deps.cache.put(LUFTHANSA_ATHENS_TEL_AVIV_PAGE,fares);
-    return {source:"lufthansa",ok:true,fares:fares.length};
+    try {const snapshots=await saveLhgSnapshots(deps.env.DB,"lufthansa",fares,deps.now);return {source:"lufthansa",ok:true,fares:fares.length,snapshots};}
+    catch {return {source:"lufthansa",ok:true,fares:fares.length,storageUnavailable:true};}
   } catch {return {source:"lufthansa",ok:false,fares:0};}
 }
 export async function loadRenderedLufthansa(browser:NonNullable<Env["BROWSER"]>,now:Date) {

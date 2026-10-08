@@ -1,3 +1,4 @@
+import {saveLhgSnapshots} from "./lhg-snapshots";
 import type { Env } from "./types";
 import type { PublicFareCache } from "./public-fare-cache";
 import { parseBrusselsAdvertisements, type BrusselsAdvertisement } from "./brussels-advertisements";
@@ -10,7 +11,8 @@ export async function collectRenderedBrussels(deps: { env: Env; now: Date; cache
     if (!fares.length) return {source:"brussels_airlines",ok:false,fares:0};
     if (!deps.cache) return {source:"brussels_airlines",ok:false,fares:fares.length,cacheUnavailable:true};
     await deps.cache.put(BRUSSELS_ATHENS_PAGE,fares);
-    return {source:"brussels_airlines",ok:true,fares:fares.length};
+    try {const snapshots=await saveLhgSnapshots(deps.env.DB,"brussels_airlines",fares,deps.now);return {source:"brussels_airlines",ok:true,fares:fares.length,snapshots};}
+    catch {return {source:"brussels_airlines",ok:true,fares:fares.length,storageUnavailable:true};}
   } catch { return {source:"brussels_airlines",ok:false,fares:0}; }
 }
 

@@ -25,6 +25,30 @@ and booking links. A changed price or changed metadata is written, including a p
 changes and then changes back. Live paid-vendor quota controls are unchanged. This reduces
 redundant history observations; it does not guarantee the free allowance cannot be exhausted.
 
+## Lufthansa and Brussels compact fallback
+
+The verified public LHG collectors now store current advertisements by source,
+route and departure month in the existing `public_calendar_snapshots` table. Each
+group replaces a current row and preserves the original collection timestamp.
+This avoids relying solely on edge-local cache entries and does not append every
+background advertisement to indexed history. Snapshots are bounded to 100KB each
+and 500 advertisements per collection; no new table or migration is required.
+
+Search checks public cache first. On a miss it reads the exact source/route/month
+primary key, once per month per provider instance, then validates the original
+advertisement's route, dates, amount, currency, official booking link and age.
+Only one adult and the observed BRU–ATH or ATH–TLV directions are supported.
+An unavailable D1 snapshot returns no source offer; it does not invent a price or
+change dates. Background cache publication happens before attempted D1 writes,
+so exhausted database writes do not prevent a valid cache entry being produced.
+
+On 2026-10-08 an actual isolated local Wrangler D1 runtime proved two successive
+monthly upserts leave one row, that the provider can retrieve EUR304 from D1 with
+no fare cache, and that a changed return date produces no offer. The original
+collection timestamp was retained and the provider made zero upstream calls.
+This is not proof of production persistence: production's daily quota remains
+exhausted and must reset before a successful production write can be observed.
+
 ## Norwegian scope
 
 The cached adapter reads actual collected ATH–OSL calendar records and combines only the
