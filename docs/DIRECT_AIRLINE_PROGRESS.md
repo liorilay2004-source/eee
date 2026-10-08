@@ -213,3 +213,10 @@ Direct Worker/Cloudflare rendering, extraction/cache/storage/provider integratio
 TRY conversion availability and booking handoff still need verification. A vendor's
 usdTotalPrice is not permission to relabel its original TRY booking price as USD.
 No credentials, configuration tokens or private session data were copied.
+### Turkish reader and cache evidence — 2026-10-08 05:16 UTC
+
+An ordinary Cloudflare Browser Run content request to the official Istanbul–Athens page returned eight public Economy round-trip advertisements. The plain Worker fetch failed; no challenge/session bypass was attempted. Evidence: external `turkish-renderer-proof.json`, checked at 2026-10-08T05:09:31.873Z. Example: IST–ATH, 2026-11-17 / 2026-12-01, TRY 7,237.73; another dated pair: 2027-02-06 / 2027-02-13, TRY 7,234.15. These are advertisements, not confirmed inventory or checkout totals.
+
+Implemented a bounded renderer and validated public cache reader/collector. Economy is mandatory and promotional codes are rejected. The original TRY amount is preserved; the page's USD conversion is discarded. The cache accepts only the pinned official page, validates exact round-trip dates and observation age, strips extra fields, and reads without D1 or browser calls. Unit tests cover envelope failures, payload bounds, incorrect route/currency/dates/amounts/links, future and expired timestamps, cache failure isolation, and one collection followed by a cached read. Typecheck passed; 30 targeted tests passed.
+
+Still pending: production source registration, scheduled collection, TRY-to-ILS conversion with accurate source/date attribution, rendered offer verification and airline booking handoff. This commit does not enable the Turkish provider in production. The TLV–ATH June 1–5 2027 production search remains HTTP 503 storage_daily_limit, independently verified at 05:12 UTC. No claim of all-airline inventory coverage or cheapest final price is made.

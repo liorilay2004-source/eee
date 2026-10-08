@@ -7,7 +7,7 @@ export interface PublicFareCache {
 const TTL_MS = 10 * 60_000;
 export const BACKGROUND_FARE_TTL_MS = 36 * 3_600_000;
 const MAX_BYTES = 500_000;
-const hosts = new Set(["services-api.ryanair.com", "flights.aegeanair.com", "www.aircanada.com", "www.flytap.com", "www.ethiopianairlines.com", "www.aireuropa.com", "flights.philippineairlines.com", "flights.virginatlantic.com", "www.airnewzealand.com", "www.airbaltic.com", "www.skyexpress.gr", "www.voegol.com.br", "www.finnair.com", "www.iberia.com", "www.avianca.com", "www.copaair.com", "www.aeromexico.com", "www.klm.co.il", "www.aa.com", "www.aerlingus.com", "www.airserbia.com", "www.norwegian.com", "www.lufthansa.com", "www.swiss.com", "www.austrian.com", "www.brusselsairlines.com", "www.icelandair.com", "www.eurowings.com"]);
+const hosts = new Set(["services-api.ryanair.com", "flights.aegeanair.com", "www.aircanada.com", "www.flytap.com", "www.ethiopianairlines.com", "www.aireuropa.com", "flights.philippineairlines.com", "flights.virginatlantic.com", "www.airnewzealand.com", "www.airbaltic.com", "www.skyexpress.gr", "www.voegol.com.br", "www.finnair.com", "www.iberia.com", "www.avianca.com", "www.copaair.com", "www.aeromexico.com", "www.klm.co.il", "www.aa.com", "www.aerlingus.com", "www.airserbia.com", "www.norwegian.com", "www.lufthansa.com", "www.swiss.com", "www.austrian.com", "www.brusselsairlines.com", "www.icelandair.com", "www.eurowings.com", "www.turkishairlines.com"]);
 function cacheRequest(key: string): Request {
   const url = new URL(key);
   if(url.hostname==="en.aegeanair.com") {
@@ -16,7 +16,9 @@ function cacheRequest(key: string): Request {
     return new Request(`https://eee-api.liorilay2004.workers.dev/__public_fares/v1/${encodeURIComponent(key)}`);
   }
   if (url.protocol !== "https:" || !hosts.has(url.hostname) || url.username || url.password || url.port || url.hash) throw new Error("Unsupported public fare source");
-  if (url.hostname === "www.eurowings.com") {
+  if (url.hostname === "www.turkishairlines.com") {
+    if (url.search || url.pathname !== "/en/flights-from-istanbul-to-athens") throw new Error("Unsupported Turkish public fare page");
+  } else if (url.hostname === "www.eurowings.com") {
     const keys = [...url.searchParams.keys()];
     if (url.pathname !== "/en/booking/flights/low-fare-calendar.html" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(url.searchParams.get("month") ?? "") ||
         !(keys.length === 1 && keys[0] === "month" || keys.length === 2 && keys.includes("month") && keys.includes("destination") && url.searchParams.get("destination") === "ATH")) throw new Error("Unsupported Eurowings calendar cache");
