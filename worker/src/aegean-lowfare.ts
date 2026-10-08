@@ -57,5 +57,5 @@ export function parseAegeanCalendar(text:AegeanCalendarText,q:AegeanCalendarTrip
   if(matches.length!==1)return null;
   const amount=Number(matches[0]![1]);
   if(amount<=0||amount>100000||Math.round(amount*100)!==Math.round(out*100)+Math.round(back*100))return null;
-  return {...q,amount,currency:"EUR",outboundAmount:out,inboundAmount:back,bookingUrl:aegeanCalendarUrl(q),checkedAt:now.toISOString(),pricing:"published_advertisement",carrier:null};
+  return {origin:q.origin,destination:q.destination,departDate:q.departDate,returnDate:q.returnDate,amount,currency:"EUR",outboundAmount:out,inboundAmount:back,bookingUrl:aegeanCalendarUrl(q),checkedAt:now.toISOString(),pricing:"published_advertisement",carrier:null};
 }

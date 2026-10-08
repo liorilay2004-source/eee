@@ -31,6 +31,9 @@ import type { FareQuoteSource } from "../src/quotes";
 import { runSnapshot } from "../src/snapshots";
 import type { FxRates, Leg, Offer, OneWayFare, OneWayPair, SearchRequest, SearchResponse, TravelpayoutsClient } from "../src/types";
 import { createTestD1 } from "./helpers/d1";
+import {createAegeanPublishedSource} from "../src/sources/aegean-published";
+import {aegeanCalendarUrl} from "../src/aegean-lowfare";
+import type {PublicFareCache} from "../src/public-fare-cache";
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
@@ -184,6 +187,20 @@ describe("computeSearchKey", () => {
 });
 
 describe("recommendations (SPEC §8)", () => {
+  it("ranks the exact collected Aegean trip despite exhausted D1 history reads",async()=>{
+    const {repo,deps}=setup({tp:mockTp({configured:false})});
+    vi.spyOn(repo,"loadRecentOffers").mockRejectedValue(new Error("Your account has exceeded D1's free tier daily row read limit"));
+    const trip={origin:"TLV",destination:"ATH",departDate:"2027-06-01",returnDate:"2027-06-05"};
+    const fare={...trip,amount:232.37,currency:"EUR",outboundAmount:104.63,inboundAmount:127.74,bookingUrl:aegeanCalendarUrl(trip),checkedAt:NOW.toISOString(),pricing:"published_advertisement",carrier:null};
+    const cache={get:async(key:string)=>key===fare.bookingUrl?{fares:[fare],expires:NOW.getTime()+1000}:null,put:async()=>{}} as PublicFareCache;
+    const fetchFn=vi.fn();
+    const source=createAegeanPublishedSource(NOW,fetchFn as typeof fetch,cache);
+    const result=await runSearch({...deps,quoteSources:[source]},req({destination:"ATH",windowStart:trip.departDate,windowEnd:trip.returnDate,stayMin:4,stayMax:4}));
+    expect(result.cards.length).toBeGreaterThan(0);
+    expect(result.cards.every(c=>c.offer.departDate===trip.departDate&&c.offer.returnDate===trip.returnDate&&c.offer.priceAmount===232.37&&c.offer.priceCurrency==="EUR")).toBe(true);
+    expect(result.cards[0]!.offer.totalIls).toBeCloseTo(232.37*3.5);
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
   it("reports the daily storage allowance with a retry at UTC midnight", async () => {
     const { repo, deps } = setup();
     vi.spyOn(repo, "loadRecentOffers").mockRejectedValue(new Error("Your account has exceeded D1's free tier daily row read limit"));

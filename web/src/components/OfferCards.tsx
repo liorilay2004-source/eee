@@ -56,7 +56,17 @@ function NewTab() {
 }
 
 /** Official airline links; a homepage is explicitly distinguished from a prefilled offer. */
-function publishedPriceLink(source: string, link: string | null): string | null {
+function publishedPriceLink(source: string, link: string | null, trip?: Pick<Offer,"origin"|"destination"|"departDate"|"returnDate">): string | null {
+  if(source==="aegean"&&link&&trip)try {
+    const url=new URL(link);
+    if(url.hostname==="en.aegeanair.com") {
+      const realDate=(date:string)=>/^\d{4}-\d{2}-\d{2}$/.test(date)&&Number.isFinite(Date.parse(date))&&new Date(date).toISOString().slice(0,10)===date;
+      if(trip.origin!=="TLV"||trip.destination!=="ATH"||!realDate(trip.departDate)||!realDate(trip.returnDate)||trip.returnDate<=trip.departDate||trip.returnDate.slice(0,7)!==trip.departDate.slice(0,7))return null;
+      const expected=new URL("https://en.aegeanair.com/flight-deals/low-fare-calendar/");
+      expected.search=new URLSearchParams({arr:trip.destination,datedeparture:trip.departDate,datereturn:trip.returnDate,dep:trip.origin,month:trip.departDate.slice(0,7),type:"R"}).toString();
+      return link===expected.href?link:null;
+    }
+  }catch{return null;}
   const host = source === "austrian" ? "www.austrian.com" : source === "swiss" ? "www.swiss.com" : source === "lufthansa" ? "www.lufthansa.com" : source === "brussels_airlines" ? "www.brusselsairlines.com" : source === "eurowings" ? "www.eurowings.com" : source === "icelandair" ? "www.icelandair.com" : source === "norwegian" ? "www.norwegian.com" : source === "iberia" ? "www.iberia.com" : source === "finnair" ? "www.finnair.com" : source === "avianca" ? "www.avianca.com" : source === "copa" ? "www.copaair.com" : source === "aeromexico" ? "www.aeromexico.com" : source === "klm" ? "www.klm.co.il" : source === "american" ? "www.aa.com" : source === "aer_lingus" ? "www.aerlingus.com" : source === "gol" ? "www.voegol.com.br" : source === "sky_express" ? "www.skyexpress.gr" : source === "elal" ? "www.elal.com" : source === "air_canada" ? "www.aircanada.com" : source === "aegean" ? "flights.aegeanair.com" : source === "tap" ? "www.flytap.com" : source === "ethiopian" ? "www.ethiopianairlines.com" : source === "air_europa" ? "www.aireuropa.com" : source === "philippine" ? "flights.philippineairlines.com" : source === "virgin_atlantic" ? "flights.virginatlantic.com" : source === "air_new_zealand" ? "www.airnewzealand.com" : source === "air_baltic" ? "www.airbaltic.com" : null;
   if (!host || !link) return null;
   try {
@@ -69,7 +79,7 @@ function publishedPriceLink(source: string, link: string | null): string | null 
 export function BookingActions({ card, demo, compact }: { card: CardView; demo?: boolean; compact?: boolean }) {
   const offer = card.offer;
   if (demo) return <p className="booking-demo"><Info size={16} aria-hidden="true" />בדוגמה אין קישור הזמנה. חפשו מסלול אמיתי כדי לקבל מחיר.</p>;
-  const published = publishedPriceLink(offer.source, offer.deeplink);
+  const published = publishedPriceLink(offer.source, offer.deeplink,offer);
   if (offer.source === "direct_combination") {
     const directions = [
       { title: "הלוך", code: offer.outbound.airlines[0], link: offer.deeplink },

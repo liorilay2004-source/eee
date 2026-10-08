@@ -1,3 +1,4 @@
+import {aegeanCalendarUrl} from "./aegean-lowfare";
 /** Shared public data only. No vendor keys, passenger details or pending promises. */
 export interface PublicFareCache {
   get<T>(key: string): Promise<{ fares: T[]; expires: number } | null>;
@@ -9,6 +10,11 @@ const MAX_BYTES = 500_000;
 const hosts = new Set(["services-api.ryanair.com", "flights.aegeanair.com", "www.aircanada.com", "www.flytap.com", "www.ethiopianairlines.com", "www.aireuropa.com", "flights.philippineairlines.com", "flights.virginatlantic.com", "www.airnewzealand.com", "www.airbaltic.com", "www.skyexpress.gr", "www.voegol.com.br", "www.finnair.com", "www.iberia.com", "www.avianca.com", "www.copaair.com", "www.aeromexico.com", "www.klm.co.il", "www.aa.com", "www.aerlingus.com", "www.airserbia.com", "www.norwegian.com", "www.lufthansa.com", "www.swiss.com", "www.austrian.com", "www.brusselsairlines.com", "www.icelandair.com", "www.eurowings.com"]);
 function cacheRequest(key: string): Request {
   const url = new URL(key);
+  if(url.hostname==="en.aegeanair.com") {
+    const trip={origin:url.searchParams.get("dep")??"",destination:url.searchParams.get("arr")??"",departDate:url.searchParams.get("datedeparture")??"",returnDate:url.searchParams.get("datereturn")??""};
+    if(aegeanCalendarUrl(trip)!==key)throw new Error("Unsupported Aegean selected calendar");
+    return new Request(`https://eee-api.liorilay2004.workers.dev/__public_fares/v1/${encodeURIComponent(key)}`);
+  }
   if (url.protocol !== "https:" || !hosts.has(url.hostname) || url.username || url.password || url.port || url.hash) throw new Error("Unsupported public fare source");
   if (url.hostname === "www.eurowings.com") {
     const keys = [...url.searchParams.keys()];
@@ -74,7 +80,7 @@ function cacheRequest(key: string): Request {
 }
 export function createPublicFareCache(storage: Pick<Cache, "match" | "put">, now: Date, ttlMs = TTL_MS): PublicFareCache {
   if (!Number.isFinite(ttlMs) || ttlMs < TTL_MS || ttlMs > BACKGROUND_FARE_TTL_MS) throw new Error("Invalid public cache lifetime");
-  const maximum = (key: string) => ["services-api.ryanair.com", "www.airserbia.com", "flights.aegeanair.com"].includes(new URL(key).hostname) ? TTL_MS : BACKGROUND_FARE_TTL_MS;
+  const maximum = (key: string) => new URL(key).hostname === "en.aegeanair.com" ? 6*3600000 : ["services-api.ryanair.com", "www.airserbia.com", "flights.aegeanair.com"].includes(new URL(key).hostname) ? TTL_MS : BACKGROUND_FARE_TTL_MS;
   return {
     async get<T>(key: string): Promise<{ fares: T[]; expires: number } | null> {
       try {

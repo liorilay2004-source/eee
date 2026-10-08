@@ -101,6 +101,7 @@ import { createKlmCachedSource } from "./sources/klm-cached";
 import { collectPublishedPages } from "./published-collection";
 import { createWegoSource } from "./sources/wego";
 import { pickSnapshotRoute, runSnapshot } from "./snapshots";
+import {collectRecentAegeanCalendar} from "./aegean-calendar-collection";
 import { secretMatches, telegramConfig } from "./telegram";
 import { createTravelpayoutsClient, marketForCountry } from "./travelpayouts";
 import type { Env } from "./types";
@@ -291,7 +292,7 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
     env.AEROMEXICO_RENDERED_ENABLED === "true" ? createAeromexicoCachedSource(publicCache) : null,
     env.KLM_RENDERED_ENABLED === "true" ? createKlmCachedSource(publicCache) : null,
     env.RYANAIR_DIRECT_ENABLED === "true" ? createRyanairDirectSource(now, fetchFn, publicCache) : null,
-    env.AEGEAN_PUBLISHED_ENABLED === "true" ? createAegeanPublishedSource(now, fetchFn, publicCache) : null,
+    env.AEGEAN_PUBLISHED_ENABLED === "true" ? createAegeanPublishedSource(now, fetchFn, publicCache,env.DB) : null,
     env.AIRCANADA_PUBLISHED_ENABLED === "true" ? createAirCanadaPublishedSource(now, fetchFn, publicCache) : null,
     env.TAP_PUBLISHED_ENABLED === "true" ? createTapPublishedSource(now, fetchFn, publicCache) : null,
     env.ETHIOPIAN_PUBLISHED_ENABLED === "true" ? createEthiopianPublishedSource(now, fetchFn, publicCache) : null,
@@ -673,6 +674,7 @@ export default {
       });
       const [origin, destination] = pickSnapshotRoute(now);
       const browserJobs: Array<() => Promise<unknown>> = [];
+      if(env.AEGEAN_PUBLISHED_ENABLED==="true"&&now.getUTCHours()%12===5&&typeof caches!=="undefined")browserJobs.push(()=>collectRecentAegeanCalendar(env,now,createPublicFareCache(caches.default,now,6*3600000)).then(result=>console.log("Aegean exact calendar collection:",JSON.stringify(result))));
       if (now.getUTCHours() % 6 === 4) browserJobs.push(() => collectRenderedEurowings({env, now, destination: now.getUTCHours() % 12 === 4 ? "DUS" : "ATH", cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined}).then(result => console.log("Eurowings collection:", JSON.stringify(result))));
       if (env.AUSTRIAN_RENDERED_ENABLED === "true" && now.getUTCHours() % 12 === 11) browserJobs.push(() => collectRenderedAustrian({env,now,cache:typeof caches !== "undefined" ? createPublicFareCache(caches.default,now,BACKGROUND_FARE_TTL_MS) : undefined}).then(result => console.log("Austrian collection:",JSON.stringify(result))));
       if (env.SWISS_RENDERED_ENABLED === "true" && now.getUTCHours() % 12 === 9) browserJobs.push(() => collectRenderedSwiss({env,now,cache:typeof caches !== "undefined" ? createPublicFareCache(caches.default,now,BACKGROUND_FARE_TTL_MS) : undefined}).then(result => console.log("SWISS collection:",JSON.stringify(result))));

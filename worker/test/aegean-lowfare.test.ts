@@ -6,6 +6,11 @@ const text=():AegeanCalendarText=>({outboundRows:["","1 €104.63","2 €104.63"
 it("matches the observed selected trip and its two component prices",()=>{
  expect(parseAegeanCalendar(text(),q,now)).toMatchObject({...q,amount:232.37,currency:"EUR",outboundAmount:104.63,inboundAmount:127.74,carrier:null,checkedAt:now.toISOString()});
 });
+it("does not copy caller metadata into shared public data",()=>{
+ const input={...q,party:{adults:1},privateMetadata:"not-public"};
+ expect(parseAegeanCalendar(text(),input,now)).not.toHaveProperty("party");
+ expect(parseAegeanCalendar(text(),input,now)).not.toHaveProperty("privateMetadata");
+});
 it("reads the trip overview independently of the booking button",()=>{
  const input=text();input.summaries=input.summaries.map(s=>s.replace(" Book this trip",""));
  input.outboundRows=input.outboundRows.map(s=>`\n${" ".repeat(250)}${s}\n`);
