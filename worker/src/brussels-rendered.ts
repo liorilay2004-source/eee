@@ -22,7 +22,7 @@ export async function loadRenderedBrussels(browser: NonNullable<Env["BROWSER"]>,
 }
 
 export async function loadRenderedLhgAnchors(browser: NonNullable<Env["BROWSER"]>, page: string): Promise<{text:string;url:string}[]> {
-  if (![BRUSSELS_ATHENS_PAGE,"https://www.lufthansa.com/lhg/gr/en/o-d/cy-cy/athens-tel-aviv"].includes(page)) throw new Error("Unsupported official fare page");
+  if (![BRUSSELS_ATHENS_PAGE,"https://www.lufthansa.com/lhg/gr/en/o-d/cy-cy/athens-tel-aviv","https://www.swiss.com/lhg/ch/en/o-d/cy-cy/zurich-tel-aviv"].includes(page)) throw new Error("Unsupported official fare page");
   const response = await browser.quickAction("content", {
     url: page, gotoOptions: { waitUntil: "domcontentloaded", timeout: 15000 },
     waitForTimeout: 2000, rejectResourceTypes: ["image", "font", "media"],
