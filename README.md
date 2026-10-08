@@ -23,7 +23,7 @@ The preview supports a clearly labeled demonstration mode. Live prices are unava
 
 ## תוסף לדפדפן: מחיר זול בזמן חיפוש בגוגל
 
-תוסף ל־Chrome,‏ Edge ו־Brave: כשמחפשים טיסה בגוגל או ב־Google Flights, מופיע בפינת המסך המחיר הזול ביותר שמצאנו לאותו מסלול וחודש, עם קישור להזמנה ולאתר. התוסף קורא רק את מה שהקלדתם (לא את תוכן הדף ולא את המחירים של גוגל), ושולח לשרת שלנו רק מוצא, יעד וחודש. הוא לא פורסם בחנות (Chrome Web Store גובה 5 דולר), ומתקינים אותו ידנית ב„מצב מפתח”. הוראות התקנה, פרטיות ומגבלות: [extension/README.md](extension/README.md).
+תוסף ל־Chrome,‏ Edge ו־Brave: בחיפוש Google/Google Flights הוא מציג מחיר שמור. באתר חברת תעופה נתמך אפשר ללחוץ על סמל התוסף ולהפעיל האזנה לשינויים בעמוד הפתוח; תצפיות נשמרות במחשב, ושיתוף למנוע דורש לחיצה נפרדת. הוא לא פורסם בחנות, ומתקינים אותו ידנית ב„מצב מפתח”. הוראות התקנה והפעלה מקומית: [extension/README.md](extension/README.md).
 
 ## Run Phase 0 (no local computer needed)
 
