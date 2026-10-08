@@ -74,3 +74,13 @@ crons = ["17 3 * * *", "43 * * * *", "29 * * * *"]
 
 [browser]
 binding = "BROWSER"
+
+# SQLite Durable Objects work on the existing Workers Free plan; no plan upgrade.
+# One object per validated public fare page/calendar, shared across regions.
+[[durable_objects.bindings]]
+name = "PUBLIC_FARES"
+class_name = "FareStore"
+
+[[migrations]]
+tag = "public-fares-v1"
+new_sqlite_classes = ["FareStore"]

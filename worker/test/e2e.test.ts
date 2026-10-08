@@ -128,8 +128,9 @@ afterEach(() => {
 // ---------------------------------------------------------------------------------------------------------
 
 describe("Worker entry module", () => {
-  it("exports only the default handler: workerd refuses to load a Worker whose main module exports anything else", () => {
-    expect(Object.keys(entry)).toEqual(["default"]);
+  it("exports the handler and the registered Durable Object class only", () => {
+    expect(Object.keys(entry).sort()).toEqual(["FareStore", "default"]);
+    expect(typeof entry.FareStore).toBe("function");
     expect(typeof entry.default.fetch).toBe("function");
   });
 });

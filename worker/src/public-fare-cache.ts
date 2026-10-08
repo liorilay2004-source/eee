@@ -8,7 +8,7 @@ const TTL_MS = 10 * 60_000;
 export const BACKGROUND_FARE_TTL_MS = 36 * 3_600_000;
 const MAX_BYTES = 500_000;
 const hosts = new Set(["services-api.ryanair.com", "flights.aegeanair.com", "www.aircanada.com", "www.flytap.com", "www.ethiopianairlines.com", "www.aireuropa.com", "flights.philippineairlines.com", "flights.virginatlantic.com", "www.airnewzealand.com", "www.airbaltic.com", "www.skyexpress.gr", "www.voegol.com.br", "www.finnair.com", "www.iberia.com", "www.avianca.com", "www.copaair.com", "www.aeromexico.com", "www.klm.co.il", "www.aa.com", "www.aerlingus.com", "www.airserbia.com", "www.norwegian.com", "www.lufthansa.com", "www.swiss.com", "www.austrian.com", "www.brusselsairlines.com", "www.icelandair.com", "www.eurowings.com", "www.turkishairlines.com"]);
-function cacheRequest(key: string): Request {
+export function cacheRequest(key: string): Request {
   const url = new URL(key);
   if(url.hostname==="en.aegeanair.com") {
     const trip={origin:url.searchParams.get("dep")??"",destination:url.searchParams.get("arr")??"",departDate:url.searchParams.get("datedeparture")??"",returnDate:url.searchParams.get("datereturn")??""};
@@ -80,9 +80,10 @@ function cacheRequest(key: string): Request {
   const version = url.hostname === "flights.aegeanair.com" ? "v2" : "v1";
   return new Request(`https://eee-api.liorilay2004.workers.dev/__public_fares/${version}/${encodeURIComponent(key)}`);
 }
+
+export const publicFareMaximumAge = (key: string) => new URL(key).hostname === "www.turkishairlines.com" ? 3600000 : new URL(key).hostname === "en.aegeanair.com" ? 6*3600000 : ["services-api.ryanair.com", "www.airserbia.com", "flights.aegeanair.com"].includes(new URL(key).hostname) ? TTL_MS : BACKGROUND_FARE_TTL_MS;
 export function createPublicFareCache(storage: Pick<Cache, "match" | "put">, now: Date, ttlMs = TTL_MS): PublicFareCache {
   if (!Number.isFinite(ttlMs) || ttlMs < TTL_MS || ttlMs > BACKGROUND_FARE_TTL_MS) throw new Error("Invalid public cache lifetime");
-  const maximum = (key: string) => new URL(key).hostname === "www.turkishairlines.com" ? 3600000 : new URL(key).hostname === "en.aegeanair.com" ? 6*3600000 : ["services-api.ryanair.com", "www.airserbia.com", "flights.aegeanair.com"].includes(new URL(key).hostname) ? TTL_MS : BACKGROUND_FARE_TTL_MS;
   return {
     async get<T>(key: string): Promise<{ fares: T[]; expires: number } | null> {
       try {
@@ -92,7 +93,7 @@ export function createPublicFareCache(storage: Pick<Cache, "match" | "put">, now
         if (text.length > MAX_BYTES) return null;
         const data = JSON.parse(text) as { expires?: unknown; storedAt?: unknown; fares?: unknown };
         const storedAt = typeof data.storedAt === "number" ? data.storedAt : now.getTime();
-        const lifetime = data.storedAt === undefined ? TTL_MS : maximum(key);
+        const lifetime = data.storedAt === undefined ? TTL_MS : publicFareMaximumAge(key);
         if (!Number.isFinite(storedAt) || storedAt > now.getTime() || typeof data.expires !== "number" || !Number.isFinite(data.expires) || data.expires <= now.getTime() || data.expires > storedAt + lifetime || !Array.isArray(data.fares) || data.fares.length > 500) return null;
         return { fares: data.fares as T[], expires: data.expires };
       } catch { return null; }
@@ -100,7 +101,7 @@ export function createPublicFareCache(storage: Pick<Cache, "match" | "put">, now
     async put<T>(key: string, fares: T[]): Promise<void> {
       try {
         if (fares.length > 500) return;
-        const lifetime = Math.min(ttlMs, maximum(key));
+        const lifetime = Math.min(ttlMs, publicFareMaximumAge(key));
         const body = JSON.stringify({ expires: now.getTime() + lifetime, storedAt: now.getTime(), fares });
         if (body.length > MAX_BYTES) return;
         await storage.put(cacheRequest(key), new Response(body, { headers: { "content-type": "application/json", "cache-control": `public, max-age=${Math.floor(lifetime / 1000)}` } }));

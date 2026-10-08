@@ -23,3 +23,8 @@ it("expires Turkish stored search quotes at one hour without rounding or claimin
  expect(storedQuoteWithinAge({...quote,checkedAt:"invalid"},now)).toBe(false);
  expect(storedQuoteWithinAge(quote,new Date(now.getTime()-1))).toBe(false);
 });
+it("does not read shared storage for an unsupported search",async()=>{
+ const get=vi.fn();const source=createTurkishCachedSource(now,{get,put:async()=>{}});
+ expect(get).not.toHaveBeenCalled();
+ expect(await source.quote({...q,origin:"TLV"})).toEqual([]);expect(get).not.toHaveBeenCalled();
+});

@@ -1,3 +1,5 @@
+export {FareStore} from "./fare-store";
+import {createSharedFareCache} from "./shared-fare-cache";
 import {supplementFx} from "./fx-supplement";
 import {collectTurkishFares} from "./turkish-cache";
 import {createTurkishCachedSource} from "./sources/turkish-cached";
@@ -73,7 +75,7 @@ import { createGolPublishedSource } from "./sources/gol-published";
 import { createAirNzPublishedSource } from "./sources/airnz-published";
 import { createVirginPublishedSource } from "./sources/virgin-published";
 import { createDirectCombinationSource } from "./sources/direct-combination";
-import { BACKGROUND_FARE_TTL_MS, createPublicFareCache } from "./public-fare-cache";
+import { BACKGROUND_FARE_TTL_MS } from "./public-fare-cache";
 import { runCollectionQueue } from "./collection-queue";
 import { collectRenderedKlm } from "./rendered-collection";
 import { collectRenderedFinnair } from "./finnair-rendered";
@@ -269,7 +271,7 @@ const secret = (value: unknown): string | undefined => (typeof value === "string
  * the daily shares (rate_limits) come on top.
  */
 function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: typeof fetch, now: Date): FareQuoteSource[] {
-  const publicCache = typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined;
+  const publicCache = typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now) : undefined;
   const marker = env.TRAVELPAYOUTS_MARKER;
   // Every vendor request also takes one unit of that vendor's daily share first (see withDailyShare): a client that dodges the
   // search cache cannot use up a whole allowance in minutes. Fails closed like the caps.
@@ -684,24 +686,24 @@ export default {
       });
       const [origin, destination] = pickSnapshotRoute(now);
       const browserJobs: Array<() => Promise<unknown>> = [];
-      if(env.TURKISH_RENDERED_ENABLED==="true" && env.BROWSER && typeof caches!=="undefined") browserJobs.push(()=>collectTurkishFares(env.BROWSER!,createPublicFareCache(caches.default,now,BACKGROUND_FARE_TTL_MS),now).then(fares=>console.log("Turkish public collection:",JSON.stringify({fares}))));
-      if(env.AEGEAN_PUBLISHED_ENABLED==="true"&&now.getUTCHours()%12===5&&typeof caches!=="undefined")browserJobs.push(()=>collectRecentAegeanCalendar(env,now,createPublicFareCache(caches.default,now,6*3600000)).then(result=>console.log("Aegean exact calendar collection:",JSON.stringify(result))));
-      if (now.getUTCHours() % 6 === 4) browserJobs.push(() => collectRenderedEurowings({env, now, destination: now.getUTCHours() % 12 === 4 ? "DUS" : "ATH", cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined}).then(result => console.log("Eurowings collection:", JSON.stringify(result))));
-      if (env.AUSTRIAN_RENDERED_ENABLED === "true" && now.getUTCHours() % 12 === 11) browserJobs.push(() => collectRenderedAustrian({env,now,cache:typeof caches !== "undefined" ? createPublicFareCache(caches.default,now,BACKGROUND_FARE_TTL_MS) : undefined}).then(result => console.log("Austrian collection:",JSON.stringify(result))));
-      if (env.SWISS_RENDERED_ENABLED === "true" && now.getUTCHours() % 12 === 9) browserJobs.push(() => collectRenderedSwiss({env,now,cache:typeof caches !== "undefined" ? createPublicFareCache(caches.default,now,BACKGROUND_FARE_TTL_MS) : undefined}).then(result => console.log("SWISS collection:",JSON.stringify(result))));
-      if (now.getUTCHours() % 12 === 7) browserJobs.push(() => collectRenderedLufthansa({ env, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Lufthansa collection:", JSON.stringify(result))));
-      if (now.getUTCHours() % 12 === 6) browserJobs.push(() => collectRenderedBrussels({ env, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Brussels collection:", JSON.stringify(result))));
-      if (now.getUTCHours() % 6 === 2) browserJobs.push(() => collectRenderedIcelandair({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Icelandair collection:", JSON.stringify(result))));
-      if (env.NORWEGIAN_RENDERED_ENABLED === "true") browserJobs.push(() => collectNorwegianMonth(env, norwegianCollectionMonth(now), now, typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined).then(result => console.log("Norwegian collection:", JSON.stringify(result))).catch(() => console.error("Norwegian collection unavailable")));
-      if (now.getUTCHours() === 3) browserJobs.push(() => collectRenderedIberia({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Iberia collection:", JSON.stringify(result))));
-      if (now.getUTCHours() === 1) browserJobs.push(() => collectRenderedFinnair({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Finnair collection:", JSON.stringify(result))));
-      if (now.getUTCHours() % 6 === 0) browserJobs.push(() => collectRenderedAvianca({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Avianca collection:", JSON.stringify(result))));
-      if (now.getUTCHours() % 4 === 0) browserJobs.push(() => collectRenderedCopa({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Copa collection:", JSON.stringify(result))));
-      if (now.getUTCHours() % 2 === 0) browserJobs.push(() => collectRenderedAeromexico({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Aeromexico collection:", JSON.stringify(result))));
-      if (now.getUTCHours() % 2 === 0) browserJobs.push(() => collectRenderedKlm({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("rendered collection:", JSON.stringify(result))));
+      if(env.TURKISH_RENDERED_ENABLED==="true" && env.BROWSER && typeof caches!=="undefined") browserJobs.push(()=>collectTurkishFares(env.BROWSER!,createSharedFareCache(env.PUBLIC_FARES,caches.default,now,BACKGROUND_FARE_TTL_MS),now).then(fares=>console.log("Turkish public collection:",JSON.stringify({fares}))));
+      if(env.AEGEAN_PUBLISHED_ENABLED==="true"&&now.getUTCHours()%12===5&&typeof caches!=="undefined")browserJobs.push(()=>collectRecentAegeanCalendar(env,now,createSharedFareCache(env.PUBLIC_FARES,caches.default,now,6*3600000)).then(result=>console.log("Aegean exact calendar collection:",JSON.stringify(result))));
+      if (now.getUTCHours() % 6 === 4) browserJobs.push(() => collectRenderedEurowings({env, now, destination: now.getUTCHours() % 12 === 4 ? "DUS" : "ATH", cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined}).then(result => console.log("Eurowings collection:", JSON.stringify(result))));
+      if (env.AUSTRIAN_RENDERED_ENABLED === "true" && now.getUTCHours() % 12 === 11) browserJobs.push(() => collectRenderedAustrian({env,now,cache:typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default,now,BACKGROUND_FARE_TTL_MS) : undefined}).then(result => console.log("Austrian collection:",JSON.stringify(result))));
+      if (env.SWISS_RENDERED_ENABLED === "true" && now.getUTCHours() % 12 === 9) browserJobs.push(() => collectRenderedSwiss({env,now,cache:typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default,now,BACKGROUND_FARE_TTL_MS) : undefined}).then(result => console.log("SWISS collection:",JSON.stringify(result))));
+      if (now.getUTCHours() % 12 === 7) browserJobs.push(() => collectRenderedLufthansa({ env, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Lufthansa collection:", JSON.stringify(result))));
+      if (now.getUTCHours() % 12 === 6) browserJobs.push(() => collectRenderedBrussels({ env, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Brussels collection:", JSON.stringify(result))));
+      if (now.getUTCHours() % 6 === 2) browserJobs.push(() => collectRenderedIcelandair({ env, repo, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Icelandair collection:", JSON.stringify(result))));
+      if (env.NORWEGIAN_RENDERED_ENABLED === "true") browserJobs.push(() => collectNorwegianMonth(env, norwegianCollectionMonth(now), now, typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined).then(result => console.log("Norwegian collection:", JSON.stringify(result))).catch(() => console.error("Norwegian collection unavailable")));
+      if (now.getUTCHours() === 3) browserJobs.push(() => collectRenderedIberia({ env, repo, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Iberia collection:", JSON.stringify(result))));
+      if (now.getUTCHours() === 1) browserJobs.push(() => collectRenderedFinnair({ env, repo, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Finnair collection:", JSON.stringify(result))));
+      if (now.getUTCHours() % 6 === 0) browserJobs.push(() => collectRenderedAvianca({ env, repo, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Avianca collection:", JSON.stringify(result))));
+      if (now.getUTCHours() % 4 === 0) browserJobs.push(() => collectRenderedCopa({ env, repo, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Copa collection:", JSON.stringify(result))));
+      if (now.getUTCHours() % 2 === 0) browserJobs.push(() => collectRenderedAeromexico({ env, repo, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("Aeromexico collection:", JSON.stringify(result))));
+      if (now.getUTCHours() % 2 === 0) browserJobs.push(() => collectRenderedKlm({ env, repo, now, cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined }).then(result => console.log("rendered collection:", JSON.stringify(result))));
       ctx.waitUntil(runCollectionQueue(browserJobs));
       ctx.waitUntil(collectPublishedPages({ env, repo, now, fetchFn,
-        cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined,
+        cache: typeof caches !== "undefined" ? createSharedFareCache(env.PUBLIC_FARES,caches.default, now, BACKGROUND_FARE_TTL_MS) : undefined,
       }).then(result => {
         console.log("published collection:", JSON.stringify(result));
       }));
