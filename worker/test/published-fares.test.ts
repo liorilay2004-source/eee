@@ -58,3 +58,14 @@ describe("American Airlines exact published round-trip fares", () => {
     expect(parsePublishedFares(html([{ totalPrice: 451.63, currencyCode: "USD" }, { ...observed, redemption: { unit: "MILES" } }, { ...observed, returnDate: null }]), aa)).toEqual([]);
   });
 });
+
+describe("KLM browser-rendered official dated fare data", () => {
+  const kl = { ...query, airline: "KL", origin: "TLV", destination: "AMS", sourceUrl: "https://www.klm.co.il/en-il/flights-from-tel-aviv", allDestinations: true };
+  const observed = { ...fare, departureDate: "2026-12-07", returnDate: "2026-12-14", flightType: "ROUND_TRIP", travelClass: "ECONOMY", totalPrice: 419.17, currencyCode: "USD", destinationAirportCode: "AMS" };
+  it("extracts the exact observed round-trip and retains other actual destinations", () => {
+    expect(parsePublishedFares(html([observed,{ ...observed,destinationAirportCode:"GOT",totalPrice:341.17 }]),kl)).toMatchObject([{airline:"KL",destination:"GOT",amount:341.17},{airline:"KL",destination:"AMS",amount:419.17,departDate:"2026-12-07",returnDate:"2026-12-14"}]);
+  });
+  it("ignores incomplete headline and premium records",()=>{
+    expect(parsePublishedFares(html([{totalPrice:419.17,currencyCode:"USD"},{...observed,travelClass:"BUSINESS"}]),kl)).toEqual([]);
+  });
+});

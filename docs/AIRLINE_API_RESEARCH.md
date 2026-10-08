@@ -138,3 +138,13 @@ A fresh isolated remote Worker with ordinary HTTPS fetch (no authentication/cook
 | American `/en-il/flights-from-tel-aviv` | 200 | 1,462,405 characters; only an incomplete Fare with null dates/airports/amount | Keep it excluded until the page actually publishes dated cash fares. Existing LAX–MEX source is not evidence for TLV coverage. |
 
 The remote preview was stopped. A failure for one page is not proof that every endpoint or source-access method for that airline is unavailable.
+
+## KLM rendered collection route proven — 2026-10-08
+
+Normal remote Worker fetch of `https://www.klm.co.il/en-il/flights-from-tel-aviv` and Air France `https://wwws.airfrance.co.il/en-il/flights-from-tel-aviv` returned HTTP 520, 16 characters and no fares. A separate development probe using the existing account's Cloudflare Browser Run binding then loaded both pages through `BROWSER.quickAction("content", { url, gotoOptions: { waitUntil: "networkidle2", timeout: 20000 }, rejectResourceTypes: ["image","font","media"] })`. No authentication, copied cookies, challenge solving or billing upgrade. The returned JSON envelope must be unwrapped via `result` to obtain rendered HTML.
+
+KLM: success true, HTTP 200, title Cheapest flights from Tel Aviv | KLM, 1,035,009 HTML characters, NEXT_DATA present, no challenge text. Actual dated Economy Round Trip records: TLV–AMS 2026-12-07 to 12-14 and 12-05 to 12-08 USD 419.17; TLV–YYZ 12-02 to 12-09 and 12-03 to 12-31 USD 829.87; TLV–SFO 12-08 to 12-29 and 12-03 to 12-31 USD 1003.96; TLV–GOT 12-05 to 12-12 USD 341.17. One incomplete headline record is excluded. Parser now recognizes the exact official KLM host and validates dated cash Economy records.
+
+Air France: rendered success true, HTTP 200, 778,455 HTML characters, NEXT_DATA present, no challenge text, but only an incomplete Fare with all identifying/price fields null. Do not enable this empty page as a priced source.
+
+Both isolated rendering probes completed in about six seconds each and the dev process was stopped. Next implementation: render KLM in bounded background collection, persist its dated advertisements and serve cached/D1 results to searches; do not launch a browser per user search or claim unlimited rendering capacity. Existing Browser Run free daily limits remain in force; no upgrade authorized or applied. Runtime KLM source integration remains pending.
