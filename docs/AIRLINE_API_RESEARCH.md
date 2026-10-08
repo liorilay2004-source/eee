@@ -272,3 +272,14 @@ successfully extracted MIA–CLO November 7–14 2026 USD 330 from the real host
 browser response. This proves the parser against real rendered markup. The
 fixed delay alone is not a guarantee of readiness; the consistency guard remains
 necessary. Runtime collection/source integration is still pending.
+
+## Avianca reusable loader runtime verification — 2026-10-08
+
+The repository's bounded loader was called through the actual remote Cloudflare
+browser binding and returned the complete MIA–CLO November 7–14 2026 USD 330
+round-trip record. It uses domcontentloaded, an explicit second-date selector,
+a two-second settling delay and the parser's price consistency checks.
+Payload reading stops above four million bytes before JSON parsing. Six targeted
+tests and Worker typecheck pass. No user-provided URL or browser cookies are used.
+This validates the real loader but does not yet connect Avianca to D1, the source
+registry, scheduled collection or production search. Those steps remain pending.

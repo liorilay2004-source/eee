@@ -570,7 +570,7 @@ export interface Repo {
 
 export interface Env {
   DB: D1Database;
-  BROWSER?: { quickAction(action: "content", options: { url: string; gotoOptions: { waitUntil: "networkidle2"; timeout: number }; rejectResourceTypes: string[] }): Promise<Response> };
+  BROWSER?: { quickAction(action: "content", options: { url: string; gotoOptions: { waitUntil: "networkidle2" | "domcontentloaded"; timeout: number }; waitForSelector?: { selector: string; timeout: number }; waitForTimeout?: number; rejectResourceTypes: string[] }): Promise<Response> };
   KLM_RENDERED_ENABLED?: string;
   AEROMEXICO_RENDERED_ENABLED?: string;
   COPA_RENDERED_ENABLED?: string;
