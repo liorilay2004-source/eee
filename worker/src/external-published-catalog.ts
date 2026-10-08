@@ -11,4 +11,5 @@ export const EXTERNAL_PUBLISHED_PAGES=[
  {airline:'G3',origin:'CGH',destination:'GIG',sourceUrl:'https://www.voegol.com.br/en/flights-from-sao-paulo',allDestinations:true,origins:['CGH','GRU','SAO']},
  {airline:'ET',origin:'TLV',destination:'BKK',sourceUrl:'https://www.ethiopianairlines.com/en-il/',allDestinations:true},
  {airline:'CM',origin:'PTY',destination:'MCO',sourceUrl:'https://www.copaair.com/en/flights-from-panama-city',allDestinations:true},
+ {airline:'AA',origin:'LAX',destination:'MEX',sourceUrl:'https://www.aa.com/en-us/flights-from-los-angeles-to-mexico-city'},
 ];
