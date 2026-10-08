@@ -1,0 +1,2117 @@
+[
+  {
+    "origin": "SFO",
+    "destination": "PVR",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-san-francisco"
+  },
+  {
+    "origin": "SFO",
+    "destination": "MCO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-san-francisco"
+  },
+  {
+    "origin": "SFO",
+    "destination": "SJD",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-san-francisco"
+  },
+  {
+    "origin": "SFO",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-san-francisco"
+  },
+  {
+    "origin": "SFO",
+    "destination": "JFK",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-san-francisco"
+  },
+  {
+    "origin": "SFO",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-san-francisco"
+  },
+  {
+    "origin": "SFO",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-san-francisco"
+  },
+  {
+    "origin": "SEA",
+    "destination": "SFO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-seattle"
+  },
+  {
+    "origin": "SEA",
+    "destination": "OGG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-seattle"
+  },
+  {
+    "origin": "SEA",
+    "destination": "JFK",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-seattle"
+  },
+  {
+    "origin": "SEA",
+    "destination": "MCO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-seattle"
+  },
+  {
+    "origin": "SEA",
+    "destination": "PSP",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-seattle"
+  },
+  {
+    "origin": "SEA",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-seattle"
+  },
+  {
+    "origin": "SEA",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-seattle"
+  },
+  {
+    "origin": "SEA",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-seattle"
+  },
+  {
+    "origin": "PDX",
+    "destination": "SFO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-portland"
+  },
+  {
+    "origin": "PDX",
+    "destination": "MCO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-portland"
+  },
+  {
+    "origin": "PDX",
+    "destination": "SNA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-portland"
+  },
+  {
+    "origin": "PDX",
+    "destination": "BUR",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-portland"
+  },
+  {
+    "origin": "PDX",
+    "destination": "BOI",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-portland"
+  },
+  {
+    "origin": "PDX",
+    "destination": "PSP",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-portland"
+  },
+  {
+    "origin": "PDX",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-portland"
+  },
+  {
+    "origin": "HNL",
+    "destination": "ONT",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-honolulu"
+  },
+  {
+    "origin": "HNL",
+    "destination": "SFO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-honolulu"
+  },
+  {
+    "origin": "HNL",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-honolulu"
+  },
+  {
+    "origin": "HNL",
+    "destination": "PHX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-honolulu"
+  },
+  {
+    "origin": "HNL",
+    "destination": "ANC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-honolulu"
+  },
+  {
+    "origin": "HNL",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-honolulu"
+  },
+  {
+    "origin": "HNL",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-honolulu"
+  },
+  {
+    "origin": "HNL",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-honolulu"
+  },
+  {
+    "origin": "HNL",
+    "destination": "OGG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-honolulu"
+  },
+  {
+    "origin": "EWR",
+    "destination": "SNA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-newark"
+  },
+  {
+    "origin": "EWR",
+    "destination": "PHX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-newark"
+  },
+  {
+    "origin": "EWR",
+    "destination": "FAI",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-newark"
+  },
+  {
+    "origin": "EWR",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-newark"
+  },
+  {
+    "origin": "EWR",
+    "destination": "ANC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-newark"
+  },
+  {
+    "origin": "EWR",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-newark"
+  },
+  {
+    "origin": "EWR",
+    "destination": "SJC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-newark"
+  },
+  {
+    "origin": "EWR",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-newark"
+  },
+  {
+    "origin": "EWR",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-newark"
+  },
+  {
+    "origin": "EWR",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-newark"
+  },
+  {
+    "origin": "ANC",
+    "destination": "KOA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-anchorage"
+  },
+  {
+    "origin": "ANC",
+    "destination": "OGG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-anchorage"
+  },
+  {
+    "origin": "ANC",
+    "destination": "SLC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-anchorage"
+  },
+  {
+    "origin": "ANC",
+    "destination": "ORD",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-anchorage"
+  },
+  {
+    "origin": "ANC",
+    "destination": "DEN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-anchorage"
+  },
+  {
+    "origin": "ANC",
+    "destination": "FAI",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-anchorage"
+  },
+  {
+    "origin": "ANC",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-anchorage"
+  },
+  {
+    "origin": "ANC",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-anchorage"
+  },
+  {
+    "origin": "ANC",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-anchorage"
+  },
+  {
+    "origin": "ANC",
+    "destination": "PHX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-anchorage"
+  },
+  {
+    "origin": "ANC",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-anchorage"
+  },
+  {
+    "origin": "ANC",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-anchorage"
+  },
+  {
+    "origin": "IAD",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-washington"
+  },
+  {
+    "origin": "DCA",
+    "destination": "SJC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-washington"
+  },
+  {
+    "origin": "IAD",
+    "destination": "YVR",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-washington"
+  },
+  {
+    "origin": "IAD",
+    "destination": "ANC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-washington"
+  },
+  {
+    "origin": "IAD",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-washington"
+  },
+  {
+    "origin": "DCA",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-washington"
+  },
+  {
+    "origin": "DCA",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-washington"
+  },
+  {
+    "origin": "DCA",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-washington"
+  },
+  {
+    "origin": "IAD",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-washington"
+  },
+  {
+    "origin": "DCA",
+    "destination": "SFO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-washington"
+  },
+  {
+    "origin": "DCA",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-washington"
+  },
+  {
+    "origin": "IAD",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-washington"
+  },
+  {
+    "origin": "DCA",
+    "destination": "GEG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-washington"
+  },
+  {
+    "origin": "STS",
+    "destination": "BOI",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-santa-rosa"
+  },
+  {
+    "origin": "STS",
+    "destination": "SJD",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-santa-rosa"
+  },
+  {
+    "origin": "STS",
+    "destination": "ONT",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-santa-rosa"
+  },
+  {
+    "origin": "STS",
+    "destination": "PHX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-santa-rosa"
+  },
+  {
+    "origin": "STS",
+    "destination": "PSP",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-santa-rosa"
+  },
+  {
+    "origin": "STS",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-santa-rosa"
+  },
+  {
+    "origin": "STS",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-santa-rosa"
+  },
+  {
+    "origin": "STS",
+    "destination": "SNA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-santa-rosa"
+  },
+  {
+    "origin": "STS",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-santa-rosa"
+  },
+  {
+    "origin": "STS",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-santa-rosa"
+  },
+  {
+    "origin": "STS",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-santa-rosa"
+  },
+  {
+    "origin": "STS",
+    "destination": "BUR",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-santa-rosa"
+  },
+  {
+    "origin": "BOI",
+    "destination": "BZN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-boise"
+  },
+  {
+    "origin": "BOI",
+    "destination": "SJC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-boise"
+  },
+  {
+    "origin": "BOI",
+    "destination": "SFO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-boise"
+  },
+  {
+    "origin": "BOI",
+    "destination": "BUR",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-boise"
+  },
+  {
+    "origin": "BOI",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-boise"
+  },
+  {
+    "origin": "BOI",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-boise"
+  },
+  {
+    "origin": "BOI",
+    "destination": "SNA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-boise"
+  },
+  {
+    "origin": "BOI",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-boise"
+  },
+  {
+    "origin": "BOI",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-boise"
+  },
+  {
+    "origin": "BOI",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-boise"
+  },
+  {
+    "origin": "BOI",
+    "destination": "GEG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-boise"
+  },
+  {
+    "origin": "SJC",
+    "destination": "LIH",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-san-jose"
+  },
+  {
+    "origin": "SJC",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-san-jose"
+  },
+  {
+    "origin": "SJC",
+    "destination": "BOI",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-san-jose"
+  },
+  {
+    "origin": "SJC",
+    "destination": "PVR",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-san-jose"
+  },
+  {
+    "origin": "SJC",
+    "destination": "SJD",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-san-jose"
+  },
+  {
+    "origin": "SJC",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-san-jose"
+  },
+  {
+    "origin": "SJC",
+    "destination": "OGG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-san-jose"
+  },
+  {
+    "origin": "SJC",
+    "destination": "GDL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-san-jose"
+  },
+  {
+    "origin": "SJC",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-san-jose"
+  },
+  {
+    "origin": "GUA",
+    "destination": "SFO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-guatemala-city"
+  },
+  {
+    "origin": "GUA",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-guatemala-city"
+  },
+  {
+    "origin": "PAE",
+    "destination": "DEN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-everett"
+  },
+  {
+    "origin": "PAE",
+    "destination": "OGG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-everett"
+  },
+  {
+    "origin": "PAE",
+    "destination": "SJC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-everett"
+  },
+  {
+    "origin": "PAE",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-everett"
+  },
+  {
+    "origin": "PAE",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-everett"
+  },
+  {
+    "origin": "PAE",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-everett"
+  },
+  {
+    "origin": "PAE",
+    "destination": "SFO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-everett"
+  },
+  {
+    "origin": "PAE",
+    "destination": "PSP",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-everett"
+  },
+  {
+    "origin": "PAE",
+    "destination": "SNA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-everett"
+  },
+  {
+    "origin": "PAE",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-everett"
+  },
+  {
+    "origin": "PAE",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-everett"
+  },
+  {
+    "origin": "PAE",
+    "destination": "PHX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-everett"
+  },
+  {
+    "origin": "RDM",
+    "destination": "ANC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-redmond"
+  },
+  {
+    "origin": "RDM",
+    "destination": "SNA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-redmond"
+  },
+  {
+    "origin": "RDM",
+    "destination": "ONT",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-redmond"
+  },
+  {
+    "origin": "RDM",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-redmond"
+  },
+  {
+    "origin": "RDM",
+    "destination": "ORD",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-redmond"
+  },
+  {
+    "origin": "RDM",
+    "destination": "SFO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-redmond"
+  },
+  {
+    "origin": "RDM",
+    "destination": "BUR",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-redmond"
+  },
+  {
+    "origin": "RDM",
+    "destination": "PHX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-redmond"
+  },
+  {
+    "origin": "RDM",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-redmond"
+  },
+  {
+    "origin": "RDM",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-redmond"
+  },
+  {
+    "origin": "RDM",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-redmond"
+  },
+  {
+    "origin": "EUG",
+    "destination": "GEG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-eugene"
+  },
+  {
+    "origin": "EUG",
+    "destination": "SFO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-eugene"
+  },
+  {
+    "origin": "EUG",
+    "destination": "SLC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-eugene"
+  },
+  {
+    "origin": "EUG",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-eugene"
+  },
+  {
+    "origin": "EUG",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-eugene"
+  },
+  {
+    "origin": "EUG",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-eugene"
+  },
+  {
+    "origin": "EUG",
+    "destination": "SNA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-eugene"
+  },
+  {
+    "origin": "EUG",
+    "destination": "BUR",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-eugene"
+  },
+  {
+    "origin": "EUG",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-eugene"
+  },
+  {
+    "origin": "EUG",
+    "destination": "PHX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-eugene"
+  },
+  {
+    "origin": "EUG",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-eugene"
+  },
+  {
+    "origin": "EUG",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-eugene"
+  },
+  {
+    "origin": "OGG",
+    "destination": "PHX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-maui"
+  },
+  {
+    "origin": "OGG",
+    "destination": "SJC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-maui"
+  },
+  {
+    "origin": "OGG",
+    "destination": "OAK",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-maui"
+  },
+  {
+    "origin": "OGG",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-maui"
+  },
+  {
+    "origin": "OGG",
+    "destination": "ITO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-maui"
+  },
+  {
+    "origin": "OGG",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-maui"
+  },
+  {
+    "origin": "OGG",
+    "destination": "KOA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-maui"
+  },
+  {
+    "origin": "OGG",
+    "destination": "LIH",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-maui"
+  },
+  {
+    "origin": "OGG",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-maui"
+  },
+  {
+    "origin": "OGG",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-maui"
+  },
+  {
+    "origin": "OGG",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-maui"
+  },
+  {
+    "origin": "OGG",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-maui"
+  },
+  {
+    "origin": "GEG",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-spokane"
+  },
+  {
+    "origin": "GEG",
+    "destination": "PSP",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-spokane"
+  },
+  {
+    "origin": "GEG",
+    "destination": "OGG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-spokane"
+  },
+  {
+    "origin": "GEG",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-spokane"
+  },
+  {
+    "origin": "GEG",
+    "destination": "SNA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-spokane"
+  },
+  {
+    "origin": "GEG",
+    "destination": "SFO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-spokane"
+  },
+  {
+    "origin": "GEG",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-spokane"
+  },
+  {
+    "origin": "GEG",
+    "destination": "PHX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-spokane"
+  },
+  {
+    "origin": "GEG",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-spokane"
+  },
+  {
+    "origin": "GEG",
+    "destination": "BOI",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-spokane"
+  },
+  {
+    "origin": "GEG",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-spokane"
+  },
+  {
+    "origin": "GEG",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-spokane"
+  },
+  {
+    "origin": "GEG",
+    "destination": "SMF",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-spokane"
+  },
+  {
+    "origin": "MFR",
+    "destination": "KOA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-medford"
+  },
+  {
+    "origin": "MFR",
+    "destination": "ANC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-medford"
+  },
+  {
+    "origin": "MFR",
+    "destination": "SNA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-medford"
+  },
+  {
+    "origin": "MFR",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-medford"
+  },
+  {
+    "origin": "MFR",
+    "destination": "DEN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-medford"
+  },
+  {
+    "origin": "MFR",
+    "destination": "OGG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-medford"
+  },
+  {
+    "origin": "MFR",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-medford"
+  },
+  {
+    "origin": "MFR",
+    "destination": "PHX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-medford"
+  },
+  {
+    "origin": "MFR",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-medford"
+  },
+  {
+    "origin": "MFR",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-medford"
+  },
+  {
+    "origin": "MFR",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-medford"
+  },
+  {
+    "origin": "MFR",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-medford"
+  },
+  {
+    "origin": "PSC",
+    "destination": "ANC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-pasco"
+  },
+  {
+    "origin": "PSC",
+    "destination": "RNO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-pasco"
+  },
+  {
+    "origin": "PSC",
+    "destination": "SMF",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-pasco"
+  },
+  {
+    "origin": "PSC",
+    "destination": "FAT",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-pasco"
+  },
+  {
+    "origin": "PSC",
+    "destination": "DFW",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-pasco"
+  },
+  {
+    "origin": "PSC",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-pasco"
+  },
+  {
+    "origin": "PSC",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-pasco"
+  },
+  {
+    "origin": "PSC",
+    "destination": "SFO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-pasco"
+  },
+  {
+    "origin": "PSC",
+    "destination": "GDL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-pasco"
+  },
+  {
+    "origin": "PSC",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-pasco"
+  },
+  {
+    "origin": "PSC",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-pasco"
+  },
+  {
+    "origin": "PSC",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-pasco"
+  },
+  {
+    "origin": "JFK",
+    "destination": "KOA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-new-york"
+  },
+  {
+    "origin": "JFK",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-new-york"
+  },
+  {
+    "origin": "JFK",
+    "destination": "OGG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-new-york"
+  },
+  {
+    "origin": "JFK",
+    "destination": "ONT",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-new-york"
+  },
+  {
+    "origin": "JFK",
+    "destination": "ANC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-new-york"
+  },
+  {
+    "origin": "JFK",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-new-york"
+  },
+  {
+    "origin": "JFK",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-new-york"
+  },
+  {
+    "origin": "JFK",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-new-york"
+  },
+  {
+    "origin": "JFK",
+    "destination": "PSP",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-new-york"
+  },
+  {
+    "origin": "JFK",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-new-york"
+  },
+  {
+    "origin": "JFK",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-new-york"
+  },
+  {
+    "origin": "JFK",
+    "destination": "SFO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-new-york"
+  },
+  {
+    "origin": "KOA",
+    "destination": "ORD",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-kona"
+  },
+  {
+    "origin": "KOA",
+    "destination": "SLC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-kona"
+  },
+  {
+    "origin": "KOA",
+    "destination": "PHX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-kona"
+  },
+  {
+    "origin": "KOA",
+    "destination": "SJC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-kona"
+  },
+  {
+    "origin": "KOA",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-kona"
+  },
+  {
+    "origin": "KOA",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-kona"
+  },
+  {
+    "origin": "KOA",
+    "destination": "LIH",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-kona"
+  },
+  {
+    "origin": "KOA",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-kona"
+  },
+  {
+    "origin": "KOA",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-kona"
+  },
+  {
+    "origin": "SMF",
+    "destination": "GEG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-sacramento"
+  },
+  {
+    "origin": "SMF",
+    "destination": "MCO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-sacramento"
+  },
+  {
+    "origin": "SMF",
+    "destination": "LIH",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-sacramento"
+  },
+  {
+    "origin": "SMF",
+    "destination": "SJD",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-sacramento"
+  },
+  {
+    "origin": "SMF",
+    "destination": "KOA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-sacramento"
+  },
+  {
+    "origin": "SMF",
+    "destination": "BOI",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-sacramento"
+  },
+  {
+    "origin": "SMF",
+    "destination": "OGG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-sacramento"
+  },
+  {
+    "origin": "SMF",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-sacramento"
+  },
+  {
+    "origin": "SMF",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-sacramento"
+  },
+  {
+    "origin": "SMF",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-sacramento"
+  },
+  {
+    "origin": "BZE",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-belize-city"
+  },
+  {
+    "origin": "FLL",
+    "destination": "ANC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-fort-lauderdale"
+  },
+  {
+    "origin": "FLL",
+    "destination": "YVR",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-fort-lauderdale"
+  },
+  {
+    "origin": "FLL",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-fort-lauderdale"
+  },
+  {
+    "origin": "FLL",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-fort-lauderdale"
+  },
+  {
+    "origin": "FLL",
+    "destination": "SFO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-fort-lauderdale"
+  },
+  {
+    "origin": "FLL",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-fort-lauderdale"
+  },
+  {
+    "origin": "FLL",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-fort-lauderdale"
+  },
+  {
+    "origin": "BOS",
+    "destination": "LIH",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-boston"
+  },
+  {
+    "origin": "BOS",
+    "destination": "SJC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-boston"
+  },
+  {
+    "origin": "BOS",
+    "destination": "NRT",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-boston"
+  },
+  {
+    "origin": "BOS",
+    "destination": "OGG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-boston"
+  },
+  {
+    "origin": "BOS",
+    "destination": "PHX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-boston"
+  },
+  {
+    "origin": "BOS",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-boston"
+  },
+  {
+    "origin": "BOS",
+    "destination": "YVR",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-boston"
+  },
+  {
+    "origin": "BOS",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-boston"
+  },
+  {
+    "origin": "BOS",
+    "destination": "SFO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-boston"
+  },
+  {
+    "origin": "BOS",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-boston"
+  },
+  {
+    "origin": "BOS",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-boston"
+  },
+  {
+    "origin": "BOS",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-boston"
+  },
+  {
+    "origin": "LAS",
+    "destination": "GEG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-las-vegas"
+  },
+  {
+    "origin": "LAS",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-las-vegas"
+  },
+  {
+    "origin": "LAS",
+    "destination": "STS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-las-vegas"
+  },
+  {
+    "origin": "LAS",
+    "destination": "OGG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-las-vegas"
+  },
+  {
+    "origin": "LAS",
+    "destination": "BOI",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-las-vegas"
+  },
+  {
+    "origin": "LAS",
+    "destination": "PAE",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-las-vegas"
+  },
+  {
+    "origin": "LAS",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-las-vegas"
+  },
+  {
+    "origin": "LAS",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-las-vegas"
+  },
+  {
+    "origin": "LAS",
+    "destination": "SFO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-las-vegas"
+  },
+  {
+    "origin": "LAS",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-las-vegas"
+  },
+  {
+    "origin": "LAS",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-las-vegas"
+  },
+  {
+    "origin": "LHR",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-london"
+  },
+  {
+    "origin": "LHR",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-london"
+  },
+  {
+    "origin": "LIH",
+    "destination": "BLI",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-lihue"
+  },
+  {
+    "origin": "LIH",
+    "destination": "DEN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-lihue"
+  },
+  {
+    "origin": "LIH",
+    "destination": "GEG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-lihue"
+  },
+  {
+    "origin": "LIH",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-lihue"
+  },
+  {
+    "origin": "LIH",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-lihue"
+  },
+  {
+    "origin": "LIH",
+    "destination": "OAK",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-lihue"
+  },
+  {
+    "origin": "LIH",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-lihue"
+  },
+  {
+    "origin": "LIH",
+    "destination": "ITO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-lihue"
+  },
+  {
+    "origin": "LIH",
+    "destination": "KOA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-lihue"
+  },
+  {
+    "origin": "LIH",
+    "destination": "OGG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-lihue"
+  },
+  {
+    "origin": "LIH",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-lihue"
+  },
+  {
+    "origin": "YVR",
+    "destination": "SMF",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-vancouver"
+  },
+  {
+    "origin": "YVR",
+    "destination": "ANC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-vancouver"
+  },
+  {
+    "origin": "YVR",
+    "destination": "SFO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-vancouver"
+  },
+  {
+    "origin": "YVR",
+    "destination": "RNO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-vancouver"
+  },
+  {
+    "origin": "YVR",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-vancouver"
+  },
+  {
+    "origin": "AUS",
+    "destination": "PHX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-austin"
+  },
+  {
+    "origin": "AUS",
+    "destination": "GEG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-austin"
+  },
+  {
+    "origin": "AUS",
+    "destination": "BOI",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-austin"
+  },
+  {
+    "origin": "AUS",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-austin"
+  },
+  {
+    "origin": "AUS",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-austin"
+  },
+  {
+    "origin": "AUS",
+    "destination": "ANC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-austin"
+  },
+  {
+    "origin": "AUS",
+    "destination": "OGG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-austin"
+  },
+  {
+    "origin": "AUS",
+    "destination": "SFO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-austin"
+  },
+  {
+    "origin": "AUS",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-austin"
+  },
+  {
+    "origin": "AUS",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-austin"
+  },
+  {
+    "origin": "AUS",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-austin"
+  },
+  {
+    "origin": "ATL",
+    "destination": "BOI",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-atlanta"
+  },
+  {
+    "origin": "ATL",
+    "destination": "BLI",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-atlanta"
+  },
+  {
+    "origin": "ATL",
+    "destination": "OGG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-atlanta"
+  },
+  {
+    "origin": "ATL",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-atlanta"
+  },
+  {
+    "origin": "ATL",
+    "destination": "YVR",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-atlanta"
+  },
+  {
+    "origin": "ATL",
+    "destination": "SFO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-atlanta"
+  },
+  {
+    "origin": "ATL",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-atlanta"
+  },
+  {
+    "origin": "ATL",
+    "destination": "FAI",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-atlanta"
+  },
+  {
+    "origin": "ATL",
+    "destination": "ANC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-atlanta"
+  },
+  {
+    "origin": "ATL",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-atlanta"
+  },
+  {
+    "origin": "ATL",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-atlanta"
+  },
+  {
+    "origin": "ATL",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-atlanta"
+  },
+  {
+    "origin": "ORD",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-chicago"
+  },
+  {
+    "origin": "ORD",
+    "destination": "PHX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-chicago"
+  },
+  {
+    "origin": "ORD",
+    "destination": "GEG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-chicago"
+  },
+  {
+    "origin": "ORD",
+    "destination": "EUG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-chicago"
+  },
+  {
+    "origin": "ORD",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-chicago"
+  },
+  {
+    "origin": "ORD",
+    "destination": "KOA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-chicago"
+  },
+  {
+    "origin": "ORD",
+    "destination": "OGG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-chicago"
+  },
+  {
+    "origin": "ORD",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-chicago"
+  },
+  {
+    "origin": "ORD",
+    "destination": "ANC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-chicago"
+  },
+  {
+    "origin": "ORD",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-chicago"
+  },
+  {
+    "origin": "ORD",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-chicago"
+  },
+  {
+    "origin": "ORD",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-chicago"
+  },
+  {
+    "origin": "DEN",
+    "destination": "BLI",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-denver"
+  },
+  {
+    "origin": "DEN",
+    "destination": "SFO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-denver"
+  },
+  {
+    "origin": "DEN",
+    "destination": "LIH",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-denver"
+  },
+  {
+    "origin": "DEN",
+    "destination": "GEG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-denver"
+  },
+  {
+    "origin": "DEN",
+    "destination": "FAI",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-denver"
+  },
+  {
+    "origin": "DEN",
+    "destination": "OGG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-denver"
+  },
+  {
+    "origin": "DEN",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-denver"
+  },
+  {
+    "origin": "DEN",
+    "destination": "SJD",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-denver"
+  },
+  {
+    "origin": "DEN",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-denver"
+  },
+  {
+    "origin": "DEN",
+    "destination": "ANC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-denver"
+  },
+  {
+    "origin": "DEN",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-denver"
+  },
+  {
+    "origin": "DEN",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-denver"
+  },
+  {
+    "origin": "LAP",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-la-paz"
+  },
+  {
+    "origin": "BNA",
+    "destination": "ONT",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-nashville"
+  },
+  {
+    "origin": "BNA",
+    "destination": "RDD",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-nashville"
+  },
+  {
+    "origin": "BNA",
+    "destination": "SFO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-nashville"
+  },
+  {
+    "origin": "BNA",
+    "destination": "ANC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-nashville"
+  },
+  {
+    "origin": "BNA",
+    "destination": "YVR",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-nashville"
+  },
+  {
+    "origin": "BNA",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-nashville"
+  },
+  {
+    "origin": "BNA",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-nashville"
+  },
+  {
+    "origin": "FAI",
+    "destination": "TUS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-fairbanks"
+  },
+  {
+    "origin": "FAI",
+    "destination": "PHL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-fairbanks"
+  },
+  {
+    "origin": "FAI",
+    "destination": "BNA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-fairbanks"
+  },
+  {
+    "origin": "FAI",
+    "destination": "OGG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-fairbanks"
+  },
+  {
+    "origin": "FAI",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-fairbanks"
+  },
+  {
+    "origin": "FAI",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-fairbanks"
+  },
+  {
+    "origin": "FAI",
+    "destination": "MSP",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-fairbanks"
+  },
+  {
+    "origin": "FAI",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-fairbanks"
+  },
+  {
+    "origin": "FAI",
+    "destination": "DFW",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-fairbanks"
+  },
+  {
+    "origin": "FAI",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-fairbanks"
+  },
+  {
+    "origin": "FAI",
+    "destination": "PHX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-fairbanks"
+  },
+  {
+    "origin": "FAI",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-fairbanks"
+  },
+  {
+    "origin": "MCO",
+    "destination": "NRT",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-orlando"
+  },
+  {
+    "origin": "MCO",
+    "destination": "BOI",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-orlando"
+  },
+  {
+    "origin": "MCO",
+    "destination": "GEG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-orlando"
+  },
+  {
+    "origin": "MCO",
+    "destination": "FAI",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-orlando"
+  },
+  {
+    "origin": "MCO",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-orlando"
+  },
+  {
+    "origin": "MCO",
+    "destination": "PHX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-orlando"
+  },
+  {
+    "origin": "MCO",
+    "destination": "SMF",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-orlando"
+  },
+  {
+    "origin": "MCO",
+    "destination": "ANC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-orlando"
+  },
+  {
+    "origin": "MCO",
+    "destination": "SFO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-orlando"
+  },
+  {
+    "origin": "MCO",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-orlando"
+  },
+  {
+    "origin": "MCO",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-orlando"
+  },
+  {
+    "origin": "MCO",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-orlando"
+  },
+  {
+    "origin": "DFW",
+    "destination": "FAI",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-dallas"
+  },
+  {
+    "origin": "DFW",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-dallas"
+  },
+  {
+    "origin": "DFW",
+    "destination": "YVR",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-dallas"
+  },
+  {
+    "origin": "DFW",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-dallas"
+  },
+  {
+    "origin": "DFW",
+    "destination": "SJC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-dallas"
+  },
+  {
+    "origin": "DFW",
+    "destination": "SFO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-dallas"
+  },
+  {
+    "origin": "DFW",
+    "destination": "OGG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-dallas"
+  },
+  {
+    "origin": "DFW",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-dallas"
+  },
+  {
+    "origin": "DFW",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-dallas"
+  },
+  {
+    "origin": "DFW",
+    "destination": "ANC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-dallas"
+  },
+  {
+    "origin": "DFW",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-dallas"
+  },
+  {
+    "origin": "DFW",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-dallas"
+  },
+  {
+    "origin": "BWI",
+    "destination": "PSC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-baltimore"
+  },
+  {
+    "origin": "BWI",
+    "destination": "EUG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-baltimore"
+  },
+  {
+    "origin": "BWI",
+    "destination": "SFO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-baltimore"
+  },
+  {
+    "origin": "BWI",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-baltimore"
+  },
+  {
+    "origin": "BWI",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-baltimore"
+  },
+  {
+    "origin": "BWI",
+    "destination": "YVR",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-baltimore"
+  },
+  {
+    "origin": "BWI",
+    "destination": "ANC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-baltimore"
+  },
+  {
+    "origin": "BWI",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-baltimore"
+  },
+  {
+    "origin": "BWI",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-baltimore"
+  },
+  {
+    "origin": "OAK",
+    "destination": "ORD",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-oakland"
+  },
+  {
+    "origin": "OAK",
+    "destination": "PHX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-oakland"
+  },
+  {
+    "origin": "OAK",
+    "destination": "JFK",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-oakland"
+  },
+  {
+    "origin": "OAK",
+    "destination": "SJD",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-oakland"
+  },
+  {
+    "origin": "OAK",
+    "destination": "KOA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-oakland"
+  },
+  {
+    "origin": "OAK",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-oakland"
+  },
+  {
+    "origin": "OAK",
+    "destination": "LIH",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-oakland"
+  },
+  {
+    "origin": "OAK",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-oakland"
+  },
+  {
+    "origin": "OAK",
+    "destination": "OGG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-oakland"
+  },
+  {
+    "origin": "OAK",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-oakland"
+  },
+  {
+    "origin": "OAK",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-oakland"
+  },
+  {
+    "origin": "ITO",
+    "destination": "OAK",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-hilo"
+  },
+  {
+    "origin": "ITO",
+    "destination": "JFK",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-hilo"
+  },
+  {
+    "origin": "ITO",
+    "destination": "SMF",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-hilo"
+  },
+  {
+    "origin": "ITO",
+    "destination": "DFW",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-hilo"
+  },
+  {
+    "origin": "ITO",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-hilo"
+  },
+  {
+    "origin": "ITO",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-hilo"
+  },
+  {
+    "origin": "ITO",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-hilo"
+  },
+  {
+    "origin": "MSO",
+    "destination": "SJC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-missoula"
+  },
+  {
+    "origin": "MSO",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-missoula"
+  },
+  {
+    "origin": "MSO",
+    "destination": "ONT",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-missoula"
+  },
+  {
+    "origin": "MSO",
+    "destination": "PHX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-missoula"
+  },
+  {
+    "origin": "MSO",
+    "destination": "SMF",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-missoula"
+  },
+  {
+    "origin": "MSO",
+    "destination": "LIH",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-missoula"
+  },
+  {
+    "origin": "MSO",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-missoula"
+  },
+  {
+    "origin": "MSO",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-missoula"
+  },
+  {
+    "origin": "MSO",
+    "destination": "SFO",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-missoula"
+  },
+  {
+    "origin": "MSO",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-missoula"
+  },
+  {
+    "origin": "MSO",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-missoula"
+  },
+  {
+    "origin": "MIA",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-miami"
+  },
+  {
+    "origin": "MIA",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-miami"
+  },
+  {
+    "origin": "PHL",
+    "destination": "SJC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-philadelphia"
+  },
+  {
+    "origin": "PHL",
+    "destination": "OGG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-philadelphia"
+  },
+  {
+    "origin": "PHL",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-philadelphia"
+  },
+  {
+    "origin": "PHL",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-philadelphia"
+  },
+  {
+    "origin": "PHL",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-philadelphia"
+  },
+  {
+    "origin": "PHL",
+    "destination": "FAI",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-philadelphia"
+  },
+  {
+    "origin": "PHL",
+    "destination": "YVR",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-philadelphia"
+  },
+  {
+    "origin": "PHL",
+    "destination": "ANC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-philadelphia"
+  },
+  {
+    "origin": "PHL",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-philadelphia"
+  },
+  {
+    "origin": "PHL",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-philadelphia"
+  },
+  {
+    "origin": "STL",
+    "destination": "BLI",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-st-louis"
+  },
+  {
+    "origin": "STL",
+    "destination": "FAI",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-st-louis"
+  },
+  {
+    "origin": "STL",
+    "destination": "ANC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-st-louis"
+  },
+  {
+    "origin": "STL",
+    "destination": "LAX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-st-louis"
+  },
+  {
+    "origin": "STL",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-st-louis"
+  },
+  {
+    "origin": "STL",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-st-louis"
+  },
+  {
+    "origin": "BLI",
+    "destination": "SMF",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-bellingham"
+  },
+  {
+    "origin": "BLI",
+    "destination": "PSP",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-bellingham"
+  },
+  {
+    "origin": "BLI",
+    "destination": "BOI",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-bellingham"
+  },
+  {
+    "origin": "BLI",
+    "destination": "ANC",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-bellingham"
+  },
+  {
+    "origin": "BLI",
+    "destination": "OGG",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-bellingham"
+  },
+  {
+    "origin": "BLI",
+    "destination": "HNL",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-bellingham"
+  },
+  {
+    "origin": "BLI",
+    "destination": "SNA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-bellingham"
+  },
+  {
+    "origin": "BLI",
+    "destination": "PHX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-bellingham"
+  },
+  {
+    "origin": "BLI",
+    "destination": "LAS",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-bellingham"
+  },
+  {
+    "origin": "BLI",
+    "destination": "SAN",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-bellingham"
+  },
+  {
+    "origin": "BLI",
+    "destination": "PDX",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-bellingham"
+  },
+  {
+    "origin": "BLI",
+    "destination": "SEA",
+    "page": "https://asha.hawaiianairlines.com/en/flights-from-bellingham"
+  }
+]
