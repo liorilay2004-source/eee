@@ -11,7 +11,6 @@
     "NZ added for the Air New Zealand official published-fare adapter on 2026-10-08: code/English brand from the bundled OpenFlights airline reference; verified official fare page https://www.airnewzealand.com/flights/en-us/flights-from-los-angeles. Hebrew brand is a transliteration."
   ],
   "airlines": [
-    {"iata": "G3", "nameEn": "GOL", "nameHe": "גול", "lowCost": true, "heSource": "transliteration"},
     {"iata": "2S", "nameEn": "Southwind Airlines", "nameHe": "סאות'ווינד", "lowCost": false, "heSource": "transliteration"},
     {"iata": "4O", "nameEn": "Air Montenegro", "nameHe": "אייר מונטנגרו", "lowCost": false, "heSource": "transliteration"},
     {"iata": "5F", "nameEn": "FlyOne", "nameHe": "פליי וואן", "lowCost": true, "heSource": "hewiki"},
@@ -49,6 +48,7 @@
     {"iata": "FI", "nameEn": "Icelandair", "nameHe": "אייסלנדאייר", "lowCost": false, "heSource": "hewiki"},
     {"iata": "FR", "nameEn": "Ryanair", "nameHe": "ריינאייר", "lowCost": true, "heSource": "hewiki"},
     {"iata": "FZ", "nameEn": "flydubai", "nameHe": "פליי דובאי", "lowCost": true, "heSource": "hewiki"},
+    {"iata": "G3", "nameEn": "GOL", "nameHe": "גול", "lowCost": true, "heSource": "transliteration"},
     {"iata": "GF", "nameEn": "Gulf Air", "nameHe": "גאלף אייר", "lowCost": false, "heSource": "hewiki"},
     {"iata": "GQ", "nameEn": "SKY express", "nameHe": "סקיי אקספרס", "lowCost": false, "heSource": "transliteration"},
     {"iata": "H6", "nameEn": "European Air Charter", "nameHe": "יורופיאן אייר צ'רטר", "lowCost": false, "heSource": "hewiki"},
