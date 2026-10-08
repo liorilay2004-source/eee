@@ -1,3 +1,4 @@
+import {createSingaporeCachedSource} from "../src/sources/singapore-cached";
 /**
  * Pipeline tests: real D1 shim + repo, a mock Travelpayouts client, injected FX. Mapped to SPEC §16.
  * The mock reproduces the real client's request accounting (k(k+1)/2 per round-trip scan, k per one-way scan).
@@ -187,6 +188,14 @@ describe("computeSearchKey", () => {
 });
 
 describe("recommendations (SPEC §8)", () => {
+  it("ranks an exact SGD Singapore fare despite unavailable D1 history",async()=>{
+    const {repo,deps}=setup({tp:mockTp({configured:false})});
+    vi.spyOn(repo,"loadRecentOffers").mockRejectedValue(new Error("Your account has exceeded D1's free tier daily row read limit"));
+    const fare={airline:"SQ",origin:"SIN",destination:"HND",departDate:"2027-07-14",returnDate:"2027-07-20",amount:973.6,currency:"SGD",structure:"roundtrip",sourceUrl:"https://www.singaporeair.com/sg/en/plan-travel/destinations/flights-from-singapore-to-tokyo/",checkedAt:NOW.toISOString(),pricing:"published_advertisement"};
+    const cache={get:async()=>({fares:[fare],expires:NOW.getTime()+600000}),put:async()=>{}} as PublicFareCache;
+    const result=await runSearch({...deps,fx:{...FX,ratesToIls:{...FX.ratesToIls,SGD:2.5}},quoteSources:[createSingaporeCachedSource(cache)]},req({origin:"SIN",destination:"HND",windowStart:fare.departDate,windowEnd:fare.returnDate,stayMin:6,stayMax:6}));
+    expect(result.cards.length).toBeGreaterThan(0);expect(result.cards[0]!.offer.priceAmount).toBe(973.6);expect(result.cards[0]!.offer.totalIls).toBeCloseTo(973.6*2.5);
+  });
   it("ranks the exact collected Aegean trip despite exhausted D1 history reads",async()=>{
     const {repo,deps}=setup({tp:mockTp({configured:false})});
     vi.spyOn(repo,"loadRecentOffers").mockRejectedValue(new Error("Your account has exceeded D1's free tier daily row read limit"));

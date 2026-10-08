@@ -94,3 +94,7 @@ Further official-source discovery: LOT Athens page returned HTTP200 but only3320
 
 
 Singapore collector37748883156 subsequently completed successfully; downloaded artifact validates complete pagination. Counts and original raw/normalized evidence are preserved outside the repository. Production integration is still required; job success alone is not a live search proof.
+
+### Singapore production connection, 2026-10-08
+
+Authenticated external run 37750672935 published 698 observed economy round-trip fares (122 June/July 2027 observations). The exact SIN-HND search for July 14-20, one adult, returned SGD 973.60 in 2.14 seconds, with Singapore source enabled/ok, one offer and zero upstream requests during the search. Observation time remained 08:34:07.741 UTC; the official advertisement link is preserved, not represented as checkout-confirmed inventory. EUR-reference SGD supplementation preserves the primary currency rates and marks the older reference day. GitHub variable EXTERNAL_SINGAPORE_ENABLED=true enables the ten-minute schedule; scheduling delays can create gaps because stale snapshots are not extended. Coverage currently consists of this observed SIN-Tokyo dataset, not arbitrary airline inventory. Full Worker suite passed 2,695 tests before the FX adjustment; subsequent SGD/cache focused and pipeline integration checks passed. Stable frontend serves index-CjWRbQmB.js.
