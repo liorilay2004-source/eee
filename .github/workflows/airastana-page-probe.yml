@@ -1,0 +1,31 @@
+name: Inspect observed Air Astana public fare pages
+on:
+  workflow_dispatch:
+    inputs:
+      offset:
+        type: number
+        default: 0
+permissions:
+  contents: read
+concurrency:
+  group: airastana-public-probe
+  cancel-in-progress: false
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node --test collector/fare-records.test.mjs
+      - run: node collector/probe-airastana-pages.mjs
+        env:
+          AIRASTANA_OFFSET: ${{ inputs.offset }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: airastana-public-observations
+          path: airastana-page-observations.json
+          retention-days: 3

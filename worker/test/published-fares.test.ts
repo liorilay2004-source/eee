@@ -4,6 +4,10 @@ const query = { airline: "A3", origin: "TLV", destination: "ATH", sourceUrl: "ht
 const fare = { __typename: "Fare", originAirportCode: "TLV", destinationAirportCode: "ATH", departureDate: "2027-08-29", returnDate: "", totalPrice: 58.63, currencyCode: "EUR", flightType: "ONE_WAY" };
 const html = (nodes: unknown[]) => `<script type="application/json" id="__NEXT_DATA__">${JSON.stringify({ props: { pageProps: { fares: nodes } } })}</script>`;
 describe("published official airline page data", () => {
+  it('parses explicit Air Astana return dates and original upstream price age',()=>{
+   const kc={...fare,originAirportCode:'ALA',destinationAirportCode:'LHR',departureDate:'2026-12-04',returnDate:'2026-12-06',flightType:'ROUND_TRIP',travelClass:'ECONOMY',totalPrice:365883,currencyCode:'KZT',priceLastSeen:{value:'6',unit:'hours'}};
+   expect(parsePublishedFares(html([kc]),{...query,airline:'KC',origin:'ALA',destination:'LHR',sourceUrl:'https://bestfares.airastana.com/en-kz/flights-from-almaty-to-london'})).toMatchObject([{amount:365883,currency:'KZT',returnDate:'2026-12-06',upstreamPriceAge:{value:6,unit:'hours'}}]);
+  });
   it("preserves upstream price age separately from our collection time",()=>{
     const [parsed]=parsePublishedFares(html([{...fare,priceLastSeen:{value:'19',unit:'hours'}}]),query);
     expect(parsed).toMatchObject({checkedAt:query.now.toISOString(),upstreamPriceAge:{value:19,unit:'hours'}});
