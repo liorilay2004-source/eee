@@ -1056,6 +1056,24 @@ describe("savePrices: skipUnchangedSince (price-history write dedup)", () => {
   const prices = async (db: D1Database) =>
     (await db.prepare("SELECT price_amount, checked_at, source FROM prices ORDER BY id").all<{ price_amount: number; checked_at: string; source: string }>()).results;
 
+  it("skips identical published advertisements while preserving live quotes, changed fares and metadata", async () => {
+    const db = createTestD1(); const repo = createRepo(db);
+    const published = mkOffer({source:"aegean",checkedAt:at(1)});
+    const opts={skipUnchangedPublishedSince:BIN};
+    await repo.savePrices([published],opts);
+    await repo.savePrices([{...published,checkedAt:at(2)},mkOffer({source:"serpapi",checkedAt:at(2)})],opts);
+    expect(await prices(db)).toHaveLength(2);
+    await repo.savePrices([{...published,checkedAt:at(3)},{...published,priceAmount:150,checkedAt:at(3)}],opts);
+    expect((await prices(db)).map(r=>r.price_amount)).toEqual([164,164,150]);
+    await repo.savePrices([{...published,checkedAt:at(4)}],opts); // changed back, never hide the new observation
+    await repo.savePrices([{...published,includes:{checkedBag:false},checkedAt:at(5)}],opts);
+    expect(await prices(db)).toHaveLength(5);
+    await repo.savePrices([{...published,includes:{checkedBag:false},checkedAt:at(6)}],opts);
+    expect(await prices(db)).toHaveLength(5);
+    await repo.savePrices([{...published,includes:{checkedBag:false},checkedAt:at(7)}],{skipUnchangedPublishedSince:at(6)});
+    expect(await prices(db)).toHaveLength(6); // outside interval: refresh history
+  });
+
   it("skips a travelpayouts fare whose newest row since `since` has the same amount and currency", async () => {
     const db = createTestD1();
     const repo = createRepo(db);

@@ -41,7 +41,7 @@ export async function collectRenderedAeromexico(deps: { env: Env; repo: Pick<Rep
     const fares = await loadRenderedAeromexico(deps.env.BROWSER, deps.now);
     await deps.cache?.put(AEROMEXICO_PAGE, fares);
     const offers = fares.filter(f=>f.structure === "roundtrip" && f.returnDate).flatMap(f=>matchPublishedTrip([f],{origin:f.origin,destination:f.destination,departDate:f.departDate,returnDate:f.returnDate!,party:{adults:1,children:0,infants:0}},{airline:"AM",source:"aeromexico"}));
-    if(offers.length) await deps.repo.savePrices(offers,{skipUnchangedSince:new Date(deps.now.getTime()-3_600_000).toISOString()});
+    if(offers.length) await deps.repo.savePrices(offers,{skipUnchangedSince:new Date(deps.now.getTime()-3_600_000).toISOString(),skipUnchangedPublishedSince:new Date(deps.now.getTime()-86_400_000).toISOString()});
     return {...empty, fares:fares.length, saved:offers.length};
   } catch { return {...empty,ok:false}; }
 }

@@ -10,7 +10,7 @@
  */
 
 export type TicketStructure = "roundtrip" | "split";
-export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "ryanair" | "aegean" | "air_canada" | "tap" | "ethiopian" | "air_europa" | "philippine" | "virgin_atlantic" | "air_new_zealand" | "air_baltic" | "sky_express" | "gol" | "aeromexico" | "copa" | "finnair" | "iberia" | "avianca" | "klm" | "american" | "aer_lingus" | "air_serbia" | "elal" | "direct_combination";
+export type SourceName = "travelpayouts" | "google_flights" | "ignav" | "wego" | "searchapi" | "serpapi" | "duffel" | "hasdata" | "ryanair" | "aegean" | "air_canada" | "tap" | "ethiopian" | "air_europa" | "philippine" | "virgin_atlantic" | "air_new_zealand" | "air_baltic" | "sky_express" | "gol" | "aeromexico" | "copa" | "finnair" | "norwegian" | "iberia" | "avianca" | "klm" | "american" | "aer_lingus" | "air_serbia" | "elal" | "direct_combination";
 export type Cabin = "economy" | "premium-economy" | "business" | "first";
 export type RecKind = "cheapest" | "best_value" | "my_times";
 
@@ -505,9 +505,10 @@ export interface Repo {
    * Append to the shared price history (SPEC §12 `prices`). ADDITIVE `opts.skipUnchangedSince` (canonical UTC ISO): a
    * travelpayouts row is NOT written when the newest stored row of the same fare (route, dates, source, structure) is at
    * or after that time and has the same amount and currency (a repeat look inside one deal-detection time bin). Other
-   * sources are always written. Without opts every row is written, as before.
+   * sources are always written unless `skipUnchangedPublishedSince` is supplied: repeated published offers with identical
+   * stored fields are then skipped within that interval. Live API quotes are always written. Without opts every row is written.
    */
-  savePrices(offers: Offer[], opts?: { skipUnchangedSince?: string }): Promise<void>;
+  savePrices(offers: Offer[], opts?: { skipUnchangedSince?: string; skipUnchangedPublishedSince?: string }): Promise<void>;
   /** Recent offers already in the shared DB (e.g. written by the background monitor). */
   loadRecentOffers(
     origin: string,
@@ -576,6 +577,7 @@ export interface Env {
   COPA_RENDERED_ENABLED?: string;
   FINNAIR_RENDERED_ENABLED?: string;
   IBERIA_RENDERED_ENABLED?: string;
+  NORWEGIAN_RENDERED_ENABLED?: string;
   AVIANCA_RENDERED_ENABLED?: string;
   TRAVELPAYOUTS_TOKEN?: string;
   TRAVELPAYOUTS_MARKER?: string;

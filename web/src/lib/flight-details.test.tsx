@@ -21,6 +21,22 @@ describe("flight details and official airline handoff", () => {
     expect(html.match(/href=/g)).toHaveLength(1);
     expect(html).toContain("יש לבחור שם את המסלול והתאריכים");
   });
+  it("shows Norwegian as the price source without inventing its operating carrier", () => {
+    const { card, request } = fixture();
+    card.offer.source = "norwegian";
+    card.offer.outbound.airlines = []; card.offer.inbound.airlines = [];
+    card.airlineNames = {};
+    card.offer.ticketStructure = "split";
+    card.offer.deeplink = "https://www.norwegian.com/en/low-fare-calendar/Athens-OsloGardermoen";
+    card.offer.returnDeeplink = card.offer.deeplink;
+    card.offer.tags = ["published_advertisement"];
+    const details = renderToStaticMarkup(<FlightDetailsCard card={card} request={request} originLabel="אתונה" destinationLabel="אוסלו" />);
+    expect(details).toContain("Norwegian");
+    expect(details).toContain("חברת התעופה המפעילה והכבודה לא נמסרו");
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).toContain(card.offer.deeplink);
+    card.offer.deeplink += "?untrusted=1"; card.offer.returnDeeplink = card.offer.deeplink;
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("untrusted");
+  });
   it("labels imported EL AL advertisements and validates the official page", () => {
     const { card, request } = fixture();
     card.offer.source = "elal";

@@ -1198,7 +1198,7 @@ async function persist(job: PersistJob): Promise<void> {
   // observation per bin (the cheapest, the older on a tie), so the skipped row changes no verdict, and it saves 3 row writes.
   const fresh = job.guard ? job.fresh.filter((o) => !job.guard!.check(o)?.exclude) : job.fresh;
   if (fresh.length > 0) work.push(attempt(() => repo.savePrices(historyRows(fresh, job.fx, job.pax, job.now), { skipUnchangedSince: binStart(now) })));
-  if (job.quotes.length > 0) work.push(attempt(() => repo.savePrices(historyRows(job.quotes, job.fx, job.pax, job.now))));
+  if (job.quotes.length > 0) work.push(attempt(() => repo.savePrices(historyRows(job.quotes, job.fx, job.pax, job.now), { skipUnchangedPublishedSince: new Date(now.getTime() - 86_400_000).toISOString() })));
   for (const h of job.quoteHealth) work.push(attempt(() => repo.recordSourceHealth(h.name, h.ok, h.error, now)));
   if (job.cache) {
     const { offers, oneWayPairs, notes, quotes } = job.cache;

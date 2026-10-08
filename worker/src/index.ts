@@ -74,6 +74,8 @@ import { runCollectionQueue } from "./collection-queue";
 import { collectRenderedKlm } from "./rendered-collection";
 import { collectRenderedFinnair } from "./finnair-rendered";
 import { createFinnairCachedSource } from "./sources/finnair-cached";
+import { createNorwegianCachedSource, norwegianCollectionMonth } from "./sources/norwegian-cached";
+import { collectNorwegianMonth } from "./norwegian-rendered";
 import { collectRenderedIberia } from "./iberia-rendered";
 import { createIberiaCachedSource } from "./sources/iberia-cached";
 import { collectRenderedAvianca } from "./avianca-rendered";
@@ -262,7 +264,8 @@ function quoteSources(env: Env, repo: ReturnType<typeof createRepo>, fetchFn: ty
   const duffel = secret(env.DUFFEL_API_TOKEN);
   const hasData = secret(env.HASDATA_API_KEY);
   const providers = [
-    env.FINNAIR_RENDERED_ENABLED === "true" ? createFinnairCachedSource(publicCache) : null,
+    env.FINNAIR_RENDERED_ENABLED === "true" ? createFinnairCachedSource(publicCache, env.DB, now) : null,
+    env.NORWEGIAN_RENDERED_ENABLED === "true" ? createNorwegianCachedSource(env.DB, now) : null,
     env.IBERIA_RENDERED_ENABLED === "true" ? createIberiaCachedSource(publicCache) : null,
     env.AVIANCA_RENDERED_ENABLED === "true" ? createAviancaCachedSource(publicCache) : null,
     env.COPA_RENDERED_ENABLED === "true" ? createCopaCachedSource(publicCache) : null,
@@ -650,6 +653,7 @@ export default {
       });
       const [origin, destination] = pickSnapshotRoute(now);
       const browserJobs: Array<() => Promise<unknown>> = [];
+      if (env.NORWEGIAN_RENDERED_ENABLED === "true") browserJobs.push(() => collectNorwegianMonth(env, norwegianCollectionMonth(now), now).then(result => console.log("Norwegian collection:", JSON.stringify(result))).catch(() => console.error("Norwegian collection unavailable")));
       if (now.getUTCHours() === 3) browserJobs.push(() => collectRenderedIberia({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("Iberia collection:", JSON.stringify(result))));
       if (now.getUTCHours() === 1) browserJobs.push(() => collectRenderedFinnair({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("Finnair collection:", JSON.stringify(result))));
       if (now.getUTCHours() % 6 === 0) browserJobs.push(() => collectRenderedAvianca({ env, repo, now, cache: typeof caches !== "undefined" ? createPublicFareCache(caches.default, now) : undefined }).then(result => console.log("Avianca collection:", JSON.stringify(result))));

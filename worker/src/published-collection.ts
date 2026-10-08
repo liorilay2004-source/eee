@@ -62,7 +62,7 @@ async function collectPage(deps: CollectionDeps, page: Page) {
       offers.push(...matchPublishedTrip([fare], { origin: fare.origin, destination: fare.destination,
         departDate: fare.departDate, returnDate: fare.returnDate, party: { adults: 1, children: 0, infants: 0 } }, page));
     }
-    if (offers.length) await deps.repo.savePrices(offers, { skipUnchangedSince: new Date(deps.now.getTime() - 3_600_000).toISOString() });
+    if (offers.length) await deps.repo.savePrices(offers, { skipUnchangedSince: new Date(deps.now.getTime() - 3_600_000).toISOString(), skipUnchangedPublishedSince: new Date(deps.now.getTime() - 86_400_000).toISOString() });
     return { source: page.source, ok: true, fares: fares.length, saved: offers.length };
   } catch {
     // A failed airline or storage write cannot cancel unrelated scheduled tasks.

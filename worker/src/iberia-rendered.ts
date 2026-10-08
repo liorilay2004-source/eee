@@ -41,7 +41,7 @@ export async function collectRenderedIberia(deps: { env: Env; repo: Pick<Repo,"s
     await deps.cache?.put(IBERIA_PAGE, fares);
     const offers = fares.filter(f=>f.structure === "roundtrip" && f.returnDate).flatMap(f=>matchPublishedTrip([f],{origin:f.origin,destination:f.destination,departDate:f.departDate,returnDate:f.returnDate!,party:{adults:1,children:0,infants:0}},{airline:"IB",source:"iberia"}));
     if(!offers.length) return {...empty,ok:false};
-    if(offers.length) await deps.repo.savePrices(offers,{skipUnchangedSince:new Date(deps.now.getTime()-3_600_000).toISOString()});
+    if(offers.length) await deps.repo.savePrices(offers,{skipUnchangedSince:new Date(deps.now.getTime()-3_600_000).toISOString(),skipUnchangedPublishedSince:new Date(deps.now.getTime()-86_400_000).toISOString()});
     return {...empty, fares:fares.length, saved:offers.length};
   } catch { return {...empty,ok:false}; }
 }

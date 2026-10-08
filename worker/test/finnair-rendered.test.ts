@@ -1,6 +1,7 @@
 import {describe,it,expect,vi} from "vitest";
 import {loadRenderedFinnair} from "../src/finnair-rendered";
 import {FINNAIR_PAGE} from "../src/finnair-fares";
+import {createTestD1} from "./helpers/d1";
 const now=new Date("2026-10-08");
 const page='<script id="fcom-ux-state">'+JSON.stringify([{from:"HEL",to:"RIX",fromDate:"2026-11-17",toDate:"2026-11-20",currency:"EUR",travelClassPrices:[{price:96,travelClass:"Economy"}]}])+'</script>';
 describe("bounded official Finnair rendering",()=>{
@@ -23,11 +24,11 @@ describe("Finnair background and cached searches",()=>{
  const cacheData=new Map<string,unknown[]>();
  const cache={put:vi.fn(async<T>(key:string,fares:T[])=>{cacheData.set(key,fares);}),get:async<T>(key:string)=>cacheData.has(key)?{fares:cacheData.get(key) as T[],expires:now.getTime()+600000}:null};
  const savePrices=vi.fn();const quickAction=vi.fn(async()=>Response.json({success:true,result:`<script id="fcom-ux-state">${JSON.stringify(state)}</script>`}));
- const env={FINNAIR_RENDERED_ENABLED:"true",BROWSER:{quickAction}} as unknown as import("../src/types").Env;
- expect(await collectRenderedFinnair({env,repo:{savePrices},now,cache})).toMatchObject({ok:true,fares:501,saved:501});
+ const env={DB:createTestD1(),FINNAIR_RENDERED_ENABLED:"true",BROWSER:{quickAction}} as unknown as import("../src/types").Env;
+ expect(await collectRenderedFinnair({env,repo:{savePrices},now,cache})).toMatchObject({ok:true,fares:501,saved:1});
  expect(cache.put.mock.calls.map(c=>c[1].length)).toEqual([500,1]);
- expect(savePrices).toHaveBeenCalledTimes(6);
- const source=createFinnairCachedSource(cache);
+ expect(savePrices).not.toHaveBeenCalled();
+ const source=createFinnairCachedSource(undefined,env.DB,now);
  const query={origin:"HEL",destination:"RIX",departDate:"2026-11-17",returnDate:"2026-11-20",party:{adults:1,children:0,infants:0}};
  expect((await source.quote(query))[0]).toMatchObject({source:"finnair",priceAmount:96});
  expect(await source.quote({...query,returnDate:"2026-11-21"})).toEqual([]);

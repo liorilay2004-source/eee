@@ -1,5 +1,6 @@
 import { bucketKey } from "./deals";
 import { parseTicketPrices } from "./ticket-prices";
+import { isPublishedSource } from "./quotes";
 import type { CachedOffers, FxRates, Leg, Offer, OneWayPair, PriceContext, PriceHistoryRow, Repo, SearchRequest, SourceName } from "./types";
 
 /**
@@ -91,7 +92,7 @@ const INSERT_PRICE =
   "ticket_structure, airlines_json, legs_json, includes_json, deeplink, verify_link, checked_at) " +
   "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-const SOURCES: readonly string[] = ["travelpayouts", "google_flights", "ignav", "wego", "searchapi", "serpapi", "duffel", "hasdata", "ryanair", "aegean", "air_canada", "tap", "ethiopian", "air_europa", "philippine", "virgin_atlantic", "air_new_zealand", "air_baltic", "sky_express", "gol", "aeromexico", "copa", "finnair", "iberia", "avianca", "klm", "american", "aer_lingus", "air_serbia", "elal", "direct_combination"];
+const SOURCES: readonly string[] = ["travelpayouts", "google_flights", "ignav", "wego", "searchapi", "serpapi", "duffel", "hasdata", "ryanair", "aegean", "air_canada", "tap", "ethiopian", "air_europa", "philippine", "virgin_atlantic", "air_new_zealand", "air_baltic", "sky_express", "gol", "aeromexico", "copa", "finnair", "norwegian", "iberia", "avianca", "klm", "american", "aer_lingus", "air_serbia", "elal", "direct_combination"];
 const STRUCTURES: readonly string[] = ["roundtrip", "split"];
 
 function serializeLeg(leg: Leg | undefined): Leg {
@@ -251,6 +252,41 @@ async function unchangedFares(db: D1Database, rows: readonly Bind[][], since: st
   return skip;
 }
 
+/** Repeated advertisements do not become new price-history observations every hour.
+ * Compare the complete stored offer, including baggage, airlines and booking links.
+ * Live API quotes retain their existing append-only behavior.
+ */
+async function unchangedPublishedFares(db: D1Database, rows: readonly Bind[][], since: string): Promise<Set<string>> {
+  const skip = new Set<string>();
+  const groups = new Map<string, Bind[][]>();
+  for (const row of rows) {
+    if (!isPublishedSource(row[6] as SourceName)) continue;
+    const key = JSON.stringify([row[0], row[6]]);
+    const group = groups.get(key) ?? [];
+    group.push(row);
+    groups.set(key, group);
+  }
+  try {
+    for (const group of groups.values()) {
+      const first = group[0]!;
+      const newest = new Map<string, string>();
+      const destinations = [...new Set(group.map(row => row[1]))];
+      for (let i=0;i<destinations.length;i+=80) {
+        const chunk=destinations.slice(i,i+80);
+        const { results } = await db.prepare(`SELECT ${PRICE_COLUMNS} FROM prices INDEXED BY idx_prices_recent WHERE origin=? AND destination IN (${chunk.map(()=>"?").join(",")}) AND checked_at>=? AND source=? ORDER BY checked_at DESC,id DESC LIMIT 5000`)
+          .bind(first[0],...chunk,since,first[6]).all<PriceRow>();
+        for (const stored of results) {
+          const offer = rowToOffer(stored);
+          const params = offer && priceParams(offer);
+          if (params && !newest.has(fareKey(params))) newest.set(fareKey(params), JSON.stringify(params.slice(0, -1)));
+        }
+      }
+      for (const row of group) if (newest.get(fareKey(row)) === JSON.stringify(row.slice(0, -1))) skip.add(JSON.stringify(row.slice(0, -1)));
+    }
+  } catch { return new Set<string>(); }
+  return skip;
+}
+
 // --- fx_rates -----------------------------------------------------------------------------------------
 
 interface FxRow {
@@ -357,7 +393,9 @@ export function createRepo(db: D1Database): Repo {
       }
       const since = canonicalTimestamp(opts?.skipUnchangedSince);
       const skip = since === null ? new Set<string>() : await unchangedFares(db, rows, since);
-      const statements = rows.filter((p) => !skip.has(fareKey(p))).map((p) => db.prepare(INSERT_PRICE).bind(...p));
+      const publishedSince = canonicalTimestamp(opts?.skipUnchangedPublishedSince);
+      const publishedSkip = publishedSince === null ? new Set<string>() : await unchangedPublishedFares(db, rows, publishedSince);
+      const statements = rows.filter((p) => !skip.has(fareKey(p)) && !publishedSkip.has(JSON.stringify(p.slice(0, -1)))).map((p) => db.prepare(INSERT_PRICE).bind(...p));
       await runChunked(db, statements);
     },
 
