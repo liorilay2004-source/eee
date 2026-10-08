@@ -37,6 +37,13 @@ describe("flight details and official airline handoff", () => {
     card.offer.deeplink += "?untrusted=1"; card.offer.returnDeeplink = card.offer.deeplink;
     expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("untrusted");
   });
+  it("opens only the observed official Icelandair fare page", () => {
+    const {card}=fixture();card.offer.source="icelandair";card.offer.outbound.airlines=["FI"];card.offer.inbound.airlines=["FI"];
+    card.offer.deeplink="https://www.icelandair.com/en-gb/flights/flights-from-london-to-iceland";
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).toContain(card.offer.deeplink);
+    card.offer.deeplink+="?untrusted=1";
+    expect(renderToStaticMarkup(<BookingActions card={card} />)).not.toContain("untrusted");
+  });
   it("labels imported EL AL advertisements and validates the official page", () => {
     const { card, request } = fixture();
     card.offer.source = "elal";

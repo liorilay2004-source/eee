@@ -6,11 +6,13 @@ export interface PublicFareCache {
 const TTL_MS = 10 * 60_000;
 export const BACKGROUND_FARE_TTL_MS = 36 * 3_600_000;
 const MAX_BYTES = 500_000;
-const hosts = new Set(["services-api.ryanair.com", "flights.aegeanair.com", "www.aircanada.com", "www.flytap.com", "www.ethiopianairlines.com", "www.aireuropa.com", "flights.philippineairlines.com", "flights.virginatlantic.com", "www.airnewzealand.com", "www.airbaltic.com", "www.skyexpress.gr", "www.voegol.com.br", "www.finnair.com", "www.iberia.com", "www.avianca.com", "www.copaair.com", "www.aeromexico.com", "www.klm.co.il", "www.aa.com", "www.aerlingus.com", "www.airserbia.com", "www.norwegian.com"]);
+const hosts = new Set(["services-api.ryanair.com", "flights.aegeanair.com", "www.aircanada.com", "www.flytap.com", "www.ethiopianairlines.com", "www.aireuropa.com", "flights.philippineairlines.com", "flights.virginatlantic.com", "www.airnewzealand.com", "www.airbaltic.com", "www.skyexpress.gr", "www.voegol.com.br", "www.finnair.com", "www.iberia.com", "www.avianca.com", "www.copaair.com", "www.aeromexico.com", "www.klm.co.il", "www.aa.com", "www.aerlingus.com", "www.airserbia.com", "www.norwegian.com", "www.icelandair.com"]);
 function cacheRequest(key: string): Request {
   const url = new URL(key);
   if (url.protocol !== "https:" || !hosts.has(url.hostname) || url.username || url.password || url.port || url.hash) throw new Error("Unsupported public fare source");
-  if (url.hostname === "www.norwegian.com") {
+  if (url.hostname === "www.icelandair.com") {
+    if(url.search || url.pathname!=="/en-gb/flights/flights-from-london-to-iceland")throw new Error("Unsupported Icelandair fare page");
+  } else if (url.hostname === "www.norwegian.com") {
     if (url.pathname !== "/en/low-fare-calendar/Athens-OsloGardermoen" || [...url.searchParams.keys()].length !== 1 || !/^\d{4}-(0[1-9]|1[0-2])$/.test(url.searchParams.get("month") ?? "")) throw new Error("Unsupported Norwegian calendar cache");
   } else if (url.hostname === "www.airserbia.com") {
     if (!/^\/api\/destination\/flight-prices\/(BEG\/ATH|ATH\/BEG)$/.test(url.pathname) || [...url.searchParams.keys()].length !== 3 || !/^\d{4}$/.test(url.searchParams.get("year") ?? "") || !/^(?:[1-9]|1[0-2])$/.test(url.searchParams.get("month") ?? "") || url.searchParams.get("pos") !== "GLOBAL" || [...url.searchParams.keys()].some(k => !["year", "month", "pos"].includes(k))) throw new Error("Unsupported Air Serbia calendar");

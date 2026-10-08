@@ -349,7 +349,7 @@ export const SOURCE_REGISTRY: readonly SourceRegistryEntry[] = Object.freeze([
   entry("sas", "SAS", "planned", 53, ["EU", "US"], "מתוכנן כקישור/אדפטר עתידי."),
   { ...entry("finnair", "Finnair", "manual-link", 53, ["EU", "Asia"], "מחירי הלוך וחזור מתוארכים מהלסינקי נאספים ברקע. נדרש אימות זמינות ומחיר סופי באתר החברה."), capabilities: { ...manual, cachedPrice: true } },
   { ...entry("norwegian", "Norwegian", "manual-link", 52, ["EU"], "מחירי לוח מתוארכים לאתונה–אוסלו נאספים ברקע. מוצג סכום ההלוך והחזור, למבוגר אחד; נדרש אימות באתר החברה."), capabilities: { ...manual, cachedPrice: true } },
-  entry("icelandair", "Icelandair", "planned", 52, ["EU", "US"], "מתוכנן כקישור/אדפטר עתידי."),
+  { ...entry("icelandair", "Icelandair", "manual-link", 52, ["EU", "US"], "מחירי הלוך וחזור מתוארכים מלונדון הית׳רו וגטוויק לקפלוויק נאספים מהאתר הרשמי. יש לאמת זמינות ומחיר סופי באתר החברה."), capabilities: { ...manual, cachedPrice: true } },
   { ...entry("aer_lingus", "Aer Lingus", "manual-link", 52, ["EU", "US"], "מחירי כיוון אחד מתוארכים מהאתר הרשמי בדבלין, לחיבור עם טיסת חזור מתומחרת. המחירים החלקיים של הלוך וחזור אינם מוצגים."), capabilities: { ...manual, cachedPrice: true, combinations: true } },
   entry("brussels", "Brussels Airlines", "planned", 52, ["EU", "Africa"], "מתוכנן כקישור/אדפטר עתידי."),
   entry("eurowings", "Eurowings", "planned", 51, ["EU"], "מתוכנן כקישור/אדפטר עתידי."),
