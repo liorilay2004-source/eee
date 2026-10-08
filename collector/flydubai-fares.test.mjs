@@ -1,0 +1,5 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {normalizeFlydubaiFares} from './flydubai-fares.mjs';
+const context={origin:'DXB',destination:'TBS',sourceUrl:'https://www.flydubai.com/en-ae/flights-to-tbilisi/',checkedAt:'2026-10-08T11:00:00Z'};
+const row={origin:'DXB',destination:'TBS',currency:'AED',type:'OWRT',amount:1732,departureDate:'2026-10-13',returnDate:'2026-10-13',owDepartureDate:'2026-10-13',owAmount:'840.00'};
+test('preserves explicit one-way price and rejects same-day return advertisement',()=>{const fares=normalizeFlydubaiFares([row,row],context);assert.equal(fares.length,1);assert.equal(fares[0].amount,840);assert.equal(fares[0].returnDate,null);assert.equal(fares[0].checkedAt,context.checkedAt)});
+test('rejects wrong route, malformed prices and dates, and unrelated hosts',()=>{assert.deepEqual(normalizeFlydubaiFares([{...row,origin:'TLV'},{...row,owAmount:'840 AED'},{...row,owDepartureDate:'2026-02-30'}],context),[]);assert.throws(()=>normalizeFlydubaiFares([row],{...context,sourceUrl:'https://example.com/en-ae/flights-to-tbilisi/'}))});
